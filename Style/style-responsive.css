@@ -1,0 +1,35 @@
+@media screen and (max-width: 1400px){
+
+    .user-img{
+        display: block !important;
+    }
+    .user-name{
+        padding: 0 !important;
+    }
+    .body .container .col-lg-12{
+        display: block;
+        align-items: center !important;
+        margin-bottom: 20px;
+    }
+}
+
+
+@media (min-width: 992px){
+    html{
+        scroll-padding-top: 100px;
+    }
+}
+
+@media (max-width: 767px) {
+
+    .header{
+        position: relative;
+    }
+    
+}
+
+@media (min-width: 992px) and (max-width: 1200px){
+    .header{
+        position: relative;
+    }    
+}
