@@ -2,9 +2,9 @@
 @import url("https://fonts.googleapis.com/css2?family=Train+One&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Train+One&display=swap");
 
-html{
-    scroll-behavior: smooth;
-    scroll-padding-top: var(--scroll-padding, 120px);
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--scroll-padding, 120px);
 }
 
 .head .container .row {
@@ -29,7 +29,8 @@ html{
   top: 0px;
   bottom: 0px;
   left: -20px;
-  background: #fff;
+  /* background: #fff; */
+  background: linear-gradient(45deg, #ff5f6d, #ffc371, #ff5f6d);
   position: absolute;
 }
 .list-with-dotinsidedot li:last-child::before {
@@ -51,7 +52,7 @@ html{
   width: 4px;
   top: -1px;
   bottom: 0px;
-  background: #3a57a3;
+  background: #203058;
   left: 0px;
   margin-left: -22px;
 }
@@ -61,13 +62,14 @@ html{
   width: 1px;
   top: 0px;
   bottom: 0px;
-  background: #fff;
+  /* background: #fff; */
+  background: linear-gradient(45deg, #ff5f6d, #ffc371, #ff5f6d);
   left: 0px;
   margin-left: -20px;
 }
 .list-with-dotinsidedot .title {
   font-size: 20px;
-  color: #fff;
+  color: #ff674d;
   font-weight: 700;
   margin-bottom: 10px;
   position: relative;
@@ -79,18 +81,19 @@ html{
   width: 20px;
   height: 20px;
   border-radius: 25px;
-  border: 1px solid #fff;
+  border: 1px solid #ffc371;
   position: absolute;
   left: 0px;
   margin-left: -30px;
-  background: #3a57a3;
+  background: #203058;
 }
 .list-with-dotinsidedot .title::after {
   content: "";
   width: 4px;
   height: 4px;
   border-radius: 25px;
-  background: #fff;
+  /* background: #fff; */
+  background: linear-gradient(45deg, #ff5f6d, #ffc371, #ff5f6d);
   position: absolute;
   left: -1px;
   margin-left: -21px;
@@ -118,7 +121,7 @@ html{
 .head .flag {
   width: 90px;
   height: 320px;
-  background: #3a57a3;
+  background: #203058;
   position: absolute;
   left: 0px;
   top: 0px;
@@ -130,7 +133,7 @@ html{
   height: 0px;
   border-style: solid;
   border-width: 45px 45px 0 0;
-  border-color: #3a57a3 transparent transparent transparent;
+  border-color: #203058 transparent transparent transparent;
   transform: rotate(0deg);
   position: absolute;
   bottom: -45px;
@@ -142,7 +145,7 @@ html{
   height: 0px;
   border-style: solid;
   border-width: 0 45px 45px 0;
-  border-color: transparent #3a57a3 transparent transparent;
+  border-color: transparent #203058 transparent transparent;
   transform: rotate(0deg);
   position: absolute;
   bottom: -45px;
@@ -159,8 +162,15 @@ html{
   align-items: center;
 }
 
+.user-profile .sub-title {
+  color: #203058;
+  opacity: 1;
+  font-size: 20px;
+  margin: 10px 0;
+}
+
 .user-name {
-  color: #3957a3;
+  color: #203058;
   font-family: Train One;
   font-size: 60px;
   font-style: normal;
@@ -170,12 +180,12 @@ html{
   padding: 0px 25px;
 }
 .contact-details {
-  border: 10px solid #3957a3;
+  border: 10px solid #203058;
   padding: 20px 25px;
 }
 
 .badge {
-  border: 1px solid #3957a3;
+  border: 1px solid #203058;
   border-radius: 0px;
   padding: 10px 25px;
   margin: 5px 3px;
@@ -194,16 +204,15 @@ html{
   font-style: normal;
   font-weight: 700;
   line-height: normal;
-  color: #3957a3;
+  color: #203058;
 }
 .sub-text {
-  color: #3957a3;
   font-family: Inter;
   font-size: 16px;
   font-style: normal;
   font-weight: 400;
   line-height: 24px; /* 150% */
-  color: #3957a3;
+  color: #203058;
 }
 .box1 {
   display: flex;
@@ -219,24 +228,38 @@ html{
 .body .container {
   display: grid;
   padding: 50px 50px 50px 60px;
-  background: #3a57a3;
+  background: #203058;
   /* grid-template-columns: auto auto; */
 }
-.main-title {
-  color: #fff;
+/* .main-title {
+  color: #ff674d;
   font-family: Inter;
   font-size: 40px;
   font-style: normal;
   font-weight: 700;
   line-height: normal;
   text-transform: capitalize;
-  margin: 40px 0 50px 0;
+  margin: 40px 0 40px 0;
+} */
+
+.main-title {
+  font-family: Inter;
+  font-size: 36px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: normal;
+  text-transform: capitalize;
+  margin: 40px 0 40px 0;
+  background: linear-gradient(45deg, #ff5f6d, #ffc371, #ff5f6d);
+  -webkit-background-clip: text; /* For older webkit browsers */
+  background-clip: text;
+  color: transparent;
 }
 
 .btn-sm {
   padding: 10px 20px;
-  border: 1px solid #fff;
-  color: #fff;
+  border: 3px solid #ffe5d4;
+  color: #ffe5d4;
   border-radius: 60px;
   text-decoration: none;
   text-align: center;
@@ -244,27 +267,45 @@ html{
   font-size: 14px;
   font-style: normal;
   font-weight: 700;
-  line-height: 1.5;
+  line-height: 2.2;
   margin-bottom: 10px;
   margin-left: 10px;
   vertical-align: middle;
   background-color: transparent;
   height: 60px;
+  white-space: nowrap !important;
+  text-wrap: nowrap !important;
 }
 .btn-sm:hover {
   padding: 10px 20px;
-  border: 1px solid #fff;
+  border: 3px solid #ff5f6d;
   background-color: #fff;
-  color: #3957a3;
+  color: #b4436c;
+  text-wrap: nowrap !important;
+  line-height: 2.2;
+  white-space: nowrap !important;
+  text-wrap: nowrap !important;
 }
+
+.nav__links.active {
+  padding: 10px 20px;
+  border: 3px solid #ff5f6d;
+  background-color: #fff;
+  color: #ff5f6d;
+  text-wrap: nowrap !important;
+  line-height: 2.2;
+  white-space: nowrap !important;
+  text-wrap: nowrap !important;
+}
+
 
 .body .container .col-lg-12 {
   display: flex;
   align-items: center !important;
 }
 .list-body-anchor {
-  text-decoration: none;
-  color: #85a5f6;
+  text-decoration: 1px solid #00d4ff underline;
+  color: #00d4ff;
   font-family: Inter;
   font-size: 16px;
   font-style: normal;
@@ -274,6 +315,7 @@ html{
 .list-body-anchor:hover {
   color: #fff;
   opacity: 1;
+  text-decoration: 2px solid #fff underline;
 }
 
 .custom-list1 {
@@ -283,12 +325,12 @@ html{
 
 .custom-list1 li {
   position: relative;
-  top: 20px;
+  top: 10px;
   margin-bottom: 50px;
   background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="11" height="16" viewBox="0 0 11 16" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M0 0H6.28571L11 8L6.28571 16H0L4.71429 8L0 0Z" fill="white"/></svg>'); /* Insert your SVG code here */
   background-repeat: no-repeat;
-  background-position: left top 6px;
-  background-size: 10px auto; /* Adjust the size of the icon as needed */
+  background-position: left top 4px;
+  background-size: 8px auto; /* Adjust the size of the icon as needed */
   text-indent: 20px; /* Make room for the icon */
 }
 
@@ -313,7 +355,7 @@ html{
 .custom-list1 .list-styling li {
   list-style: disc !important;
   position: relative;
-  top: 10px;
+  top: 9px;
   margin-bottom: 10px;
   background-image: none !important;
   background-repeat: no-repeat;
@@ -332,8 +374,8 @@ html{
 }
 
 .body-anchor {
-  text-decoration: none;
-  color: #85a5f6;
+  text-decoration: 2px solid #00d4ff underline;
+  color: #00d4ff;
   font-family: Inter;
   font-size: 18px;
   font-style: normal;
@@ -343,6 +385,7 @@ html{
 .body-anchor:hover {
   color: #fff;
   opacity: 1;
+  text-decoration: 2px solid #fff underline;
 }
 .list-styling {
   color: #fff;
@@ -415,6 +458,13 @@ html{
   padding: 0px !important;
 }
 
+.hr{
+  border: 0.5px solid #a2acc7;
+  /* width: 100%; */
+  margin: 10px 0px;
+  padding: 0px 20px;
+}
+
 /* .img-wid{
     width: 1190px;
 }
@@ -451,8 +501,8 @@ html{
   line-height: 33px; /* 137.5% */
   margin: 30px 0;
 }
-.img-desc1{
-    color: #fff;
+.img-desc1 {
+  color: #fff;
   font-family: Inter;
   font-size: 1.2rem;
   font-style: normal;
@@ -466,17 +516,42 @@ html{
     z-index: 1;
 } */
 
-.header{
-    padding: 10px 0 0 10px;
-    background-color: #3957a3 !important;
-    position: sticky;
-    top: 0px;
-    z-index: 1;
+.container .header {
+  padding: 10px 0 25px 10px;
+  margin-bottom: 10px;
+  background-color: #203058 !important;
+  position: sticky;
+  top: 0px;
+  overflow-x: scroll;
+  text-wrap: nowrap;
+  z-index: 1;
 }
 
-.box1-items{
+.header::-webkit-scrollbar {
+  display: none;
+}
+
+/* .header1{
+  padding: 10px 0 0 10px;
+  background-color: #203058 !important;
+  position: sticky;
+  top: 75px;
+  z-index: 1;
+} */
+
+.box1-items {
   font-size: 16px;
   font-weight: 500;
   text-decoration: none !important;
-  color: #3a57a3;
+  color: #203058;
+}
+
+.rect {
+  height: 10px;
+  background: linear-gradient(45deg, #ff5f6d, #ffc371, #ff5f6d);
+  /* background: linear-gradient(45deg, #0099F7, #F11712, #E0E0E0, #7117FF, #F00999); */
+  /* background: linear-gradient(45deg, #FF5733, #FF8D33, #FFBB33, #FFD933, #FFF233); */
+  /* background: linear-gradient(45deg, #4BB4E6, #73A2A9, #76D7C4); */
+  /* background: linear-gradient(45deg, #7A7B7C, #75C4C3); */
+  border: 0px solid #333;
 }
