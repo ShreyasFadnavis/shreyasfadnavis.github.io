@@ -30,7 +30,7 @@ html {
   bottom: 0px;
   left: -20px;
   /* background: #fff; */
-  background: linear-gradient(45deg, #ff5f6d, #ffc371, #ff5f6d);
+  background: linear-gradient(45deg, #ffffff, #ffc371, #ffffff);
   position: absolute;
 }
 .list-with-dotinsidedot li:last-child::before {
@@ -63,7 +63,7 @@ html {
   top: 0px;
   bottom: 0px;
   /* background: #fff; */
-  background: linear-gradient(45deg, #ff5f6d, #ffc371, #ff5f6d);
+  background: linear-gradient(45deg, #ffffff, #ffc371, #ffffff);
   left: 0px;
   margin-left: -20px;
 }
@@ -93,7 +93,7 @@ html {
   height: 4px;
   border-radius: 25px;
   /* background: #fff; */
-  background: linear-gradient(45deg, #ff5f6d, #ffc371, #ff5f6d);
+  background: linear-gradient(45deg, #ffffff, #ffc371, #ffffff);
   position: absolute;
   left: -1px;
   margin-left: -21px;
@@ -250,7 +250,7 @@ html {
   line-height: normal;
   text-transform: capitalize;
   margin: 40px 0 40px 0;
-  background: linear-gradient(45deg, #ff5f6d, #ffc371, #ff5f6d);
+  background: linear-gradient(45deg, #ffffff, #ffc371, #ffffff);
   -webkit-background-clip: text; /* For older webkit browsers */
   background-clip: text;
   color: transparent;
@@ -548,7 +548,7 @@ html {
 
 .rect {
   height: 10px;
-  background: linear-gradient(45deg, #ff5f6d, #ffc371, #ff5f6d);
+  background: linear-gradient(45deg, #ffffff, #ffc371, #ffffff);
   /* background: linear-gradient(45deg, #0099F7, #F11712, #E0E0E0, #7117FF, #F00999); */
   /* background: linear-gradient(45deg, #FF5733, #FF8D33, #FFBB33, #FFD933, #FFF233); */
   /* background: linear-gradient(45deg, #4BB4E6, #73A2A9, #76D7C4); */
