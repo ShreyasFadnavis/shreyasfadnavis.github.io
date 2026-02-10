@@ -206,30 +206,24 @@
               WF["Weight Function w(x)"]
               WF --> W1["w = 1<br/>Constant weight"]
               WF --> W2["w = 1/&sigma;&#770;(x)<br/>Inverse estimated variance"]
-              WF --> W3["w = (1+h)⁻¹ᐟ²<br/>Inverse root leverage"]
 
               W1 --> A1["Vanilla CP<br/>Assumes constant variance"]
               W2 --> A2["Studentized CP<br/>Estimates g from data"]
-              W3 --> A3["Leverage-weighted CP<br/>Uses design matrix geometry"]
 
               A1 --> P1["No extra model needed<br/>but ignores heteroscedasticity"]
               A2 --> P2["Captures noise heteroscedasticity<br/>but needs auxiliary model<br/>and risks sign flip"]
-              A3 --> P3["Exact for leverage-induced<br/>heteroscedasticity<br/>No auxiliary model needed"]
 
               style WF fill:#f3f0ec,stroke:#a0522d,color:#1c1917
               style W1 fill:#e3f2fd,stroke:#1565c0,color:#1c1917
               style W2 fill:#e3f2fd,stroke:#1565c0,color:#1c1917
-              style W3 fill:#e3f2fd,stroke:#1565c0,color:#1c1917
               style A1 fill:#faf8f5,stroke:#1565c0,color:#1c1917
               style A2 fill:#faf8f5,stroke:#1565c0,color:#1c1917
-              style A3 fill:#faf8f5,stroke:#1565c0,color:#1c1917
               style P1 fill:#fce4ec,stroke:#c62828,color:#1c1917
               style P2 fill:#fce4ec,stroke:#c62828,color:#1c1917
-              style P3 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
           </div>
-          <p class="diagram-caption">Three weight functions and what they assume about the variance structure.</p>
+          <p class="diagram-caption">Two common weight functions and what they assume about the variance structure.</p>
 
-          <h3>Comparing the Three Approaches</h3>
+          <h3>Comparing the Two Approaches</h3>
 
           <table>
             <thead>
@@ -256,17 +250,9 @@
                 <td>Yes</td>
                 <td>Yes (Part 6)</td>
               </tr>
-              <tr>
-                <td>Leverage-weighted CP</td>
-                <td>$(1+h(x))^{-1/2}$</td>
-                <td>$g(x) = 1 + h(x)$</td>
-                <td>No</td>
-                <td>No</td>
-              </tr>
             </tbody>
           </table>
 
-          <p>The leverage-based weight has a useful property: it uses the <em>known</em> relationship between leverage and prediction variance (from the exact formula $\sigma^2(1+h)$) rather than requiring an estimated variance function. Because it is derived from the design matrix geometry at prediction time rather than from training residuals, it sidesteps the sign-flip problem discussed in Part 6.</p>
 
         </div>
       </div>
@@ -410,7 +396,7 @@
         <li><strong>Scale families</strong> provide a structured model where the variance changes but the distributional shape does not.</li>
         <li><strong>Variance-stabilizing transformations</strong> divide by the scale factor to make observations comparable.</li>
         <li>In conformal prediction, this translates to <strong>weighted nonconformity scores</strong> and adaptive interval widths.</li>
-        <li>The weight function is the key design choice: $w = 1$ (vanilla), $w = 1/\hat{\sigma}(x)$ (studentized), or $w = (1+h)^{-1/2}$ (leverage-based). The leverage-based weight is exact and requires no auxiliary model.</li>
+        <li>The weight function is the key design choice: $w = 1$ (vanilla) or $w = 1/\hat{\sigma}(x)$ (studentized). The choice depends on whether you can reliably estimate the variance function from data.</li>
       </ol>
 
       <p>In the next post, we survey the existing adaptive conformal methods &mdash; CQR, Studentized CP, Localized CP &mdash; and examine their trade-offs in light of everything we have learned.</p>

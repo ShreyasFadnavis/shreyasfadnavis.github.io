@@ -408,8 +408,6 @@ flowchart LR
             <li>The noise distribution beyond its variance.</li>
           </ul>
 
-          <p>For weighted split conformal prediction, the coverage guarantee $\mathbb{P}(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - \alpha$ holds for any weight function $w$ and any model $\hat{f}$, provided the calibration data and test point are exchangeable. Therefore, using leverage-based weights with a non-OLS model preserves the marginal coverage guarantee by construction.</p>
-
           <p><strong>Property 3 (Computational Cost).</strong> The cost accounting is as follows:</p>
 
           <table>
@@ -527,36 +525,6 @@ flowchart LR
 
           <h3>Full Mathematical Pipeline</h3>
 
-          <div class="mermaid">
-flowchart TD
-    A["Training Data (X, Y)"] --> B["Thin SVD: X = UΣVᵀ\nCost: O(n₁ · p²)"]
-    B --> C["OLS coefficients\nβ̂ = VΣ⁻¹UᵀY"]
-    B --> D["Store Σ⁻¹Vᵀ\nCost: O(p²)"]
-
-    E["Calibration Data (Xᶜᵃˡ, Yᶜᵃˡ)"] --> F["Predictions: Ŷ = Xᶜᵃˡ · β̂"]
-    E --> G["Leverage: hᵢ = ‖Σ⁻¹Vᵀxᵢ‖²\nCost: O(n₂ · p)"]
-
-    F --> H["Residuals: rᵢ = |Yᵢ − Ŷᵢ|"]
-    G --> I["Weights: wᵢ = (1 + hᵢ)⁻¹ᐟ²"]
-
-    H --> J["Scores: sᵢ = rᵢ · wᵢ"]
-    I --> J
-
-    J --> K["Quantile: q̂ = Quantile₁₋α(s₁, ..., sₙ₂)"]
-
-    L["Test point xₙₑw"] --> M["hₙₑw = ‖Σ⁻¹Vᵀxₙₑw‖²\nCost: O(p)"]
-    M --> N["Width = q̂ / w(hₙₑw)\n= q̂ · √(1 + hₙₑw)"]
-
-    C --> O["ŷₙₑw = xₙₑwᵀ · β̂"]
-    N --> P["Interval:\n[ŷ − width, ŷ + width]"]
-    O --> P
-
-    style B fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
-    style D fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
-    style K fill:#e3f2fd,stroke:#1565c0,color:#1c1917
-    style P fill:#e3f2fd,stroke:#1565c0,color:#1c1917
-          </div>
-          <p class="diagram-caption">The complete leverage-weighted conformal pipeline, from data to adaptive prediction intervals. Green nodes indicate components that are shared with (or already computed by) standard OLS.</p>
 
         </div>
       </div>
@@ -565,11 +533,9 @@ flowchart TD
       <!-- CLOSING                                                     -->
       <!-- =========================================================== -->
 
-      <h2>Looking Ahead</h2>
+      <h2>Summary</h2>
 
-      <p>We have established that leverage scores satisfy a useful combination of properties: closed-form, model-free, computationally negligible, and immune to the sign flip. Among existing adaptation mechanisms for conformal prediction, none other has all four.</p>
-
-      <p>In the next and final post, we bring everything together. We formalize the leverage-weighted conformal approach, establish its coverage guarantee, and see how all the ideas from this series combine into a single, practical method.</p>
+      <p>Leverage scores satisfy a rare combination of properties: they are closed-form, model-free, computationally negligible, and immune to the sign flip. These four properties make leverage a uniquely informative measure of prediction difficulty&mdash;one that is already sitting in the design matrix, waiting to be used.</p>
 
     </div>
 
@@ -584,7 +550,6 @@ flowchart TD
 
     <div class="post-nav">
       <a href="post08.html" class="prev">Adaptive Conformal Methods</a>
-      <a href="post10.html" class="next">The Missing Connection</a>
     </div>
 
   </article>

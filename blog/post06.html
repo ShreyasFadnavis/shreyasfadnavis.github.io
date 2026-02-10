@@ -447,9 +447,7 @@ flowchart TD
             <li>The leverage score $h(x)$ (computed from the design matrix via the SVD, no residuals needed).</li>
           </ol>
 
-          <p>By using leverage directly as the scale factor in conformal prediction&mdash;setting $w(x) = (1+h(x))^{-1/2}$&mdash;we bypass the sign flip entirely. There is no variance estimator to train on residuals, no opportunity for the sign to flip, no contamination of the conformal quantile. The variance structure is known analytically and used directly.</p>
-
-          <p>This is the key insight that motivates leverage-based conformal methods, which we explore in the remainder of this series. In Part 7, we formalize this through the concept of variance stabilization.</p>
+          <p>Because leverage is computed directly from the design matrix geometry&mdash;not from training residuals&mdash;it is immune to the sign flip. Any method that uses leverage to quantify prediction difficulty avoids the systematic bias described above. This is a fundamental advantage: leverage tells you how hard a prediction will be <em>before you see the outcome</em>, and it gets the sign right.</p>
 
           <div class="callout">
             <div class="callout-label">The Boxed Result</div>

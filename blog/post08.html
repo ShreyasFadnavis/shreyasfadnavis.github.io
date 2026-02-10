@@ -503,56 +503,11 @@
             </tbody>
           </table>
 
-          <h3>What Is Missing</h3>
+          <h3>An Open Question</h3>
 
-          <p>Consider what we know from the leverage and sign-flip analysis of Parts 4&ndash;6:</p>
+          <p>Every existing adaptive method either trains extra models (CQR, Studentized) or adds per-test-point computational cost (Localized). Each has genuine merit, and the right choice depends on the application. But a natural question emerges: is there a simpler path? One that uses structural information the data already provides, without training auxiliary models or paying high per-test-point costs?</p>
 
-          <ul>
-            <li><strong>Closed-form:</strong> Leverage $h(x) = x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x$ is a known, closed-form function of the design matrix and test point. No estimation needed.</li>
-            <li><strong>Exact:</strong> The prediction error variance is <em>exactly</em> $\sigma^2(1 + h(x))$ under the linear model. Not an approximation, not an estimate &mdash; an identity.</li>
-            <li><strong>Sign-flip immune:</strong> Leverage is computed from the design matrix $\mathbf{X}$ alone, without looking at any residuals (training or otherwise). It cannot inherit the sign flip.</li>
-            <li><strong>Zero cost:</strong> The leverage computation requires one SVD of the design matrix, which is $O(np^2)$ &mdash; a one-time cost that is often already paid as part of fitting the regression. Per-test-point cost is $O(p^2)$, dominated by a single matrix-vector multiply.</li>
-          </ul>
-
-          <p>No existing adaptive conformal method uses leverage as the adaptation mechanism. CQR and Studentized CP train auxiliary models to <em>learn</em> what leverage already <em>knows</em>. Localized CP uses a kernel to approximate locality, while leverage provides an exact, closed-form measure of feature-space position. The gap in the landscape is a method that is simultaneously:</p>
-
-          <ol>
-            <li>Closed-form (no auxiliary model training)</li>
-            <li>Immune to the sign flip (no residual-based estimation)</li>
-            <li>$O(1)$ per test point (after a one-time SVD)</li>
-            <li>Theoretically exact (under the linear model, the variance function is known)</li>
-          </ol>
-
-          <div class="mermaid">
-            flowchart TD
-              CQR_N["CQR<br/>Learns quantile gap<br/>2 extra models<br/>Partial sign flip"]
-              SCP_N["Studentized CP<br/>Learns σ(x)<br/>1 extra model<br/>Full sign flip"]
-              LCP_N["Localized CP<br/>Kernel weights<br/>No extra models<br/>O(n₂) per test point"]
-              GAP["???<br/>Closed-form from X<br/>No extra models<br/>O(1) per test point<br/>No sign flip"]
-
-              CQR_N --> Q1{"Uses<br/>residuals?"}
-              SCP_N --> Q1
-              LCP_N --> Q2{"Fast at<br/>test time?"}
-              Q1 -->|"Yes"| FLIP["Sign flip risk"]
-              Q2 -->|"No"| CURSE["Curse of<br/>dimensionality"]
-
-              GAP --> Q3{"Uses<br/>residuals?"}
-              Q3 -->|"No"| SAFE["Sign-flip immune"]
-              GAP --> Q4{"Fast at<br/>test time?"}
-              Q4 -->|"Yes"| FAST["O(1) per point"]
-
-              style CQR_N fill:#e3f2fd,stroke:#1565c0,color:#1c1917
-              style SCP_N fill:#e3f2fd,stroke:#1565c0,color:#1c1917
-              style LCP_N fill:#e3f2fd,stroke:#1565c0,color:#1c1917
-              style GAP fill:#e8f5e9,stroke:#2e7d32,color:#1c1917,stroke-width:3px
-              style FLIP fill:#fce4ec,stroke:#c62828,color:#1c1917
-              style CURSE fill:#fce4ec,stroke:#c62828,color:#1c1917
-              style SAFE fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
-              style FAST fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
-          </div>
-          <p class="diagram-caption">The gap in the landscape: existing methods all have at least one major limitation that leverage-based adaptation avoids.</p>
-
-          <p>This gap &mdash; between what existing methods do and what the design matrix geometry already provides &mdash; is the subject of the next two posts.</p>
+          <p>The Parts 4&ndash;6 of this series showed that the design matrix geometry &mdash; specifically, leverage scores &mdash; directly controls prediction error variance. Whether and how that geometric information can be brought to bear on the problem of adaptive prediction intervals remains an interesting direction.</p>
 
         </div>
       </div>
