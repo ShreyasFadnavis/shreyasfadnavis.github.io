@@ -52,7 +52,7 @@
 
           <h3>The Journey So Far</h3>
 
-          <p><strong>Track 1: Conformal Prediction (Posts 1&ndash;3, 8).</strong> We started with a simple observation: point predictions are incomplete. A model that says "&#36;420,000" without any indication of confidence is like GPS without the blue circle. We then discovered conformal prediction &mdash; a remarkable framework that converts <em>any</em> model's predictions into prediction intervals with a mathematically guaranteed coverage rate. The guarantee is exact, holds in finite samples, and requires no assumptions about the data distribution. But there was a catch: the intervals have the same width everywhere. A prediction in the center of the data gets the same error bar as a prediction at the far edge. Posts 3 and 8 surveyed existing fixes &mdash; CQR, Studentized CP, Localized CP &mdash; and found that every one of them comes with a price: extra models to train, hyperparameters to tune, or fundamental vulnerabilities like the sign flip.</p>
+          <p><strong>Track 1: Conformal Prediction (Posts 1&ndash;3, 8).</strong> We started with a simple observation: point predictions are incomplete. A model that says "420,000" without any indication of confidence is like GPS without the blue circle. We then discovered conformal prediction &mdash; a remarkable framework that converts <em>any</em> model's predictions into prediction intervals with a mathematically guaranteed coverage rate. The guarantee is exact, holds in finite samples, and requires no assumptions about the data distribution. But there was a catch: the intervals have the same width everywhere. A prediction in the center of the data gets the same error bar as a prediction at the far edge. Posts 3 and 8 surveyed existing fixes &mdash; CQR, Studentized CP, Localized CP &mdash; and found that every one of them comes with a price: extra models to train, hyperparameters to tune, or fundamental vulnerabilities like the sign flip.</p>
 
           <p><strong>Track 2: Leverage Scores (Posts 4&ndash;7, 9).</strong> In parallel, we built up a completely different body of knowledge. The design matrix &mdash; the table of features &mdash; contains a hidden map of prediction difficulty. The leverage score of any point tells you, in closed form, how far that point sits from the training data in the directions that matter. High leverage means the model is extrapolating; low leverage means it is interpolating. The prediction error variance is exactly $\sigma^2(1+h)$, where $h$ is the leverage. This formula requires no model training, no hyperparameters, and no residuals. It comes from a single SVD of the design matrix &mdash; an operation that is often already performed when fitting the model. And crucially, it avoids the sign flip that plagues residual-based methods: leverage looks at the geometry of the features, not at the residuals.</p>
 
@@ -75,7 +75,7 @@ flowchart LR
       direction TB
       B1["Design Matrix"] --> B2["SVD"]
       B2 --> B3["Leverage Scores"]
-      B3 --> B4["Weight Function\nw&#40;h&#41; = &#40;1+h&#41;^-1/2"]
+      B3 --> B4["Weight Function\nw(h) = (1+h)⁻¹ᐟ²"]
     end
     A3 -. "?" .-> M["Leverage-Weighted\nResiduals"]
     B4 --> M
@@ -157,25 +157,25 @@ flowchart TD
 
           <div class="mermaid">
 flowchart TD
-    subgraph Training["Step 1: Training Split D1"]
-      T1["Fit model f&#x0302; on D1"]
-      T2["Compute SVD: X = U&Sigma;V'"]
+    subgraph Training["Step 1: Training Split D₁"]
+      T1["Fit model f̂ on D₁"]
+      T2["Compute SVD: X = UΣVᵀ"]
       T1 --- T2
     end
-    subgraph Calibration["Step 2: Calibration Split D2"]
-      C1["For each &#40;Xi, Yi&#41; in D2:"]
-      C2["Compute h&#40;Xi&#41; = ||&Sigma;^-1 V' Xi||^2"]
-      C3["Compute weight w&#40;h&#41; = &#40;1+h&#41;^-1/2"]
-      C4["Score Si = |Yi - f&#x0302;&#40;Xi&#41;| * w&#40;h&#41;"]
+    subgraph Calibration["Step 2: Calibration Split D₂"]
+      C1["For each (Xᵢ, Yᵢ) in D₂:"]
+      C2["Compute h(Xᵢ) = ‖Σ⁻¹VᵀXᵢ‖²"]
+      C3["Compute weight w(h) = (1+h)⁻¹ᐟ²"]
+      C4["Score Sᵢ = |Yᵢ - f̂(Xᵢ)| · w(h)"]
       C1 --> C2 --> C3 --> C4
     end
     subgraph Quantile["Step 3: Conformal Quantile"]
-      Q1["q&#x0302; = Quantile at level\n&#40;1-&alpha;&#41;&#40;1 + 1/n2&#41;\nof &#123;S1, ..., Sn2&#125;"]
+      Q1["q̂ = Quantile at level\n(1-α)(1 + 1/n₂)\nof {S₁, ..., Sₙ₂}"]
     end
     subgraph Predict["Step 4: Prediction"]
       P1["For new x:"]
-      P2["Compute h&#40;x&#41;"]
-      P3["Width = 2q&#x0302; / w&#40;h&#40;x&#41;&#41;\n= 2q&#x0302; * sqrt&#40;1+h&#40;x&#41;&#41;"]
+      P2["Compute h(x)"]
+      P3["Width = 2q̂ / w(h(x))\n= 2q̂ · √(1+h(x))"]
       P1 --> P2 --> P3
     end
     Training --> Calibration --> Quantile --> Predict
@@ -302,11 +302,11 @@ flowchart LR
 
           <div class="mermaid">
 flowchart TD
-    A["Exchangeability of\ncalibration + test points\n&#40;conditional on D1&#41;"]
-    B["w&#40;h&#40;x&#41;&#41; is deterministic\ngiven D1"]
-    C["Weighted scores\nSj = |Rj| * w&#40;hj&#41;\nare exchangeable"]
-    D["Rank of S_new\nis uniform on\n&#123;1, ..., n2+1&#125;"]
-    E["Marginal coverage\nP&#40;Y_new in C&#40;x&#41;&#41;\n&ge; 1 - &alpha;"]
+    A["Exchangeability of\ncalibration + test points\n(conditional on D₁)"]
+    B["w(h(x)) is deterministic\ngiven D₁"]
+    C["Weighted scores\nSⱼ = |Rⱼ| · w(hⱼ)\nare exchangeable"]
+    D["Rank of Sₙₑw\nis uniform on\n{1, ..., n₂+1}"]
+    E["Marginal coverage\nP(Yₙₑw ∈ C(x))\n≥ 1 - α"]
     A --> C
     B --> C
     C --> D

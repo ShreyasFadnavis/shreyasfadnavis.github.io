@@ -386,15 +386,15 @@ flowchart TD
 
           <div class="mermaid">
 flowchart TD
-    Start["OLS: beta-hat = (X-transpose X)^-1 X-transpose Y"]
+    Start["OLS: β̂ = (XᵀX)⁻¹XᵀY"]
     Start --> Branch1["Prediction at new x"]
     Start --> Branch2["Training residuals"]
-    Branch1 --> Pred1["Y_new - Y-hat = epsilon_new - x-transpose(beta-hat - beta-star)"]
-    Pred1 --> Pred2["Var = sigma-squared + sigma-squared h(x)"]
-    Pred2 --> Pred3["= sigma-squared(1 + h(x))"]
-    Branch2 --> Res1["e = (I - H) epsilon"]
-    Res1 --> Res2["Cov(e) = sigma-squared (I - H)"]
-    Res2 --> Res3["Var(e_i) = sigma-squared(1 - h_i)"]
+    Branch1 --> Pred1["Yₙₑw - Ŷ = εₙₑw - xᵀ(β̂ - β*)"]
+    Pred1 --> Pred2["Var = σ² + σ²h(x)"]
+    Pred2 --> Pred3["= σ²(1 + h(x))"]
+    Branch2 --> Res1["e = (I - H)ε"]
+    Res1 --> Res2["Cov(e) = σ²(I - H)"]
+    Res2 --> Res3["Var(eᵢ) = σ²(1 - hᵢ)"]
     Pred3 --> Flip["SIGN FLIP: +h vs -h"]
     Res3 --> Flip
     style Pred3 fill:#fce4ec,stroke:#c62828,color:#1c1917

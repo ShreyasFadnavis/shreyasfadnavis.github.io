@@ -205,7 +205,7 @@
               WF["Weight Function w(x)"]
               WF --> W1["w = 1<br/>Constant weight"]
               WF --> W2["w = 1/&sigma;&#770;(x)<br/>Inverse estimated variance"]
-              WF --> W3["w = (1+h)^{-1/2}<br/>Inverse root leverage"]
+              WF --> W3["w = (1+h)⁻¹ᐟ²<br/>Inverse root leverage"]
 
               W1 --> A1["Vanilla CP<br/>Assumes constant variance"]
               W2 --> A2["Studentized CP<br/>Estimates g from data"]
@@ -329,8 +329,8 @@
               N --> C1["g = 1<br/>Homoscedastic noise"]
               N --> C2["g = 1 + h<br/>Noise grows with leverage"]
 
-              C1 --> W1["Total: &sigma;&sup2;(1 + h)<br/>w* = (1 + h)^{-1/2}"]
-              C2 --> W2["Total: &sigma;&sup2;(1 + 2h)<br/>w* = (1 + 2h)^{-1/2}"]
+              C1 --> W1["Total: &sigma;&sup2;(1 + h)<br/>w* = (1 + h)⁻¹ᐟ²"]
+              C2 --> W2["Total: &sigma;&sup2;(1 + 2h)<br/>w* = (1 + 2h)⁻¹ᐟ²"]
 
               W1 --> O["Optimal weight<br/>depends on g"]
               W2 --> O

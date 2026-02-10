@@ -113,11 +113,11 @@
 
           <div class="mermaid">
           flowchart TD
-            A["Observe data point"] --> B["Compute leverage h_i"]
-            B --> C["Compute residual e_i"]
-            C --> D{"h_i > threshold?"}
-            D -- "No" --> E{"Large |e_i|?"}
-            D -- "Yes" --> F{"Large |e_i|?"}
+            A["Observe data point"] --> B["Compute leverage hᵢ"]
+            B --> C["Compute residual eᵢ"]
+            C --> D{"hᵢ > threshold?"}
+            D -- "No" --> E{"Large |eᵢ|?"}
+            D -- "Yes" --> F{"Large |eᵢ|?"}
             E -- "No" --> G["Normal Point"]
             E -- "Yes" --> H["Outlier"]
             F -- "No" --> I["Leverage Point"]
@@ -205,8 +205,8 @@
 
           <div class="mermaid">
           flowchart LR
-            CD["Cook's Distance D_i"] --> RT["Residual Term: e_i^2 / (p * s^2)"]
-            CD --> LT["Leverage Term: h_i / (1 - h_i)^2"]
+            CD["Cook's Distance Dᵢ"] --> RT["Residual Term: eᵢ² / (p · s²)"]
+            CD --> LT["Leverage Term: hᵢ / (1 − hᵢ)²"]
             RT --> RX["How far is the point from the fitted surface?"]
             LT --> LX["How much power does the point have to move the surface?"]
             RX --> I["Both large => INFLUENTIAL"]
@@ -272,7 +272,7 @@
           flowchart LR
             subgraph Exact ["Exact SVD"]
               direction TB
-              E1["Full SVD of X (n x p)"] --> E2["Cost: O(np^2)"]
+              E1["Full SVD of X (n × p)"] --> E2["Cost: O(np²)"]
               E2 --> E3["Exact leverage scores"]
             end
 
@@ -280,13 +280,13 @@
               direction TB
               R1["Random projection of X"] --> R2["SVD of sketch"]
               R2 --> R3["Cost: O(np log p)"]
-              R3 --> R4["(1+epsilon)-approximate leverage"]
+              R3 --> R4["(1+ε)-approximate leverage"]
             end
 
             subgraph CW ["Clarkson-Woodruff"]
               direction TB
               C1["Sparse random projection"] --> C2["Exploit sparsity in X"]
-              C2 --> C3["Cost: O(nnz(X) + p^3)"]
+              C2 --> C3["Cost: O(nnz(X) + p³)"]
               C3 --> C4["Input-sparsity time"]
             end
 
@@ -354,13 +354,13 @@
 
           <div class="mermaid">
           flowchart TD
-            A["Full model: beta-hat = (X'X)^-1 X'Y"] --> B["Delete observation i"]
-            B --> C["Sherman-Morrison identity on (X'X - x_i x_i')^-1"]
-            C --> D["Leave-one-out: beta-hat_(i) = beta-hat - (X'X)^-1 x_i e_i / (1 - h_i)"]
-            D --> E["Prediction shift: Y-hat_j - Y-hat_j,(i) = H_ji e_i / (1 - h_i)"]
-            E --> F["Sum of squared shifts: sum_j (H_ji e_i / (1-h_i))^2"]
-            F --> G["= e_i^2 h_i / (1 - h_i)^2"]
-            G --> H["Cook's distance: D_i = e_i^2 h_i / (p s^2 (1-h_i)^2)"]
+            A["Full model: β̂ = (XᵀX)⁻¹XᵀY"] --> B["Delete observation i"]
+            B --> C["Sherman-Morrison identity on (XᵀX − xᵢxᵢᵀ)⁻¹"]
+            C --> D["Leave-one-out: β̂₍ᵢ₎ = β̂ − (XᵀX)⁻¹xᵢeᵢ / (1 − hᵢ)"]
+            D --> E["Prediction shift: Ŷⱼ − Ŷⱼ₍ᵢ₎ = Hⱼᵢeᵢ / (1 − hᵢ)"]
+            E --> F["Sum of squared shifts: Σⱼ (Hⱼᵢeᵢ / (1−hᵢ))²"]
+            F --> G["= eᵢ²hᵢ / (1 − hᵢ)²"]
+            G --> H["Cook's distance: Dᵢ = eᵢ²hᵢ / (p·s²·(1−hᵢ)²)"]
 
             style A fill:#e3f2fd,stroke:#1565c0,color:#1c1917
             style D fill:#fff3e0,stroke:#e65100,color:#1c1917

@@ -176,15 +176,15 @@ graph TD
 
           <div class="mermaid">
 graph TB
-    A["Data: (X_1,Y_1), ..., (X_n,Y_n)"]
-    A -->|"Random split"| B["D1: Training Set<br/>(n1 points)"]
-    A -->|"Random split"| C["D2: Calibration Set<br/>(n2 points)"]
-    B --> D["Train model f-hat on D1"]
-    D --> E["Compute scores on D2:<br/>Si = |Yi - f-hat(Xi)|"]
+    A["Data: (X₁,Y₁), ..., (Xₙ,Yₙ)"]
+    A -->|"Random split"| B["D₁: Training Set<br/>(n₁ points)"]
+    A -->|"Random split"| C["D₂: Calibration Set<br/>(n₂ points)"]
+    B --> D["Train model f̂ on D₁"]
+    D --> E["Compute scores on D₂:<br/>Sᵢ = |Yᵢ - f̂(Xᵢ)|"]
     C --> E
-    E --> F["Sort scores, take<br/>k = ceil((1-alpha)(n2+1))-th smallest"]
-    F --> G["q-hat = S_(k)"]
-    G --> H["Interval for new x:<br/>[f-hat(x) - q-hat, f-hat(x) + q-hat]"]
+    E --> F["Sort scores, take<br/>k = ⌈(1-α)(n₂+1)⌉-th smallest"]
+    F --> G["q̂ = S₍ₖ₎"]
+    G --> H["Interval for new x:<br/>[f̂(x) - q̂, f̂(x) + q̂]"]
     style H fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
           </div>
           <p class="diagram-caption">The full split conformal pipeline with formulas at each step.</p>
@@ -208,13 +208,13 @@ graph TB
           <div class="mermaid">
 graph TD
     subgraph perm1["Ordering 1"]
-        P1["Z1, Z2, Z3"]
+        P1["Z₁, Z₂, Z₃"]
     end
     subgraph perm2["Ordering 2"]
-        P2["Z3, Z1, Z2"]
+        P2["Z₃, Z₁, Z₂"]
     end
     subgraph perm3["Ordering 3"]
-        P3["Z2, Z3, Z1"]
+        P3["Z₂, Z₃, Z₁"]
     end
     perm1 -.- EQ["All have the<br/>SAME joint distribution"]
     perm2 -.- EQ
@@ -325,12 +325,12 @@ graph TD
 
           <div class="mermaid">
 graph TB
-    A["Exchangeability:<br/>(Z1,...,Zn+1) is permutation-invariant"]
-    A --> B["Rank of Z_{n+1} has<br/>same distribution as rank of Z_j<br/>for any j"]
-    B --> C["Exactly one Z_j has rank k<br/>=> sum of P(R_j=k) over j = 1"]
-    C --> D["(n+1) * P(R_{n+1}=k) = 1"]
-    D --> E["P(R_{n+1}=k) = 1/(n+1)<br/>Rank is uniform on {1,...,n+1}"]
-    E --> F["Setting k = ceil((1-alpha)(n+1)):<br/>P(Z_{n+1} <= Z_(k)) >= 1-alpha"]
+    A["Exchangeability:<br/>(Z₁,...,Zₙ₊₁) is permutation-invariant"]
+    A --> B["Rank of Zₙ₊₁ has<br/>same distribution as rank of Zⱼ<br/>for any j"]
+    B --> C["Exactly one Zⱼ has rank k<br/>=> sum of P(Rⱼ=k) over j = 1"]
+    C --> D["(n+1) · P(Rₙ₊₁=k) = 1"]
+    D --> E["P(Rₙ₊₁=k) = 1/(n+1)<br/>Rank is uniform on {1,...,n+1}"]
+    E --> F["Setting k = ⌈(1-α)(n+1)⌉:<br/>P(Zₙ₊₁ ≤ Z₍ₖ₎) ≥ 1-α"]
     style E fill:#fce4ec,stroke:#c62828,stroke-width:2px
     style F fill:#fce4ec,stroke:#c62828,stroke-width:2px
           </div>

@@ -119,7 +119,7 @@ flowchart LR
 flowchart LR
     A["Design Matrix X"] --> B["SVD\n(already computed!)"]
     B --> C["Leverage Scores\nh(x) per point"]
-    C --> D["Weight Function\nw(h) = 1 / sqrt(1+h)"]
+    C --> D["Weight Function\nw(h) = 1 / √(1+h)"]
     D --> E["Adaptive Intervals\nWider where h is large\nNarrower where h is small"]
 
     style A fill:#f3f0ec,stroke:#a0522d,color:#1c1917
@@ -151,10 +151,10 @@ flowchart LR
 
           <div class="mermaid">
 flowchart TD
-    A["Compute leverage scores\non calibration set"] --> B["Compute dispersion ratio\neta = std(h) / mean(h)"]
-    B --> C{"eta > 1?"}
+    A["Compute leverage scores\non calibration set"] --> B["Compute dispersion ratio\nη = std(h) / mean(h)"]
+    B --> C{"η > 1?"}
     C -->|Yes| D["Large leverage variation\nLWCP helps significantly"]
-    C -->|No| E{"eta > 0.5?"}
+    C -->|No| E{"η > 0.5?"}
     E -->|Yes| F["Moderate variation\nLWCP helps somewhat"]
     E -->|No| G["Mild variation\nLWCP similar to vanilla CP"]
 
@@ -229,30 +229,30 @@ flowchart TD
 flowchart LR
     subgraph Leverage["Leverage-Based"]
         direction TB
-        L1["SVD: O(n p^2)\n(already done)"]
-        L2["Scores: O(n_cal * p)"]
-        L3["Total extra: ~10^6 ops"]
+        L1["SVD: O(n p²)\n(already done)"]
+        L2["Scores: O(nᶜᵃˡ · p)"]
+        L3["Total extra: ~10⁶ ops"]
     end
 
     subgraph CQR_cost["CQR"]
         direction TB
         C1["Train 2 quantile models"]
-        C2["Each: O(n * trees * p * depth)"]
-        C3["Total extra: ~10^8 ops"]
+        C2["Each: O(n · trees · p · depth)"]
+        C3["Total extra: ~10⁸ ops"]
     end
 
     subgraph Student["Studentized CP"]
         direction TB
         S1["Train 1 scale model"]
-        S2["O(n * trees * p * depth)"]
-        S3["Total extra: ~10^7 ops"]
+        S2["O(n · trees · p · depth)"]
+        S3["Total extra: ~10⁷ ops"]
     end
 
     subgraph Local["Localized CP"]
         direction TB
         Lo1["Kernel per test point"]
-        Lo2["O(n_cal) per test point"]
-        Lo3["Total: ~5 * 10^7 ops"]
+        Lo2["O(nᶜᵃˡ) per test point"]
+        Lo3["Total: ~5 · 10⁷ ops"]
     end
 
     style L3 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
@@ -526,26 +526,26 @@ flowchart LR
 
           <div class="mermaid">
 flowchart TD
-    A["Training Data (X, Y)"] --> B["Thin SVD: X = U Sigma V^T\nCost: O(n1 * p^2)"]
-    B --> C["OLS coefficients\nbeta = V Sigma^-1 U^T Y"]
-    B --> D["Store Sigma^-1 V^T\nCost: O(p^2)"]
+    A["Training Data (X, Y)"] --> B["Thin SVD: X = UΣVᵀ\nCost: O(n₁ · p²)"]
+    B --> C["OLS coefficients\nβ̂ = VΣ⁻¹UᵀY"]
+    B --> D["Store Σ⁻¹Vᵀ\nCost: O(p²)"]
 
-    E["Calibration Data (X_cal, Y_cal)"] --> F["Predictions: Y_hat = X_cal * beta"]
-    E --> G["Leverage: h_i = ||Sigma^-1 V^T x_i||^2\nCost: O(n2 * p)"]
+    E["Calibration Data (Xᶜᵃˡ, Yᶜᵃˡ)"] --> F["Predictions: Ŷ = Xᶜᵃˡ · β̂"]
+    E --> G["Leverage: hᵢ = ‖Σ⁻¹Vᵀxᵢ‖²\nCost: O(n₂ · p)"]
 
-    F --> H["Residuals: r_i = |Y_i - Y_hat_i|"]
-    G --> I["Weights: w_i = (1 + h_i)^{-1/2}"]
+    F --> H["Residuals: rᵢ = |Yᵢ − Ŷᵢ|"]
+    G --> I["Weights: wᵢ = (1 + hᵢ)⁻¹ᐟ²"]
 
-    H --> J["Scores: s_i = r_i * w_i"]
+    H --> J["Scores: sᵢ = rᵢ · wᵢ"]
     I --> J
 
-    J --> K["Quantile: q_hat = Quantile_{1-alpha}(s_1, ..., s_n2)"]
+    J --> K["Quantile: q̂ = Quantile₁₋α(s₁, ..., sₙ₂)"]
 
-    L["Test point x_new"] --> M["h_new = ||Sigma^-1 V^T x_new||^2\nCost: O(p)"]
-    M --> N["Width = q_hat / w(h_new)\n= q_hat * sqrt(1 + h_new)"]
+    L["Test point xₙₑw"] --> M["hₙₑw = ‖Σ⁻¹Vᵀxₙₑw‖²\nCost: O(p)"]
+    M --> N["Width = q̂ / w(hₙₑw)\n= q̂ · √(1 + hₙₑw)"]
 
-    C --> O["y_hat_new = x_new^T * beta"]
-    N --> P["Interval:\n[y_hat - width, y_hat + width]"]
+    C --> O["ŷₙₑw = xₙₑwᵀ · β̂"]
+    N --> P["Interval:\n[ŷ − width, ŷ + width]"]
     O --> P
 
     style B fill:#e8f5e9,stroke:#2e7d32,color:#1c1917

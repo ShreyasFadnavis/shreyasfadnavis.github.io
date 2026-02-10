@@ -60,7 +60,7 @@
 
           <div class="analogy">
             <div class="analogy-label">Analogy</div>
-            <p>Instead of saying "the house costs &#36;420K plus or minus &#36;50K" (symmetric, constant), you say "the house costs somewhere between &#36;370K and &#36;480K" (asymmetric, adaptive). For a luxury estate, the range might be &#36;1.8M to &#36;3.2M &mdash; much wider, reflecting genuine uncertainty. For a cookie-cutter suburban home, it might be &#36;345K to &#36;365K &mdash; tight, because the model knows this territory well.</p>
+            <p>Instead of saying "the house costs 420K plus or minus 50K" (symmetric, constant), you say "the house costs somewhere between 370K and 480K" (asymmetric, adaptive). For a luxury estate, the range might be 1.8M to 3.2M &mdash; much wider, reflecting genuine uncertainty. For a cookie-cutter suburban home, it might be 345K to 365K &mdash; tight, because the model knows this territory well.</p>
           </div>
 
           <p>This is <strong>Conformalized Quantile Regression (CQR)</strong>. The conformal correction guarantees the coverage, while the learned bounds provide adaptation. The catch? You now need to train two additional models (the quantile regressors), tune their hyperparameters, and hope they learn the right shape.</p>
@@ -81,19 +81,19 @@
             flowchart LR
               subgraph V["Vanilla CP"]
                 V1["Train model"] --> V2["Compute residuals"]
-                V2 --> V3["Single quantile q&#770;"]
+                V2 --> V3["Single quantile q̂"]
                 V3 --> V4["Same width everywhere"]
               end
 
               subgraph C["CQR"]
                 C1["Train model +<br/>2 quantile regressors"] --> C2["Compute<br/>quantile scores"]
-                C2 --> C3["Single quantile q&#770;"]
+                C2 --> C3["Single quantile q̂"]
                 C3 --> C4["Adaptive asymmetric<br/>intervals"]
               end
 
               subgraph S["Studentized CP"]
                 S1["Train model +<br/>scale estimator"] --> S2["Compute<br/>normalized scores"]
-                S2 --> S3["Single quantile q&#770;"]
+                S2 --> S3["Single quantile q̂"]
                 S3 --> S4["Scaled symmetric<br/>intervals"]
               end
 
@@ -222,15 +222,15 @@
 
           <div class="mermaid">
             flowchart TD
-              D["Data D"] --> D1["D&#8321;: Training"]
-              D --> D2["D&#8322;: Calibration"]
-              D1 --> QL["Train Q&#770;_lo targeting &alpha;/2"]
-              D1 --> QH["Train Q&#770;_hi targeting 1-&alpha;/2"]
-              QL --> SC["Score: S_i = max(Q&#770;_lo - Y_i, Y_i - Q&#770;_hi)"]
+              D["Data D"] --> D1["D₁: Training"]
+              D --> D2["D₂: Calibration"]
+              D1 --> QL["Train Q̂ₗₒ targeting α/2"]
+              D1 --> QH["Train Q̂ₕᵢ targeting 1−α/2"]
+              QL --> SC["Score: Sᵢ = max(Q̂ₗₒ − Yᵢ, Yᵢ − Q̂ₕᵢ)"]
               QH --> SC
               D2 --> SC
-              SC --> QT["Quantile q&#770; of scores"]
-              QT --> INT["Interval: [Q&#770;_lo(x) - q&#770;, Q&#770;_hi(x) + q&#770;]"]
+              SC --> QT["Quantile q̂ of scores"]
+              QT --> INT["Interval: [Q̂ₗₒ(x) − q̂, Q̂ₕᵢ(x) + q̂]"]
 
               style D fill:#f3f0ec,stroke:#a0522d,color:#1c1917
               style D1 fill:#e3f2fd,stroke:#1565c0,color:#1c1917
@@ -274,14 +274,14 @@
 
           <div class="mermaid">
             flowchart TD
-              TR["Training residuals<br/>Var = &sigma;&sup2;(1 - h)"] --> SIGMA["Scale estimator &sigma;&#770;<br/>learns &sigma;&radic;(1-h)"]
-              SIGMA --> NORM["Normalized score<br/>S = |residual| / &sigma;&#770;"]
-              NORM --> PROB["At high-leverage points:<br/>&sigma;&#770; is SMALL<br/>(training residuals were small)"]
+              TR["Training residuals<br/>Var = σ²(1 − h)"] --> SIGMA["Scale estimator σ̂<br/>learns σ√(1−h)"]
+              SIGMA --> NORM["Normalized score<br/>S = |residual| / σ̂"]
+              NORM --> PROB["At high-leverage points:<br/>σ̂ is SMALL<br/>(training residuals were small)"]
               PROB --> RESULT["Interval is NARROW<br/>when it should be WIDE"]
 
-              REAL["Reality at test time<br/>Var = &sigma;&sup2;(1 + h)"] --> NEED["Need: wide intervals<br/>at high-leverage points"]
+              REAL["Reality at test time<br/>Var = σ²(1 + h)"] --> NEED["Need: wide intervals<br/>at high-leverage points"]
 
-              RESULT --> CONFLICT["SIGN FLIP<br/>(1-h) vs (1+h)"]
+              RESULT --> CONFLICT["SIGN FLIP<br/>(1−h) vs (1+h)"]
               NEED --> CONFLICT
 
               style TR fill:#e3f2fd,stroke:#1565c0,color:#1c1917
@@ -371,22 +371,22 @@
           <div class="mermaid">
             flowchart TD
               subgraph CQR_P["CQR Pipeline"]
-                CQR1["D&#8321;"] --> CQR2["Train Q&#770;_lo, Q&#770;_hi"]
-                CQR2 --> CQR3["Scores on D&#8322;"]
-                CQR3 --> CQR4["q&#770;"]
-                CQR4 --> CQR5["Width = Q&#770;_hi - Q&#770;_lo + 2q&#770;"]
+                CQR1["D₁"] --> CQR2["Train Q̂ₗₒ, Q̂ₕᵢ"]
+                CQR2 --> CQR3["Scores on D₂"]
+                CQR3 --> CQR4["q̂"]
+                CQR4 --> CQR5["Width = Q̂ₕᵢ − Q̂ₗₒ + 2q̂"]
               end
               subgraph SCP_P["Studentized CP Pipeline"]
-                SCP1["D&#8321;"] --> SCP2["Train f&#770;, &sigma;&#770;"]
-                SCP2 --> SCP3["Normalized scores on D&#8322;"]
-                SCP3 --> SCP4["q&#770;"]
-                SCP4 --> SCP5["Width = 2q&#770;&sigma;&#770;(x)"]
+                SCP1["D₁"] --> SCP2["Train f̂, σ̂"]
+                SCP2 --> SCP3["Normalized scores on D₂"]
+                SCP3 --> SCP4["q̂"]
+                SCP4 --> SCP5["Width = 2q̂σ̂(x)"]
               end
               subgraph LCP_P["Localized CP Pipeline"]
-                LCP1["D&#8321;"] --> LCP2["Train f&#770;"]
-                LCP2 --> LCP3["Scores on D&#8322;"]
-                LCP3 --> LCP4["Weighted q&#770;(x)<br/>per test point"]
-                LCP4 --> LCP5["Width = 2q&#770;(x)"]
+                LCP1["D₁"] --> LCP2["Train f̂"]
+                LCP2 --> LCP3["Scores on D₂"]
+                LCP3 --> LCP4["Weighted q̂(x)<br/>per test point"]
+                LCP4 --> LCP5["Width = 2q̂(x)"]
               end
 
               style CQR_P fill:#faf8f5,stroke:#1565c0,color:#1c1917
@@ -525,8 +525,8 @@
           <div class="mermaid">
             flowchart TD
               CQR_N["CQR<br/>Learns quantile gap<br/>2 extra models<br/>Partial sign flip"]
-              SCP_N["Studentized CP<br/>Learns &sigma;(x)<br/>1 extra model<br/>Full sign flip"]
-              LCP_N["Localized CP<br/>Kernel weights<br/>No extra models<br/>O(n&#8322;) per test point"]
+              SCP_N["Studentized CP<br/>Learns σ(x)<br/>1 extra model<br/>Full sign flip"]
+              LCP_N["Localized CP<br/>Kernel weights<br/>No extra models<br/>O(n₂) per test point"]
               GAP["???<br/>Closed-form from X<br/>No extra models<br/>O(1) per test point<br/>No sign flip"]
 
               CQR_N --> Q1{"Uses<br/>residuals?"}
