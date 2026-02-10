@@ -29,69 +29,79 @@
   <div class="topic-nav">
     <a href="#conformal" class="topic-link active" onclick="smoothScroll(event, 'conformal')">Conformal Prediction</a>
     <span class="topic-sep">&middot;</span>
-    <a href="#geometry" class="topic-link" onclick="smoothScroll(event, 'geometry')">Prediction Geometry</a>
+    <a href="#leverage" class="topic-link" onclick="smoothScroll(event, 'leverage')">Leverage Scores</a>
   </div>
 
   <!-- ============================================ -->
   <!-- CONFORMAL PREDICTION                         -->
   <!-- ============================================ -->
   <section id="conformal" class="notes-section">
-    <h2 class="section-heading">Conformal Prediction</h2>
-    <p class="section-desc">Distribution-free prediction intervals with finite-sample guarantees &mdash; from the basic recipe to its fundamental limitations and existing attempts to overcome them.</p>
+    <div class="section-toggle" aria-expanded="true" onclick="toggleSection(this)">
+      <h2 class="section-heading">Conformal Prediction</h2>
+      <span class="section-arrow">&#9662;</span>
+    </div>
+    <div class="section-body">
+      <p class="section-desc">Distribution-free prediction intervals with finite-sample guarantees &mdash; from the basic recipe to its fundamental limitations and existing attempts to overcome them.</p>
 
-    <ol class="notes-list">
-      <li>
-        <a href="post01.html" class="note-title">Your Model Is Confident. Should You Be?</a>
-        <p class="note-summary">Why point predictions are incomplete, what prediction intervals actually are, and why constructing them correctly is harder than it looks.</p>
-      </li>
-      <li>
-        <a href="post02.html" class="note-title">Conformal Prediction</a>
-        <p class="note-summary">The split conformal recipe: train, calibrate, quantile, done. A finite-sample coverage guarantee for any model, any distribution.</p>
-      </li>
-      <li>
-        <a href="post03.html" class="note-title">The Constant-Width Problem</a>
-        <p class="note-summary">Marginal versus conditional coverage, the impossibility theorem, and why constant-width intervals hide dangerous unevenness.</p>
-      </li>
-      <li>
-        <a href="post07.html" class="note-title">Heteroscedasticity and Variance Stabilization</a>
-        <p class="note-summary">When prediction difficulty varies, raw residuals are not comparable. Variance-stabilizing transformations and weighted nonconformity scores.</p>
-      </li>
-      <li>
-        <a href="post08.html" class="note-title">Adaptive Conformal Methods</a>
-        <p class="note-summary">CQR, Studentized CP, and Localized CP &mdash; what each gets right, what each gets wrong, and the gap that remains.</p>
-      </li>
-    </ol>
+      <ol class="notes-list">
+        <li>
+          <a href="post01.html" class="note-title">Your Model Is Confident. Should You Be?</a>
+          <p class="note-summary">Why point predictions are incomplete, what prediction intervals actually are, and why constructing them correctly is harder than it looks.</p>
+        </li>
+        <li>
+          <a href="post02.html" class="note-title">Conformal Prediction</a>
+          <p class="note-summary">The split conformal recipe: train, calibrate, quantile, done. A finite-sample coverage guarantee for any model, any distribution.</p>
+        </li>
+        <li>
+          <a href="post03.html" class="note-title">The Constant-Width Problem</a>
+          <p class="note-summary">Marginal versus conditional coverage, the impossibility theorem, and why constant-width intervals hide dangerous unevenness.</p>
+        </li>
+        <li>
+          <a href="post07.html" class="note-title">Heteroscedasticity and Variance Stabilization</a>
+          <p class="note-summary">When prediction difficulty varies, raw residuals are not comparable. Variance-stabilizing transformations and weighted nonconformity scores.</p>
+        </li>
+        <li>
+          <a href="post08.html" class="note-title">Adaptive Conformal Methods</a>
+          <p class="note-summary">CQR, Studentized CP, and Localized CP &mdash; what each gets right, what each gets wrong, and the gap that remains.</p>
+        </li>
+      </ol>
+    </div>
   </section>
 
   <!-- ============================================ -->
-  <!-- PREDICTION GEOMETRY                          -->
+  <!-- LEVERAGE SCORES                              -->
   <!-- ============================================ -->
-  <section id="geometry" class="notes-section">
-    <h2 class="section-heading">Prediction Geometry</h2>
-    <p class="section-desc">The hat matrix, leverage scores, and a geometric perspective on prediction uncertainty &mdash; a classical tool that tells you where your model is extrapolating, for free.</p>
+  <section id="leverage" class="notes-section">
+    <div class="section-toggle" aria-expanded="true" onclick="toggleSection(this)">
+      <h2 class="section-heading">Leverage Scores</h2>
+      <span class="section-arrow">&#9662;</span>
+    </div>
+    <div class="section-body">
+      <p class="section-desc">The hat matrix, leverage scores, and a geometric perspective on prediction uncertainty &mdash; a classical tool that tells you where your model is extrapolating, for free.</p>
 
-    <ol class="notes-list">
-      <li>
-        <a href="post04.html" class="note-title">The Hat Matrix</a>
-        <p class="note-summary">How the diagonal of a projection matrix tells you exactly how unusual each data point is, and why that matters for prediction.</p>
-      </li>
-      <li>
-        <a href="post05.html" class="note-title">Leverage and Influence</a>
-        <p class="note-summary">Classical regression diagnostics, Cook's distance, and why randomized algorithms make leverage scalable to modern datasets.</p>
-      </li>
-      <li>
-        <a href="post06.html" class="note-title">The Sign Flip</a>
-        <p class="note-summary">Training residuals have variance &sigma;&sup2;(1&minus;h); prediction errors have variance &sigma;&sup2;(1+h). The sign of leverage flips, and most methods get this wrong.</p>
-      </li>
-      <li>
-        <a href="post09.html" class="note-title">Leverage as a Free Lunch</a>
-        <p class="note-summary">Closed-form, model-free, computationally negligible, and immune to the sign flip. Everything you need is already in the design matrix.</p>
-      </li>
-      <li>
-        <a href="post10.html" class="note-title">When Geometry Meets Inference</a>
-        <p class="note-summary">What happens when leverage scores become conformal prediction weights? A natural combination grounded in classical regression theory.</p>
-      </li>
-    </ol>
+      <ol class="notes-list">
+        <li>
+          <a href="post04.html" class="note-title">The Hat Matrix</a>
+          <p class="note-summary">How the diagonal of a projection matrix tells you exactly how unusual each data point is, and why that matters for prediction.</p>
+        </li>
+        <li>
+          <a href="post05.html" class="note-title">Leverage and Influence</a>
+          <p class="note-summary">Classical regression diagnostics, Cook's distance, and why randomized algorithms make leverage scalable to modern datasets.</p>
+        </li>
+        <li>
+          <a href="post06.html" class="note-title">The Sign Flip</a>
+          <p class="note-summary">Training residuals have variance &sigma;&sup2;(1&minus;h); prediction errors have variance &sigma;&sup2;(1+h). The sign of leverage flips, and most methods get this wrong.</p>
+        </li>
+        <li>
+          <a href="post09.html" class="note-title">Leverage as a Free Lunch</a>
+          <p class="note-summary">Closed-form, model-free, computationally negligible, and immune to the sign flip. Everything you need is already in the design matrix.</p>
+        </li>
+        <li>
+          <a href="post10.html" class="note-title">When Geometry Meets Inference</a>
+          <p class="note-summary">What happens when leverage scores become conformal prediction weights? A natural combination grounded in classical regression theory.</p>
+        </li>
+      </ol>
+    </div>
   </section>
 
 </main>
@@ -102,27 +112,57 @@
 </footer>
 
 <script>
+function toggleSection(toggle) {
+  var expanded = toggle.getAttribute('aria-expanded') === 'true';
+  var body = toggle.nextElementSibling;
+  if (expanded) {
+    body.style.maxHeight = body.scrollHeight + 'px';
+    // Force reflow
+    body.offsetHeight;
+    body.classList.add('collapsed');
+    toggle.setAttribute('aria-expanded', 'false');
+  } else {
+    body.classList.remove('collapsed');
+    body.style.maxHeight = body.scrollHeight + 'px';
+    toggle.setAttribute('aria-expanded', 'true');
+    setTimeout(function () { body.style.maxHeight = ''; }, 400);
+  }
+}
+
+// Initialize section bodies with natural height
+document.querySelectorAll('.section-body').forEach(function (body) {
+  body.style.maxHeight = '';
+});
+
 function smoothScroll(e, id) {
   e.preventDefault();
-  document.getElementById(id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Expand section if collapsed
+  var section = document.getElementById(id);
+  var toggle = section.querySelector('.section-toggle');
+  if (toggle && toggle.getAttribute('aria-expanded') === 'false') {
+    toggleSection(toggle);
+  }
+  setTimeout(function () {
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 50);
   // Update active state
-  document.querySelectorAll('.topic-link').forEach(l => l.classList.remove('active'));
+  document.querySelectorAll('.topic-link').forEach(function (l) { l.classList.remove('active'); });
   e.target.classList.add('active');
   history.pushState(null, '', '#' + id);
 }
 
 // Highlight active topic on scroll
-const observer = new IntersectionObserver(entries => {
-  entries.forEach(entry => {
+var observer = new IntersectionObserver(function (entries) {
+  entries.forEach(function (entry) {
     if (entry.isIntersecting) {
-      document.querySelectorAll('.topic-link').forEach(l => l.classList.remove('active'));
-      const link = document.querySelector('.topic-link[href="#' + entry.target.id + '"]');
+      document.querySelectorAll('.topic-link').forEach(function (l) { l.classList.remove('active'); });
+      var link = document.querySelector('.topic-link[href="#' + entry.target.id + '"]');
       if (link) link.classList.add('active');
     }
   });
 }, { threshold: 0.3 });
 
-document.querySelectorAll('.notes-section').forEach(s => observer.observe(s));
+document.querySelectorAll('.notes-section').forEach(function (s) { observer.observe(s); });
 </script>
 
 </body>

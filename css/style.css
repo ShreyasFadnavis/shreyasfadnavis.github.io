@@ -869,10 +869,12 @@ footer a:hover { color: var(--accent); }
 }
 
 /* --- Image Lightbox --- */
-.post-body img,
-.post-body .mermaid svg {
+.post-body img {
   cursor: zoom-in;
-  transition: transform 0.2s ease;
+}
+
+.post-body .mermaid {
+  cursor: zoom-in;
 }
 
 .lightbox-overlay {
@@ -893,19 +895,41 @@ footer a:hover { color: var(--accent); }
   opacity: 1;
 }
 
-.lightbox-overlay img,
-.lightbox-overlay svg {
+.lightbox-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   max-width: 90vw;
-  max-height: 90vh;
-  border-radius: 8px;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
-  transform: scale(0.9);
+  max-height: 85vh;
+  transform: scale(0.92);
   transition: transform 0.3s ease;
+  cursor: default;
 }
 
-.lightbox-overlay.active img,
-.lightbox-overlay.active svg {
+.lightbox-overlay.active .lightbox-stage {
   transform: scale(1);
+}
+
+.lightbox-stage img {
+  max-width: 90vw;
+  max-height: 85vh;
+  border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+}
+
+.lightbox-mermaid {
+  background: var(--bg, #faf8f5);
+  border-radius: 10px;
+  padding: 2.5em 2em;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow: auto;
+}
+
+.lightbox-mermaid svg {
+  max-width: 100%;
+  height: auto;
 }
 
 .lightbox-close {
@@ -926,6 +950,7 @@ footer a:hover { color: var(--accent); }
   align-items: center;
   justify-content: center;
   transition: opacity 0.2s;
+  z-index: 1001;
 }
 
 .lightbox-close:hover {
@@ -943,6 +968,36 @@ footer a:hover { color: var(--accent); }
   font-style: italic;
   text-align: center;
   max-width: 80vw;
+}
+
+/* --- Collapsible Notes Section --- */
+.section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.section-toggle .section-arrow {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  transition: transform 0.3s ease;
+  margin-left: 0.3rem;
+}
+
+.section-toggle[aria-expanded="false"] .section-arrow {
+  transform: rotate(-90deg);
+}
+
+.section-body {
+  overflow: hidden;
+  transition: max-height 0.4s ease, opacity 0.3s ease;
+}
+
+.section-body.collapsed {
+  max-height: 0 !important;
+  opacity: 0;
 }
 
 /* --- Responsive --- */

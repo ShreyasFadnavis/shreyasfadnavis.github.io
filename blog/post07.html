@@ -363,7 +363,7 @@
 
           <p>Variance stabilization improves conformal intervals when two conditions hold simultaneously:</p>
 
-          <p><strong>Condition 1: The variance actually varies.</strong> If leverage scores are nearly constant across the feature space (all points are roughly equidistant from the training centroid and the intrinsic noise is constant), there is nothing to stabilize. The diagnostic $\hat{\eta} = \text{std}(h) / \text{mean}(h)$ measures leverage heterogeneity: when $\hat{\eta} > 1$, leverage variation is substantial and LWCP is likely to help; when $\hat{\eta} < 0.5$, leverage variation is small and vanilla CP performs comparably.</p>
+          <p><strong>Condition 1: The variance actually varies.</strong> If leverage scores are nearly constant across the feature space (all points are roughly equidistant from the training centroid and the intrinsic noise is constant), there is nothing to stabilize. The diagnostic $\hat{\eta} = \text{std}(h) / \text{mean}(h)$ measures leverage heterogeneity: when $\hat{\eta} > 1$, leverage variation is substantial and leverage weighting is likely to help; when $\hat{\eta} < 0.5$, leverage variation is small and vanilla CP performs comparably.</p>
 
           <p><strong>Condition 2: The variance function is known or well-estimated.</strong> Dividing by the wrong scale factor can make things worse &mdash; it introduces a systematic distortion rather than removing one. The leverage-based weight $w(h) = (1+h)^{-1/2}$ satisfies this condition by construction because it uses the exact variance formula from the OLS prediction error decomposition, not an estimate. No auxiliary model is needed, and there is no estimation error to worry about. Studentized CP, which estimates $g$ from training residuals, is vulnerable to the sign-flip problem (Part 6): the estimator learns $\sigma^2(1-h)$ instead of $\sigma^2(1+h)$, producing corrections that point in the wrong direction.</p>
 
@@ -379,9 +379,9 @@
               C2 --> Y2["Leverage-based w<br/>Exact formula, no estimation"]
               C2 --> N2["Estimated &sigma;&#770;(x)<br/>Risk of sign flip"]
 
-              Y1 --> G["LWCP helps significantly"]
+              Y1 --> G["Leverage weighting\nhelps significantly"]
               Y2 --> G
-              N1 --> B["LWCP &asymp; Vanilla CP"]
+              N1 --> B["Leverage weighting\n&asymp; Vanilla CP"]
               N2 --> B2["May hurt more than help"]
 
               style Q fill:#f3f0ec,stroke:#a0522d,color:#1c1917

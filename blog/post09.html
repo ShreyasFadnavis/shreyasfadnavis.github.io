@@ -155,10 +155,10 @@ flowchart LR
 flowchart TD
     A["Compute leverage scores\non calibration set"] --> B["Compute dispersion ratio\nη = std(h) / mean(h)"]
     B --> C{"η > 1?"}
-    C -->|Yes| D["Large leverage variation\nLWCP helps significantly"]
+    C -->|Yes| D["Large leverage variation\nLeverage weighting\nhelps significantly"]
     C -->|No| E{"η > 0.5?"}
-    E -->|Yes| F["Moderate variation\nLWCP helps somewhat"]
-    E -->|No| G["Mild variation\nLWCP similar to vanilla CP"]
+    E -->|Yes| F["Moderate variation\nLeverage weighting\nhelps somewhat"]
+    E -->|No| G["Mild variation\nLeverage weighting\nsimilar to vanilla CP"]
 
     style D fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
     style F fill:#e3f2fd,stroke:#1565c0,color:#1c1917
@@ -205,7 +205,7 @@ flowchart TD
 
           $$w(h) = (1 + h)^{-1/2}$$
 
-          <p>This is the weight function in LWCP. It is a known formula of a known quantity. There is no estimation step, no tuning parameter, no model selection. The formula is derived from the exact variance decomposition (Part 6), not from an approximation.</p>
+          <p>This is the leverage-based weight function. It is a known formula of a known quantity. There is no estimation step, no tuning parameter, no model selection. The formula is derived from the exact variance decomposition (Part 6), not from an approximation.</p>
 
           <p>Compare: CQR requires choosing two quantile regression models, each with its own architecture and hyperparameters. Studentized CP requires choosing a scale estimation model. Both involve cross-validation or other tuning procedures. The leverage weight involves none of this.</p>
 
@@ -286,9 +286,9 @@ flowchart LR
           <p>computed over the calibration set. Since $\text{mean}(h_i) = p/n_1$ for training leverages (and approximately $p/n_1$ for new points), this ratio measures how spread out the leverages are relative to their average.</p>
 
           <ul>
-            <li>$\hat{\eta} > 1$: substantial leverage variation. Some points have leverage several times the average. LWCP will produce noticeably better conditional coverage than vanilla CP.</li>
-            <li>$0.5 < \hat{\eta} < 1$: moderate variation. LWCP improves over vanilla, but the gap may be modest.</li>
-            <li>$\hat{\eta} < 0.5$: mild variation. Leverages are concentrated near their mean, and LWCP intervals will be similar to constant-width intervals.</li>
+            <li>$\hat{\eta} > 1$: substantial leverage variation. Some points have leverage several times the average. Leverage weighting will produce noticeably better conditional coverage than vanilla CP.</li>
+            <li>$0.5 < \hat{\eta} < 1$: moderate variation. Leverage weighting improves over vanilla, but the gap may be modest.</li>
+            <li>$\hat{\eta} < 0.5$: mild variation. Leverages are concentrated near their mean, and leverage-weighted intervals will be similar to constant-width intervals.</li>
           </ul>
 
           <h3>Beyond Homoscedastic Noise</h3>
@@ -305,7 +305,7 @@ flowchart LR
 
           <p>Special cases:</p>
           <ul>
-            <li><strong>Homoscedastic</strong> ($g = 1$): $w^*(h) = (1 + h)^{-1/2}$. This is the standard LWCP weight.</li>
+            <li><strong>Homoscedastic</strong> ($g = 1$): $w^*(h) = (1 + h)^{-1/2}$. This is the standard leverage-based weight.</li>
             <li><strong>Leverage-proportional noise</strong> ($g(h) = 1 + h$): $w^*(h) = (1 + 2h)^{-1/2}$. Both noise and estimation variance grow with leverage; the weight compensates for both.</li>
           </ul>
 
@@ -520,7 +520,7 @@ flowchart LR
 
           $$\text{Var}(Y_{\text{new}} - \hat{Y}(x) \mid x) = \sigma^2(x) + \sigma_0^2 \cdot h(x)$$
 
-          <p>where $\sigma_0^2$ is the average noise level and $\sigma^2(x)$ is the feature-dependent noise. The leverage component $\sigma_0^2 \cdot h(x)$ is still handled exactly by leverage weighting. For the non-leverage component $\sigma^2(x)$, one can combine leverage weighting with a lightweight scale estimator. This is the LWCP+ approach: use a small random forest (say, 10 trees) to estimate $\hat{\sigma}(x)$ from training residuals, then define the weight as $w(x) = (\hat{\sigma}^2(x) \cdot (1 + h(x)))^{-1/2}$. The leverage component handles the geometry; the scale estimator handles the feature-dependent noise.</p>
+          <p>where $\sigma_0^2$ is the average noise level and $\sigma^2(x)$ is the feature-dependent noise. The leverage component $\sigma_0^2 \cdot h(x)$ is still handled exactly by leverage weighting. For the non-leverage component $\sigma^2(x)$, one can combine leverage weighting with a lightweight scale estimator. A natural hybrid approach is to use a small random forest (say, 10 trees) to estimate $\hat{\sigma}(x)$ from training residuals, then define the weight as $w(x) = (\hat{\sigma}^2(x) \cdot (1 + h(x)))^{-1/2}$. The leverage component handles the geometry; the scale estimator handles the feature-dependent noise.</p>
 
           <p>Even in this hybrid approach, the leverage component provides a substantial portion of the adaptation for free. The scale estimator needs to capture only the residual heteroscedasticity not explained by leverage, which is a simpler estimation problem than capturing all heteroscedasticity from scratch.</p>
 
@@ -555,7 +555,7 @@ flowchart TD
     style K fill:#e3f2fd,stroke:#1565c0,color:#1c1917
     style P fill:#e3f2fd,stroke:#1565c0,color:#1c1917
           </div>
-          <p class="diagram-caption">The complete LWCP pipeline, from data to adaptive prediction intervals. Green nodes indicate components that are shared with (or already computed by) standard OLS.</p>
+          <p class="diagram-caption">The complete leverage-weighted conformal pipeline, from data to adaptive prediction intervals. Green nodes indicate components that are shared with (or already computed by) standard OLS.</p>
 
         </div>
       </div>
@@ -568,7 +568,7 @@ flowchart TD
 
       <p>We have established that leverage scores satisfy a useful combination of properties: closed-form, model-free, computationally negligible, and immune to the sign flip. Among existing adaptation mechanisms for conformal prediction, none other has all four.</p>
 
-      <p>In the next and final post, we bring everything together. We define the Leverage-Weighted Conformal Prediction (LWCP) algorithm, prove its coverage guarantee, and demonstrate its performance on real and synthetic data.</p>
+      <p>In the next and final post, we bring everything together. We formalize the leverage-weighted conformal approach, establish its coverage guarantee, and see how all the ideas from this series combine into a single, practical method.</p>
 
     </div>
 
