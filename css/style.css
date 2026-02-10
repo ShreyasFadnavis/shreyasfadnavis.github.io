@@ -418,14 +418,16 @@ nav {
 
 /* Track: large faded numeral */
 .track-number {
-  font-family: var(--serif);
-  font-size: var(--text-4xl);
-  font-weight: 300;
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
   color: var(--accent);
-  opacity: 0.15;
+  opacity: 0.45;
   line-height: 1;
   display: block;
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.6rem;
 }
 
 /* Track: narrative paragraph */
@@ -723,15 +725,16 @@ nav {
 }
 
 .notes-column-number {
-  font-family: var(--serif);
-  font-size: clamp(3rem, 5vw, 4.5rem);
-  font-weight: 300;
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
   color: var(--accent);
-  opacity: 0.10;
+  opacity: 0.45;
   line-height: 1;
   display: block;
-  margin-bottom: 0.1rem;
-  letter-spacing: -0.04em;
+  margin-bottom: 0.6rem;
 }
 
 .notes-column-title {
