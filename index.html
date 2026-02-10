@@ -1,869 +1,110 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <!-- Bootstrap 5 -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
-
-    <!-- Font Awesome cdn -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-
-    <!-- Main CSS -->
-    <link rel="stylesheet" href="Style/style.css">
-    <link rel="stylesheet" href="Style/style-responsive.css">
-
-    <!-- Main JS -->
-    <script src="assets/JS/javascript.js"></script>
-    <title>SHREYAS FADNAVIS</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
-
 <body>
-    <section class="head">
-        <div class="container">
-            <div class="flag"></div>
-            <div class="col-lg-12">
-                <div class="row">
-                    <div class="col-lg-7">
-                        <div class="user-profile">
-                            <div class="user-img">
-                                <div class="img">
-                                    <img src="Images/Profile Picture.webp" alt="user">
-                                </div>
-                                <div class="user-name">SHREYAS FADNAVIS</div>
-                            </div>
-                            <div class="sub-title">I am Shreyas Fadnavis, currently serving as a postdoctoral research scientist at Johnson & Johnson within the Computer Vision Team. My work is primarily focused on developing Foundational Models for Transthoracic Echocardiography (TTE), Endoscopy, and exploring interpretability methods for deep learning models. Among my significant contributions is the "Patch2Self" framework, a novel approach that leverages self-supervised learning for the denoising of diffusion MRI data, and "Patch2Self-Sketch," which introduces matrix sketching for more efficient data processing. Holding a PhD from Indiana University Bloomington and having completed a postdoctoral fellowship at Harvard University/Harvard Medical School, my journey has been dedicated to advancing the fields of biomedical engineering, machine learning, and neuroimaging, aiming to solve complex challenges in medical diagnostics and treatments with innovative mathematical and computational techniques.</div>
-                        </div>
-                    </div>
-                    <div class="col-lg-5">
-                        <div class="contact-details">
-                            <div class="box1">
-                                <span class="details">PHONE <br><span class="sub-text"><a href="tel:812-955-9322"
-                                            class="box1-items">812-955-9322</a></span></span>
-                                <img src="Images/Call.svg" alt="">
-                            </div>
-                            <div class="box1">
-                                <span class="details">EMAIL <br><span class="sub-text"><a
-                                            href="mailto:@sfadnavis@its.jnj.com"
-                                            class="box1-items">sfadnavi@its.jnj.com</a></span></span>
-                                <img src="Images/Message.svg" alt="">
-                            </div>
-                            <div class="box1">
-                                <span class="details">GITHUB <br><span class="sub-text"><a
-                                            href="https://github.com/search?q=%40ShreyasFadnavis&type=repositories"
-                                            class="box1-items">@ShreyasFadnavis</a></span></span>
-                                <img src="Images/GitHub.svg" alt="">
-                            </div>
-                            <div class="box1">
-                                <span class="details">GOOGLE SCHOLAR <br><span class="sub-text"><a
-                                            href="https://scholar.google.com/citations?user=pMGFvrYAAAAJ&hl=en"
-                                            class="box1-items">https://scholar.google.com/citations?user=pMGFvrYAAAAJ&hl=en</a></span></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                                <img src="Images/Message.svg" alt="">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-lg-12">
-                    <div class="pill">
-                        <span class="badge text-bg-light">Statistical
-                            Learning</span>
-                        <span class="badge text-bg-light">Biomedical
-                            Engineering</span>
-                        <span class="badge text-bg-light">Neuroimaging</span>
-                        <span class="badge text-bg-light">Computer
-                            Vision</span>
-                        <span class="badge text-bg-light">Applied Math</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-    <section class="body">
-        <div class="container">
-            <div class="col-lg-12 header" id="header">
-                <!-- <a href="#awards" class="btn-lg btn-sm nav__links active">Education</a> -->
-                <!-- <a href="#awards" class="btn-lg btn-sm nav__links">Awards / Honors</a> -->
-                <!-- <a href="#publications" class="btn-lg btn-sm nav__links">Publications</a> -->
-                <!-- <a href="#experience" class="btn-lg btn-sm nav__links">Experience</a> -->
-                <a href="#aboutme" class="btn-lg btn-sm nav__links">About Me</a>
-                <!-- <a href="#technical" class="btn-lg btn-sm nav__links">Technical Experience</a> -->
-                <!-- <a href="#technical-skills" class="btn-lg btn-sm nav__links">Technical Skills</a> -->
-                <!-- <a href="#leadership" class="btn-lg btn-sm nav__links">Leadership & Community Service</a> -->
-                <a href="#research" class="btn-lg btn-sm nav__links">Research Highlights</a>
-                <a href="#patch2self" class="btn-lg btn-sm nav__links">Patch2Self</a>
-                <a href="#supervised" class="btn-lg btn-sm nav__links">Self Supervised Learning</a>
-                <a href="#nlp" class="btn-lg btn-sm nav__links">NLP, LLMs And Computational Psychiatry</a>
-                <a href="#multiview" class="btn-lg btn-sm nav__links">Multi-View Learning</a>
-                <!-- <a href="#pastlife" class="btn-lg btn-sm nav__links">Past Life</a> -->
-            </div>
-            <div class="scrolltabs">
-                <div class="col-lg-12">
-                    <div class="row px-5">
-                        <div class="col-lg-6">
-                            <h1 class="main-title section" id="aboutme">EDUCATION
-                                <div class="rect"></div>
-                            </h1>
-                            <ul class="list-with-dotinsidedot">
-                                <li>
-                                    <div class="date">July 2022 - June 2023 (Boston, Massachusetts)</div>
-                                    <div class="title">Harvard University / Harvard Medical School</div>
-                                    <div class="sub-title">Postdoctoral Research Fellow</div>
-                                    <p class="body-text">Multimodal ML, Time Series Modeling, Interpretable ML, Inverse
-                                        Problems in Neuroimaging (MRI), Tissue Microstructure Analyses, Harmonization
-                                        and Causal Inference.</p>
-                                </li>
-                                <li>
-                                    <div class="date">August 2017 - June 2022 (Bloomington, Indiana)</div>
-                                    <div class="title">Indiana University Bloomington, GPA 3.9/4.0</div>
-                                    <div class="sub-title">PhD in Engineering - Intelligent Systems</div>
-                                    <p class="body-text">Medical Imaging, Machine Learning, Computational Topology,
-                                        Random Matrix Algorithms,Deep Learning, Statistical Modeling, Software
-                                        Development, Neuroscience.</p>
-                                </li>
-                                <li>
-                                    <div class="date">August 2017 - May 2019 (Bloomington, Indiana)</div>
-                                    <div class="title">Indiana University Bloomington</div>
-                                    <div class="sub-title">MS in Engineering - Intelligent Systems, GPA 3.9/4.0</div>
-                                    <p class="body-text">Bayesian Theory, Image Processing, Representation Learning,
-                                        Reinforcement Learning.</p>
-                                </li>
-                                <li>
-                                    <div class="date">June 2013 - June 2017 (Pune, India)</div>
-                                    <div class="title">Pune Institute of Computer Technology, University of Pune</div>
-                                    <div class="sub-title">Bachelor of Engineering (BE): Computer Engineering, GPA 9/10
-                                    </div>
-                                    <p class="body-text">Data Structures, Algorithms, Data Mining, Natural Language
-                                        Processing, Databases,Software Engineering, Parallel & Distributed Programming,
-                                        Engineering Mathematics, Artificial Intelligence.</p>
-                                </li>
-                            </ul>
-                            <div class="hr"></div>
 
-                            <h1 class="main-title section" id="aboutme">EXPERIENCE <span
-                                    class="secondary-text">(Research and
-                                    Development)</span>
-                                <div class="rect"></div>
-                            </h1>
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/" class="active">About</a>
+      <a href="/blog/">Writing</a>
+    </div>
+  </div>
+</nav>
 
+<main>
 
-                            <ul class="list-with-dotinsidedot">
-                                <li>
-                                    <div class="date">Jun 2023 - Present (Boston, Massachusetts)</div>
-                                    <div class="title">Janssen: Pharmaceutical Companies of Johnson & Johnson </div>
-                                    <div class="sub-title">Postdoctoral Researcher (part of the Computer Vision Team)
-                                    </div>
-                                    <ul class="list-styling">
-                                        <li class="list-style">Developed a transformers-based architecture for detecting
-                                            Pulmonary Hypertension from echocardiography images.</li>
-                                        <li class="list-style">Implemented a framework to integrate optical flow data
-                                            into the self-supervised training of video models.</li>
-                                        <li class="list-style">Introduced a novel interpretability method, 'Weiner
-                                            Attributions', for enhanced comprehension of deep learning models.</li>
-                                    </ul>
-                                </li>
-                                <li>
-                                    <div class="date">July 2022 - June 2023 (Boston, Massachusetts)</div>
-                                    <div class="title">Harvard University / Harvard Medical School (adviser: <a href="https://connects.catalyst.harvard.edu/Profiles/display/Person/36450" target="_blank"
-                                            class="body-anchor">Ofer Pasternak, PhD</a>)</div>
-                                    <div class="sub-title">Postdoctoral Research Fellow (Leading analysis and algorithm
-                                        development for <a href="https://reporter.nih.gov/project-details/10092398" target="_blank" class="list-body-anchor">U24 AMP-SCZ</a>)</div>
-                                    <ul class="list-styling body-text">
-                                        <li>Developing algorithms to learn from multimodal biomedical
-                                            data (dMRI, fMRI, EEG and Audio/Video Interviews).</li>
-                                        <li>Detecting and summarizing sub-types of Chronic Pain and
-                                            Psychosis with NLP-transformers and Explainable AI.</li>
-                                        <li>New Deep Belief Networks-based approach to model Wisdom
-                                            of Crowds data.</li>
-                                    </ul>
-                                </li>
-                                <li>
-                                    <div class="date">May 2021 - August 2021 (Yorktown Heights, New York)</div>
-                                    <div class="title">IBM Research (adviser: <a href="https://research.ibm.com/people/guillermo-cecchi" class="body-anchor" target="_blank">Guillermo
-                                            Cecchi, PhD,</a> <a href="https://research.ibm.com/people/amit-dhurandhar" target="_blank" class="list-body-anchor">Amit Dhurandhar, PhD</a>)</div>
-                                    <div class="sub-title">PhD Research Intern</div>
-                                    <ul class="list-styling">
-                                        <li>Robust predictive biomarkers of chronic pain using
-                                            multi-view learning and expert-guided ML.</li>
-                                        <li>Studied invariant representations for denoising and data
-                                            harmonization using self-supervised learning.</li>
-                                    </ul>
-                                </li>
-                                <li>
-                                    <div class="date">May 2020 - August 2020 (Yorktown Heights, New York)</div>
-                                    <div class="title">IBM Research (adviser: <a href="https://research.ibm.com/people/guillermo-cecchi" class="body-anchor" target="_blank">Guillermo
-                                            Cecchi, PhD</a>)</div>
-                                    <div class="sub-title">PhD Research Intern</div>
-                                    <ul class="list-styling">
-                                        <li>Developed a multi-view learning framework for
-                                            intermediate data fusion of diffusion MRI microstructure models.</li>
-                                        <li>Leverages multi-view boosting, deep learning and multiple
-                                            kernel learning for neurological diseases and white matter
-                                            characterizations.</li>
-                                    </ul>
-                                </li>
-                                <li>
-                                    <div class="date">May 2018 - Present (Yorktown Heights, New York)</div>
-                                    <div class="title">Diffusion Imaging in Python (DIPY)<a href="https://dipy.org/" class="body-anchor" target="_blank">
-                                            https://dipy.org</a></div>
-                                    <div class="sub-title">Software Developer (Open-Source, Core Team, Maintainer)</div>
-                                    <ul class="list-styling body-text">
-                                        <li>Self-supervised learning framework for denoising 4D
-                                            diffusion MRI data.</li>
-                                        <li>Intravoxel Incoherent Motion using Topological
-                                            Optimization and Variable Projection.</li>
-                                        <li>Constrained Deconvolution reconstruction using Spherical
-                                            Harmonics.</li>
-                                    </ul>
-                                </li>
-                                <li>
-                                    <div class="date">August 2018 - Present (Bloomington, Indiana)</div>
-                                    <div class="title">Indiana University</div>
-                                    <div class="sub-title">Research Assistant (adviser: <a href="https://luddy.indiana.edu/contact/profile/?profile_id=460"
-                                            class="list-body-anchor" target="_blank">
-                                            Prof. Eleftherios Garyfallidis</a>)</div>
-                                    <ul class="list-styling body-text">
-                                        <li>Dictionary Learning for Bayesian estimation of
-                                            microstructure models.</li>
-                                        <li>Random Matrix Theory-based Factor Models for Signal
-                                            Recovery.</li>
-                                        <li>Combinatorial Topology for Optimization, Self-supervised
-                                            Learning.</li>
-                                    </ul>
-                                </li>
-                                <li>
-                                    <div class="date">May 2018 - August 2018 (Bloomington, Indiana)</div>
-                                    <div class="title">Google</div>
-                                    <div class="sub-title">Summer of Code Developer, Python Software Foundation</div>
-                                    <ul class="list-styling body-text">
-                                        <li>Mathematical optimization techniques for nonlinear model
-                                            fitting.</li>
-                                        <li>Stochastic optimization for approximating sparse
-                                            exponential
-                                            signals for NODDI, ActiveAx, etc.</li>
-                                    </ul>
-                                </li>
-                                <li>
-                                    <div class="date">May 2017 - October 2017 (Juelich, Germany)</div>
-                                    <div class="title">Juelich Supercomputing Center (Institute of Advanced Simulations)
-                                    </div>
-                                    <div class="sub-title">Research Associate (Exchange Student)</div>
-                                    <ul class="list-styling body-text">
-                                        <li>Used OpenMP and MPI, parallelised multiple simulation
-                                            models
-                                            on the JURECA (Exascale Supercomputer).</li>
-                                        <li>Code optimization using Scalasca for improved Scheduling and
-                                            Load Balancing.</li>
-                                    </ul>
-                                </li>
-                                <li>
-                                    <div class="date">December 2015 - February 2016 (Pune, India)</div>
-                                    <div class="title">LiveHealth</div>
-                                    <div class="sub-title">Software Development Intern</div>
-                                    <ul class="list-styling">
-                                        <li>Data Integration and incremental filtering on live data
-                                            for Healthcare Providers using CrossfilterJS and NodeJS.</li>
-                                    </ul>
-                                </li>
-                            </ul>
+  <div class="home-intro">
+    <h1>Shreyas Fadnavis</h1>
+    <p class="tagline">
+      Machine learning, applied math, and the geometry of uncertainty.
+    </p>
+    <p class="bio">
+      I am a researcher working at the intersection of statistical learning, computer vision, and biomedical engineering. Currently a postdoctoral research scientist at Johnson &amp; Johnson, where I develop foundational models for medical imaging (echocardiography, endoscopy) and work on interpretability methods for deep learning.
+    </p>
+    <p class="bio">
+      Previously, I was a postdoctoral fellow at Harvard Medical School, where I worked on multimodal machine learning, diffusion MRI, and computational psychiatry. I hold a PhD from Indiana University Bloomington in Engineering (Intelligent Systems), where I created <a href="https://dipy.org">Patch2Self</a>&mdash;a self-supervised framework for denoising diffusion MRI data, presented as a spotlight at NeurIPS 2020.
+    </p>
+    <p class="bio">
+      My current research interests include conformal prediction, leverage scores, randomized numerical linear algebra, and uncertainty quantification.
+    </p>
 
-                            <h1 class="main-title section" id="aboutme">LEADERSHIP & COMMUNITY SERVICE
-                                <div class="rect"></div>
-                            </h1>
+    <div class="links-row">
+      <a href="https://scholar.google.com/citations?user=pMGFvrYAAAAJ&hl=en">Google Scholar</a>
+      <a href="https://github.com/ShreyasFadnavis">GitHub</a>
+      <a href="https://www.linkedin.com/in/shreyasfadnavis/">LinkedIn</a>
+      <a href="mailto:sfadnavi@its.jnj.com">Email</a>
+    </div>
+  </div>
 
-                            <ul class="custom-list1">
-                                <li>
-                                    <div class="title">Details</div>
-                                    <ul class="list-styling">
-                                        <li>
-                                            <div class="list-style">Core organizer and Speaker at DIPY Workshop 2019,
-                                                2021,
-                                                2022 and
-                                                2023 <a href="https://dipy.org/workshops/dipy-workshop-2021#Speakers" class="list-body-anchor" target="_blank">[link]</a> [eg: <a href="https://www.youtube.com/watch?v=-namKRjlr_0&ab_channel=DiffusionImaginginPython-DIPY"
-                                                    class="list-body-anchor" target="_blank">tutorial / presentation</a>]</div>
-                                        </li>
-                                        <li class="list-style">
-                                            <div>Mentored 3 CS and Informatics Undergraduate Students at Indiana
-                                                University
-                                                Bloomington [2019-2020]</div>
-                                        </li>
-                                        <li class="list-style">
-                                            <div>Reviewer: NeurIPS, ICML, NeuroImage, Nature Scientific Reports</div>
-                                        </li>
-                                        <li class="marg1">
-                                            <div>Team member of Brainhack community <a href="https://pubmed.ncbi.nlm.nih.gov/33932337/"
-                                                    class="list-body-anchor" target="_blank">[Neuron
-                                                    paper]</a></div>
-                                        </li>
-                                    </ul>
-                                </li>
-                            </ul>
+  <section>
+    <h2>Selected Work</h2>
 
-                            <!-- <div class="hr"></div> -->
-                        </div>
+    <div class="item">
+      <div class="item-title">Patch2Self: Denoising Diffusion MRI with Self-Supervised Learning</div>
+      <div class="item-meta">NeurIPS 2020 &middot; Spotlight (top 2.2%)</div>
+      <div class="item-desc">Self-supervised denoising without requiring clean training data, using the statistical independence of noise across diffusion directions.</div>
+    </div>
 
-                        <div class="col-lg-6">
+    <div class="item">
+      <div class="item-title">QSIPrep: An Integrative Platform for Preprocessing and Reconstructing Diffusion MRI</div>
+      <div class="item-meta">Nature Methods, 2021</div>
+    </div>
 
-                            <h2 class="main-title section" id="aboutme">AWARDS / HONORS
-                                <div class="rect"></div>
-                            </h2>
+    <div class="item">
+      <div class="item-title">Patch2Self-Sketch: Self-Supervised Denoising on Coresets via Matrix Sketching</div>
+      <div class="item-meta">Under review, 2023</div>
+      <div class="item-desc">Randomized matrix sketching for efficient denoising of large-scale imaging data.</div>
+    </div>
 
-                            <ul class="custom-list1">
-                                <li class="line-high">
-                                    <div class="sub-title">Spotlight Presentation at Neural Information Processing
-                                        Systems
-                                        (NeurIPS) top 2.2% (top 208 of 9454 submissions)</div>
-                                </li>
+    <div class="item">
+      <div class="item-title">PainPoints: Language-Based Detection of Chronic Pain</div>
+      <div class="item-meta">ML4H 2022</div>
+      <div class="item-desc">NLP framework for detecting chronic pain from clinical narratives with expert-collaborative summarization.</div>
+    </div>
 
-                                <li class="line-high">
-                                    <div class="sub-title">Oral at International Society for Magnetic Resonance in
-                                        Medicine
-                                        (ISMRM) top 15% (top 878 of 5000+ submissions)</div>
-                                </li>
+    <div class="item">
+      <div class="item-title">MVD-Fuse: Multi-View Learning of Diffusion Microstructure</div>
+      <div class="item-meta">NeurIPS Medical Imaging Workshop, 2020</div>
+    </div>
+  </section>
 
-                                <li class="line-high">
-                                    <div class="sub-title">1st place in IEEE ISBI Competition for Biophysical Modeling
-                                        of
-                                        Tissue Microstructure (MEMENTO)</div>
-                                </li class="line-high">
+  <section>
+    <h2>Education</h2>
 
-                                <li class="marg">
-                                    <div class="sub-title">Graduate Fellowship for PhD, Indiana University</div>
-                                </li>
-                            </ul>
-                            <div class="hr"></div>
+    <div class="item">
+      <div class="item-title">Harvard University / Harvard Medical School</div>
+      <div class="item-meta">Postdoctoral Research Fellow &middot; 2022&ndash;2023</div>
+    </div>
 
-                            <h1 class="main-title section" id="aboutme">PUBLICATIONS <span
-                                    class="secondary-text">(Citations: 1476+)</span>
-                                <div class="rect"></div>
-                            </h1>
+    <div class="item">
+      <div class="item-title">Indiana University Bloomington</div>
+      <div class="item-meta">PhD in Engineering (Intelligent Systems) &middot; 2017&ndash;2022</div>
+    </div>
 
-                            <ul class="custom-list1">
-                                <li>
-                                    <div class="title">Published:</div>
-                                    <!-- <div class="sub-title">Lead Graduate Associate Instructor</div> -->
-                                    <ul class="list-styling">
-                                        <li><b>Fadnavis, S.*</b>, Schilling, K.*, et. al. “Denoising of diffusion MRI in
-                                            the
-                                            cervical spinal cord–effects of denoising strategy and
-                                            acquisition on intra-cord contrast, signal modeling, and feature
-                                            conspicuity”,
-                                            NeuroImage, 2022</li>
+    <div class="item">
+      <div class="item-title">Indiana University Bloomington</div>
+      <div class="item-meta">MS in Engineering (Intelligent Systems) &middot; 2017&ndash;2019</div>
+    </div>
 
-                                        <li><b>Fadnavis, S.</b>, et. al., “PainPoints: A Framework for Language-based
-                                            Detection of Chronic Pain and Expert-Collaborative
-                                            Text-Summarization”, Machine Learning for Health, 2022 [extended abstract],
-                                            under journal submission: Nature Scientific Reports
-                                            <a href="https://arxiv.org/abs/2209.09814" class="list-body-anchor" target="_blank">[arxiv |</a> <a href="https://drive.google.com/file/d/17vcJk1_WmY-opkUXQ2G3Y1wMbQAQVWxl/view?pli=1" target="_blank" class="list-body-anchor">poster]</a></li>
-                                        <li>
-                                            <b>Fadnavis, S.</b> et. al., “NUQ: A noise metric for diffusion MRI via
-                                            uncertainty discrepancy quantification”, Machine Learning for Health,
-                                            2022 [extended abstract], under journal submission: NeuroImage <a href="https://arxiv.org/abs/2203.01921" class="list-body-anchor" target="_blank">[arxiv |</a>
-                                            <a href="https://drive.google.com/file/d/1rjcgDjIuMsQaJdYjq9Ka7yOmyX4ZILWX/view" target="_blank" class="list-body-anchor">poster |</a> <a href="https://www.youtube.com/watch?v=TPUofjfka2I&ab_channel=DiffusionImaginginPython-DIPY" target="_blank" class="list-body-anchor">video]</a>
-                                        </li>
-                                        <li>
-                                            <b>Fadnavis, S.</b> el. al., “Effect of Denoising on Retrospective
-                                            Harmonization
-                                            of Diffusion Magnetic Resonance Images”, Neural
-                                            Information Processing Systems (MedNeurIPS), 2022 <a href="https://drive.google.com/file/d/1gPrhPorTw6ujGMA3mWqfoR6-hQDwp_X0/view" target="_blank" class="list-body-anchor">[poster]</a>
-                                        </li>
-                                        <li>
-                                            <b>Fadnavis, S.</b>et. al. “Patch2Self: Denoising Diffusion MRI with
-                                            Self-Supervised Learning”, Thirty-fourth Conference on Neural
-                                            Information Processing Systems, (NeurIPS), 2020 [Spotlight Presentation]
-                                            <a href="https://docs.google.com/presentation/d/1_CLsMrw2u3hFGH8nZuBfpIOWaSch0mH2RVOPSA6B-JU/edit?pli=1#slide=id.g10f1256dbdb_0_696" class="list-body-anchor" target="_blank">[slides |</a> <a href="https://crossminds.ai/video/patch2self-denoising-diffusion-mri-with-self-supervised-learning-606fe840f43a7f2f827c0a13/" class="list-body-anchor" target="_blank">video |</a> <a href="https://drive.google.com/file/d/17ju69sXUVcUX5G7uQPAQ8b1hEHKJsHbQ/view" class="list-body-anchor" target="_blank">poster]</a>
-                                        </li>
-                                        <li>
-                                            Cieslak, M. et. al., “QSIPrep: An integrative platform for preprocessing and
-                                            reconstructing diffusion MRI”, Nature Methods, 2021
-                                            <a href="https://qsiprep.readthedocs.io/en/latest/" target="_blank" class="list-body-anchor">[software package link]</a>
-                                        </li>
-                                        <li>
-                                            <b>Fadnavis, S.</b> et. al., “Bifurcated Topological Optimization of IVIM”,
-                                            Frontiers in Neuroscience, Brain Imaging Methods, 2021 <a href="https://www.youtube.com/watch?v=1KAMfaPuQxg&ab_channel=DiffusionImaginginPython-DIPY" target="_blank" class="list-body-anchor">[video]</a>
-                                        </li>
-                                        <li>
-                                            <b>Fadnavis, S.</b> et. al., “MVD-Fuse: Detection of White Matter
-                                            Degeneration
-                                            via Multi-View Learning of Diffusion Microstructure ”,
-                                            Thirty-fourth Conference on Neural Information Processing Systems,
-                                            (NeurIPS),
-                                            Medical Imaging Workshop, 2020 <a href="https://crossminds.ai/video/mvd-fuse-detection-of-white-matter-degeneration-via-multi-view-learning-of-diffusion-microstructure-606fe513f43a7f2f827c04ed/" target="_blank" class="list-body-anchor">[video]</a>
-                                        </li>
-                                        <li>
-                                            De Luca, et. al., “On the generalizability of diffusion MRI signal
-                                            representations across acquisition parameters, sequences and tissue
-                                            types”, NeuroImage, 2021 <a href="https://vimeo.com/405277844" target="_blank" class="list-body-anchor">[video]</a>
-                                        </li>
-                                        <li>
-                                            Hu, et.al. “Segmentation of the Brain using Direction-averaged Signal of DWI
-                                            Images”, Magnetic Resonance Imaging, 2020
-                                        </li>
-                                        <li>
-                                            Hansen et. al., “Pandora: 4-D white matter bundle population-based atlases
-                                            derived from diffusion MRI fiber tractography”,
-                                            Neuroinformatics, 2020, DOI: 10.1007/s12021-020-09497-1
-                                        </li>
-                                        <li>
-                                            <b>Fadnavis, S.</b>. et. al., “NoiseFactors: Generative modeling for 3D
-                                            image
-                                            denoising via Randomized Factor Models”, International Society
-                                            for Magnetic Resonance in Medicine, 2020
-                                        </li>
-                                        <li>
-                                            <b>Fadnavis, S.</b>. et. al., “Variable Projection Optimization for
-                                            Intravoxel
-                                            Incoherent Motion (IVIM) MRI estimation”, Thirty-third
-                                            Conference on Neural Information Processing Systems(NeurIPS), Medical
-                                            Imaging
-                                            Workshop, 2019
-                                        </li>
-                                        <li>
-                                            <b>Fadnavis, S.</b>. et. al., “MicroLearn: Framework for machine learning,
-                                            reconstruction, optimization and microstructure modeling”,
-                                            International Society for Magnetic Resonance in Medicine, 2019
-                                        </li>
-                                        <li>
-                                            <b>Fadnavis, S.</b> “Maximizing Information of Severe Weather Events
-                                            Retrieved
-                                            from Satellite Images”, International Journal of
-                                            Engineering Research and Applications, ISSN : 2248-9622, 2017
-                                        </li>
-                                        <li>
-                                            <b>Fadnavis, S.</b>“Optimal Partitioning Methods for Image Segmentation”,
-                                            IET -
-                                            Journal of Engineering ISSN : 2051-3305, 2015
-                                        </li>
-                                        <li>
-                                            Garyfallidis, E., et. al. "Dipy, a library for the analysis of diffusion MRI
-                                            data." Frontiers in neuroinformatics 8, 2014
-                                        </li>
-                                        <li>
-                                            <b>Fadnavis, S.</b>, “Image Interpolation Techniques in Digital Image
-                                            Processing”, International Journal of Engineering Research and
-                                            Applications, ISSN : 2248-9622, 2014
-                                        </li>
-                                        <li>
-                                            <b>Fadnavis, S.</b> “Roundoff Error Propagation in Simulation of RC
-                                            Circuit”,
-                                            Advances in Computing and Information Technology, ISBN :
-                                            978-981-07-8859-9, 2014
-                                        </li>
-                                        <li>
-                                            Garyfallidis, E., et. al. "Dipy, a library for the analysis of diffusion MRI
-                                            data." Frontiers in neuroinformatics 8, 2014
-                                        </li>
-                                    </ul>
-                                </li>
-                            </ul>
+    <div class="item">
+      <div class="item-title">Pune Institute of Computer Technology</div>
+      <div class="item-meta">BE in Computer Engineering &middot; 2013&ndash;2017</div>
+    </div>
+  </section>
 
-                            <ul class="custom-list1">
-                                <li>
-                                    <div class="title">Pre-prints / Under Review:</div>
+</main>
 
-                                    <ul class="list-styling">
-                                        <li><b>Fadnavis, S.*</b>, et. al., “ViewFormer: a View-Independent Transformer
-                                            Model
-                                            for Disease Detection from Transthoracic
-                                            Echocardiograms”, CVPR, 2024 (Under Review)</li>
-
-                                        <li>Park, J., <b>Fadnavis, S.</b>, et. al. “EVAC+: Multi-scale V-net with Deep
-                                            Feature CRF Layers for Brain Extraction”, submitted to Medical
-                                            Image Analysis. ArXiv [code] - ISMRM’23 Oral.</li>
-                                        <li>
-                                            <b>Fadnavis, S.</b> et. al. “Interpretable Specificity of Psychoactive Drug
-                                            Effects in Informal Dialogue Using Large Language Models.”
-                                            Biological Psychiatry, 2023 (under review)
-                                        </li>
-                                        <li>
-                                            <b>Fadnavis, S.</b> et. al. “PrompType: Prompting Large Language Models with
-                                            Prototypes”, 2023 (under submission)
-                                        </li>
-                                        <li>
-                                            <b>Fadnavis, S.,</b> el. al., “Unsupervised Ensemble Learning of Risk
-                                            Predictors
-                                            for Clinically High Risk Psychosis”, JAMA Psychiatry, 2023
-                                            (Under submission)
-                                        </li>
-                                        <li>
-                                            <b>Fadnavis, S.,</b>. et. al. “Patch2Self-Sketch: Self-supervised Denoising
-                                            on
-                                            Coresets via Matrix Sketching”, submittedto Nature
-                                            Communications, 2023
-                                        </li>
-                                        <li>
-                                            Endres, S, et. al., “A Linear Complexity Simplicial Complex Data Structure
-                                            for
-                                            Fast Homology and Boundary Computation”, submitting
-                                            to TMLR, 2023
-                                        </li>
-                                        <li class="marg">
-                                            Garyfallidis, E, Fadnavis, S, et.al. “ThetA -- fast and robust clustering
-                                            via a
-                                            distance parameter”, ArXiv
-                                        </li>
-                                    </ul>
-                                </li>
-                            </ul>
-                            <div class="hr"></div>
-
-                            <h1 class="main-title section" id="aboutme">TEACHING EXPERIENCE
-                                <div class="rect"></div>
-                            </h1>
-
-
-                            <ul class="custom-list1">
-                                <li>
-                                    <div class="title">Indiana University</div>
-                                    <div class="sub-title">Lead Graduate Associate Instructor</div>
-                                    <ul class="list-styling">
-                                        <li>Image Processing (ENGR-535), Engineering (Spring 2019, 2020,
-                                            2021) [<a target="_blank" href="https://grg.luddy.indiana.edu//teaching/" class="list-body-anchor">Course Link</a>]</li>
-                                        <li>Neuro-inspired AI (ENGR-506), Engineering (Fall 2019, 2020)
-                                            [<a target="_blank" href="https://grg.luddy.indiana.edu//teaching/" class="list-body-anchor">Course Link</a>]</li>
-                                    </ul>
-                                </li>
-                            </ul>
-                            <div class="hr"></div>
-
-                            <h1 class="main-title section" id="aboutme">TECHNICAL SKILLS
-                                <div class="rect"></div>
-                            </h1>
-                            <ul class="custom-list1">
-                                <li>
-                                    <div class="title">Languages</div>
-                                    <div class="sub-title">Python, R, C, C++, Java, Shell Scripting,
-                                        Javascript</div>
-                                </li>
-
-                                <li>
-                                    <div class="title">Big Data Tools: </div>
-                                    <div class="sub-title">Apache Hadoop, Apache Kafka, Apache Spark, Joblib,
-                                        OpenMP</div>
-                                </li>
-
-                                <li>
-                                    <div class="title">Data Analysis:</div>
-                                    <div class="sub-title">Scikit-learn, PyTorch, TensorFlow, DIPY, SciPy,
-                                        Pandas, NumPy</div>
-                                </li>
-
-                                <li class="marg">
-                                    <div class="title">NLP/CV/Web Tools: </div>
-                                    <div class="sub-title">Large Language Models, SpaCy, NLTK, Scikit-image,
-                                        Flask, Plotly Dash</div>
-                                </li>
-                            </ul>
-                            <!-- <div class="hr"></div> -->
-
-                            <!-- <h1 class="main-title section" id="leadership">LEADERSHIP & COMMUNITY SERVICE
-                                <div class="rect"></div>
-                            </h1>
-
-                            <ul class="custom-list1">
-                                <li>
-                                    <div class="title">Details</div>
-                                    <ul class="list-styling">
-                                        <li>
-                                            <div class="list-style">Core organizer and Speaker at DIPY Workshop 2019,
-                                                2021,
-                                                2022 and
-                                                2023 <a href="" class="list-body-anchor">[link]</a> [eg: <a href=""
-                                                    class="list-body-anchor">tutorial / presentation</a>]</div>
-                                        </li>
-                                        <li class="list-style">
-                                            <div>Mentored 3 CS and Informatics Undergraduate Students at Indiana
-                                                University
-                                                Bloomington [2019-2020]</div>
-                                        </li>
-                                        <li class="list-style">
-                                            <div>Reviewer: NeurIPS, ICML, NeuroImage, Nature Scientific Reports</div>
-                                        </li>
-                                        <li class="marg1">
-                                            <div>Team member of Brainhack community <a href=""
-                                                    class="list-body-anchor">[Neuron
-                                                    paper]</a></div>
-                                        </li>
-                                    </ul>
-                                </li>
-                            </ul> -->
-
-
-
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="hr-line"></div>
-
-            <!-- <div class="col-lg-12 header" id="header">
-                <a href="#patch2self"><button type="button" class="btn-lg btn-sm">Patch2Self</button></a>
-                <a href="#supervised"><button type="button" class="btn-lg btn-sm">Self Supervised Learning</button></a>
-                <a href="#nlp"><button type="button" class="btn-lg btn-sm">NLP, LLMs And Computational Psychiatry</button></a>
-                <a href="#multiview"><button type="button" class="btn-lg btn-sm">Multi-View Learning</button></a>
-                <a href="#pastlife"><button type="button" class="btn-lg btn-sm">Past Life</button></a>
-            </div> -->
-
-            <div class="re-search">
-                <div class="main-title section" id="research">RESEARCH HIGHLIGHTS
-                    <div class="rect"></div>
-                </div>
-                <div class="img-desc section" id="patch2self">Patch2Self: Denoising Diffusion MRI with Self-Supervised
-                    Learning”, Thirty-fourth Conference on Neural Information Processing Systems, (NeurIPS), 2020</div>
-                <div class="row">
-                    <div class="col-4 align-text">Raw Data</div>
-                    <div class="col-4 align-text">Patch2Self</div>
-                    <div class="col-4 align-text">Noise Removed</div>
-                </div>
-                <div class="img-container">
-                    <img src="Images/Self_animated.webp" alt="self" class="img-wid">
-                    <!-- <video src="Images/Self.mp4" class="img-wid"></video> -->
-                    <!-- <embed src="GIF Self.gif" autostart="false" class="img-wid"/> -->
-                </div>
-                <div class="img-desc">“ViewFormer: a View-Independent Transformer Model for Disease Detection from
-                    Transthoracic Echocardiograms”, under review, 2024</div>
-                <div class="img-container">
-                    <img src="Images/ViewFormer.webp" alt="self" class="img-wid">
-                </div>
-                <div class="img-desc">"QSIPrep: An integrative platform for preprocessing and reconstructing diffusion
-                    MRI”, Nature Methods, 2021</div>
-                <div class="img-container"><img src="Images/QSIPrep.webp" alt="self" class="img-wid"></div>
-                <div class="img-desc">“Bifurcated Topological Optimization of IVIM”, Frontiers in Neuroscience, Brain
-                    Imaging Methods, 2021</div>
-                <div class="img-desc">“Patch2Self-Sketch: Self-supervised Denoising on Coresets via Matrix Sketching”,
-                    under submission, 2023</div>
-                <div class="img-container">
-                    <img src="Images/Denoising.webp" alt="self" class="img-wid">
-                    <!-- <video src="Images/Denoising.webp" class="img-wid"></video> -->
-                    <!-- <embed src="GIF Denoising.gif" autostart="false" class="img-wid" /> -->
-                </div>
-                <div class="main-title section" id="supervised">Self supervised Learning and Imaging Denoising
-                    <div class="rect"></div>
-                </div>
-                <div class="img-desc1">“Denoising of diffusion MRI in the cervical spinal cord– effects of denoising
-                    strategy and acquisition on intra-cord contrast, signal modeling, and feature conspicuity”,
-                    NeuroImage, 2022</div>
-                <div class="img-container"><img src="Images/Denoising of Diffusion.webp" alt="self" class="img-wid">
-                </div>
-                <div class="img-desc">“NUQ: A noise metric for diffusion MRI via uncertainty discrepancy
-                    quantification”, Machine Learning for Health, 2022</div>
-                <div class="img-container"><img src="Images/NUQ.webp" alt="self" class="img-wid"></div>
-                <div class="img-desc">“Effect of Denoising on Retrospective Harmonization of Diffusion Magnetic
-                    Resonance Images”, Neural Information Processing Systems (MedNeurIPS), 2022</div>
-                <div class="img-container"><img src="Images/Effect of Denosing.webp" alt="self" class="img-wid"></div>
-                <div class="img-desc">“Patch2Self: Denoising Diffusion MRI with Self-Supervised Learning”, Thirty-fourth
-                    Conference on Neural Information Processing Systems, (NeurIPS), 2020</div>
-                <div class="img-container"><img src="Images/Patch2Self-Denoising.webp" alt="self" class="img-wid"></div>
-                <div class="img-desc">"QSIPrep: An integrative platform for preprocessing and reconstructing diffusion
-                    MRI”, Nature Methods, 2021</div>
-                <div class="img-container"><img src="Images/QSIPrep2.webp" alt="self" class="img-wid"></div>
-                <div class="img-desc">"Dipy, a library for the analysis of diffusion MRI data." Frontiers in
-                    neuroinformatics 8, 2014 </div>
-                <div class="img-container"><img src="Images/Dipy.webp" alt="self" class="img-wid"></div>
-                <div class="img-desc">“Patch2Self-Sketch: Self-supervised Denoising on Coresets via Matrix Sketching”,
-                    under submission, 2023</div>
-                <div class="img-container"><img src="Images/Patch2Self-Sektch-Self-supervised.webp" alt="self"
-                        class="img-wid"></div>
-                <div class="main-title section" id="nlp">NLP, LLMs and Computational Psychiatry
-                    <div class="rect"></div>
-                </div>
-                <div class="img-desc1">“PainPoints: A Framework for Language-based Detection of Chronic Pain and
-                    Expert-Collaborative Text-Summarization”, Machine Learning for Health, 2022</div>
-                <div class="img-container"><img src="Images/Pain-Points.webp" alt="self" class="img-wid"></div>
-                <div class="img-desc">“Interpretable Specificity of Psychoactive Drug Effects in Informal Dialogue Using
-                    Large Language Models.” Biological Psychiatry, 2023</div>
-                <div class="img-desc">“PrompType: Prompting Large Language Models with Prototypes”, under review, 2023
-                </div>
-                <div class="img-container"><img src="Images/PrompType.webp" alt="self" class="img-wid"></div>
-                <div class="main-title section" id="multiview">Multi-view Learning, Combinatorial Topology and other
-                    Methods
-                    <div class="rect"></div>
-                </div>
-                <div class="img-desc">“MVD-Fuse: Detection of White Matter Degeneration via Multi-View Learning of
-                    Diffusion Microstructure”, NeurIPS, 2020</div>
-                <div class="img-container"><img src="Images/MVD-Fuse.webp" alt="self" class="img-wid"></div>
-                <div class="img-desc">“Bifurcated Topological Optimization of IVIM”, Frontiers in Neuroscience, Brain
-                    Imaging Methods, 2021</div>
-                <div class="img-desc">“Variable Projection Optimization for Intravoxel Incoherent Motion (IVIM) MRI
-                    estimation”, MedNeurIPS, 2019</div>
-                <div class="img-container"><img src="Images/Variable Projection Optimization.webp" alt="self"
-                        class="img-wid"></div>
-                <div class="img-desc">“EVAC+: Multi-scale V-net with Deep Feature CRF Layers for Brain Extraction”,
-                    under review, 2023 - ISMRM’23 Oral.</div>
-                <div class="img-container"><img src="Images/EVAC-Multi-scale V-net.webp" alt="self" class="img-wid">
-                </div>
-                <div class="img-desc">“A Linear Complexity Simplicial Complex Data Structure for Fast Homology and
-                    Boundary Computation”, under submission, 2023</div>
-                <div class="img-container"><img src="Images/A Linear Complexity Simplicial Complex.webp" alt="self"
-                        class="img-wid"></div>
-                <!-- <div class="img-desc">“ThetA -- fast and robust clustering via a distance parameter”, ArXiv, 2022</div>
-                <div class="img-desc">“NoiseFactors: Generative modeling for 3D image denoising via Randomized Factor
-                    Models”, International Society for Magnetic Resonance in Medicine, 2020</div>
-                <div class="img-container"><img src="Images/NoiseFactors- Generative modeling.webp" alt="self"
-                        class="img-wid"></div>
-                <div class="img-desc">“MicroLearn: Framework for machine learning, reconstruction, optimization and
-                    microstructure modeling”, International Society for Magnetic Resonance in Medicine, 2019</div>
-                <div class="img-container"><img src="Images/MicroLearn- Framework.webp" alt="self" class="img-wid"></div>
-                <div class="img-desc">“Unsupervised Ensemble Learning of Risk Predictors for Clinically High Risk
-                    Psychosis”, under submission, 2023</div>
-                <div class="main-title section" id="pastlife">PAST LIFE...
-                    <div class="rect"></div>
-                </div>
-                <div class="img-desc">“Maximizing Information of Severe Weather Events Retrieved from Satellite Images”,
-                    International Journal of Engineering Research and Applications, 2017“Optimal Partitioning Methods
-                    for Image Segmentation”, IET - Journal of Engineering, 2015
-                    “Image Interpolation Techniques in Digital Image Processing”, International Journal of Engineering
-                    Research and Applications, 2014“Roundoff Error Propagation in Simulation of RC Circuit”, Advances in
-                    Computing and Information Technology, 2014</div> -->
-           
-                    <div class="col-lg-2">
-                        <h2 class="main-title section" id="awards">Videos
-                            <div class="rect"></div>
-                        </h2>
-                    </div>
-                    <div class="col-lg-12 mt-4">
-                        <div class="row">
-                            <div class="col-lg-4">
-                                <iframe class="mb-3 video" src="https://www.youtube.com/embed/S4MoCox98M8?modestbranding=1&rel=0" width="390"
-                                    height="200" frameborder="0"></iframe>
-
-                                    <iframe class="video" src="https://www.youtube.com/embed/LMuMEvLwUfE?modestbranding=1&rel=0&fs=0" width="390" height="200" frameborder="0"></iframe>
-                            </div>
-                            <div class="col-lg-4">
-                                <iframe class="mb-3 video" src="https://www.youtube.com/embed/-namKRjlr_0?modestbranding=1&rel=0&fs=0" width="390" height="200" frameborder="0"></iframe>
-
-                                <iframe class="video" src="https://www.youtube.com/embed/VPxIJ3ADAGQ?modestbranding=1&rel=0&fs=0" width="390" height="200" frameborder="0"></iframe>
-                            </div>
-                            <div class="col-lg-4">
-                                <iframe class="mb-3 video" src="https://www.youtube.com/embed/3FlNmCcvMIE?modestbranding=1&rel=0&fs=0" width="390" height="200" frameborder="0"></iframe>
-
-                                <iframe class="video" src="https://www.youtube.com/embed/VVNqRmigaNk?modestbranding=1&rel=0&fs=0" width="390" height="200" frameborder="0"></iframe>
-                            </div>
-                        </div>
-                    </div>
-
-
-            </div>
-        </div>
-    </section>
-
-
-    <script>
-
-        // JS to handle the order of the header
-
-        document.addEventListener('DOMContentLoaded', function () {
-            const navLinks = document.querySelectorAll('.nav__links');
-            const sections = document.querySelectorAll('.section');
-            const header = document.querySelector('.header');
-            const headerHeight = header.clientHeight; // Get the header's height
-            let activeAnchor = null;
-
-            // Function to check if a section is in the viewport, considering the header height
-            function isSectionInViewport(section) {
-                const rect = section.getBoundingClientRect();
-                return rect.top <= headerHeight && rect.bottom >= 0;
-            }
-
-            // Function to update the order of anchors in the header based on the active section
-            function updateAnchorOrder() {
-                const newActiveSection = Array.from(sections).find(isSectionInViewport);
-
-                if (newActiveSection) {
-                    navLinks.forEach(link => {
-                        if (link.getAttribute('href').replace('#', '') === newActiveSection.id) {
-                            header.prepend(link);
-                            if (activeAnchor) {
-                                activeAnchor.classList.remove('active'); // Remove the active class from the previous anchor
-                            }
-                            link.classList.add('active'); // Add the active class to the new anchor
-                            activeAnchor = link;
-                        }
-                    });
-                }
-            }
-
-            // Listen for scroll events and update the anchor order
-            window.addEventListener('scroll', updateAnchorOrder);
-
-            // Update the anchor order on page load
-            updateAnchorOrder();
-        });
-
-
-        //  JS to handle the Active color on scrolling 
-
-        document.addEventListener('DOMContentLoaded', function () {
-            const navLinks = document.querySelectorAll('.nav__links');
-            const sections = document.querySelectorAll('.section');
-            const header = document.querySelector('.header');
-            const headerHeight = header.clientHeight; // Get the header's height
-            let activeSection = null; // Track the currently active section
-            let originalOrder = Array.from(navLinks);
-
-            // Function to check if a section is in the viewport, considering the header height
-            function isSectionInViewport(section) {
-                const rect = section.getBoundingClientRect();
-                return rect.top < window.innerHeight - headerHeight && rect.bottom >= 0;
-            }
-
-            // Function to update the active class based on scroll position
-            function updateActiveSections() {
-                sections.forEach(section => {
-                    const isActive = isSectionInViewport(section);
-                    if (isActive) {
-                        section.classList.add('active');
-                    } else {
-                        section.classList.remove('active');
-                    }
-                });
-
-                // Find the new active section
-                let newActiveSection = null;
-
-                sections.forEach(section => {
-                    if (isSectionInViewport(section)) {
-                        newActiveSection = section;
-                    }
-                });
-
-                if (!newActiveSection) {
-                    // If no new active section, make the previous section active
-                    const currentIndex = sections.indexOf(activeSection);
-                    if (currentIndex > 0) {
-                        newActiveSection = sections[currentIndex - 1];
-                    }
-                }
-
-                if (newActiveSection && newActiveSection !== activeSection) {
-                    // Update the active class for the new section
-                    navLinks.forEach(link => {
-                        if (`#${newActiveSection.id}` === link.getAttribute('href')) {
-                            link.classList.add('active');
-                        } else {
-                            link.classList.remove('active');
-                        }
-                    });
-                    activeSection = newActiveSection; // Update the active section
-                }
-            }
-
-            // Listen for scroll events and update the active sections and links
-            window.addEventListener('scroll', updateActiveSections);
-
-            // Update the active sections and links on page load
-            updateActiveSections();
-        });
-
-
-    </script>
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <span><a href="/blog/">Writing</a></span>
+</footer>
 
 </body>
-
 </html>

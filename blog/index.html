@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Writing &mdash; Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Writing</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+
+  <div class="blog-header">
+    <h1>Writing</h1>
+    <p class="blog-desc">Notes on prediction, uncertainty, and the geometry of data.</p>
+  </div>
+
+  <h2 style="font-family: var(--sans); font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 1.2em; padding-bottom: 0.5em; border-bottom: 1.5px solid var(--border);">From Predictions to Prediction Intervals</h2>
+  <p style="font-size: 0.93rem; color: var(--text-secondary); margin-bottom: 1.8rem;">A 10-part series on conformal prediction, leverage scores, and the space between them.</p>
+
+  <ul class="blog-list">
+
+    <li>
+      <span class="post-number">Part 1</span>
+      <a href="post01.html" class="post-title">Your Model Is Confident. Should You Be?</a>
+      <p class="post-summary">Why point predictions are incomplete, what prediction intervals actually are, and why constructing them correctly is harder than it looks.</p>
+      <div class="post-tags"><span class="tag">Intuitive</span><span class="tag">Foundation</span></div>
+    </li>
+
+    <li>
+      <span class="post-number">Part 2</span>
+      <a href="post02.html" class="post-title">Conformal Prediction: The Distribution-Free Guarantee You Didn't Know Existed</a>
+      <p class="post-summary">The split conformal recipe: train, calibrate, quantile, done. A finite-sample, distribution-free coverage guarantee for any model.</p>
+      <div class="post-tags"><span class="tag">Light math</span><span class="tag">Conformal</span></div>
+    </li>
+
+    <li>
+      <span class="post-number">Part 3</span>
+      <a href="post03.html" class="post-title">The Constant-Width Problem: When Your Error Bars Lie</a>
+      <p class="post-summary">Marginal versus conditional coverage, and why the impossibility of exact conditional coverage changes what we should aim for.</p>
+      <div class="post-tags"><span class="tag">Intuitive</span><span class="tag">Conformal</span></div>
+    </li>
+
+    <li>
+      <span class="post-number">Part 4</span>
+      <a href="post04.html" class="post-title">The Hat Matrix: Linear Regression's Hidden Diagnostic</a>
+      <p class="post-summary">How the diagonal of a projection matrix tells you exactly how unusual each data point is, and why that matters.</p>
+      <div class="post-tags"><span class="tag">Light math</span><span class="tag">Leverage</span></div>
+    </li>
+
+    <li>
+      <span class="post-number">Part 5</span>
+      <a href="post05.html" class="post-title">Leverage and Influence: The 50-Year-Old Tool That ML Forgot</a>
+      <p class="post-summary">Classical regression diagnostics, Cook's distance, and why randomized algorithms make leverage scalable to modern datasets.</p>
+      <div class="post-tags"><span class="tag">Light math</span><span class="tag">Leverage</span></div>
+    </li>
+
+    <li>
+      <span class="post-number">Part 6</span>
+      <a href="post06.html" class="post-title">The Sign Flip: Why Training Residuals Lie About Prediction Uncertainty</a>
+      <p class="post-summary">The conceptual core: training residuals have variance &sigma;&sup2;(1&minus;h) while prediction errors have variance &sigma;&sup2;(1+h). The sign of leverage flips.</p>
+      <div class="post-tags"><span class="tag">Deep math</span><span class="tag">Key insight</span></div>
+    </li>
+
+    <li>
+      <span class="post-number">Part 7</span>
+      <a href="post07.html" class="post-title">Heteroscedasticity and Variance Stabilization</a>
+      <p class="post-summary">When prediction difficulty varies, raw residuals are not comparable. Dividing by the right scale factor makes them comparable.</p>
+      <div class="post-tags"><span class="tag">Light math</span><span class="tag">Convergence</span></div>
+    </li>
+
+    <li>
+      <span class="post-number">Part 8</span>
+      <a href="post08.html" class="post-title">Adaptive Conformal Methods: CQR, Studentized CP, and Their Trade-offs</a>
+      <p class="post-summary">A survey of existing adaptive methods and what they each get right and wrong, in light of the sign flip.</p>
+      <div class="post-tags"><span class="tag">Light math</span><span class="tag">Conformal</span></div>
+    </li>
+
+    <li>
+      <span class="post-number">Part 9</span>
+      <a href="post09.html" class="post-title">Leverage as a Free Lunch</a>
+      <p class="post-summary">Leverage scores are closed-form, model-free, computationally negligible, and immune to the sign flip. A free lunch hiding in the design matrix.</p>
+      <div class="post-tags"><span class="tag">Light math</span><span class="tag">Convergence</span></div>
+    </li>
+
+    <li>
+      <span class="post-number">Part 10</span>
+      <a href="post10.html" class="post-title">The Missing Connection: When Geometry Meets Distribution-Free Inference</a>
+      <p class="post-summary">The two tracks converge. What would happen if we used leverage scores as conformal score weights? Stay tuned.</p>
+      <div class="post-tags"><span class="tag">Intuitive</span><span class="tag">Capstone</span></div>
+    </li>
+
+  </ul>
+
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <span><a href="/">About</a></span>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Model Is Confident. Should You Be? — Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Writing</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <article class="post">
+    <div class="post-header">
+      <h1>Your Model Is Confident. Should You Be?</h1>
+      <p class="post-subtitle">Part 1 of a 10-part series on prediction intervals, conformal prediction, and leverage scores.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/">From Predictions to Prediction Intervals</a>.
+      <a href="post02.html" class="next">Conformal Prediction</a>
+    </div>
+
+    <div class="post-body">
+
+      <p>A neural network predicts that a patient needs 150mg of a drug. A gradient-boosted tree estimates a house will sell for $420,000. A linear model forecasts next quarter's revenue at $2.3M.</p>
+
+      <p>These are point predictions. They are precise. They are also incomplete.</p>
+
+      <p>What is missing is <em>uncertainty</em>. The drug dosage prediction might be reliable to within 5mg, or it might be off by 50mg. The house price might be tight to $10,000, or it could swing by $100,000. The revenue forecast might carry a range of $200K or $2M. The point prediction alone does not tell you which.</p>
+
+      <p>This post is about why that matters, what prediction intervals actually are, and why constructing them correctly is harder than it looks.</p>
+
+      <h2>Why Point Predictions Are Not Enough</h2>
+
+      <p>In low-stakes settings, point predictions may suffice. If a recommendation engine suggests a movie you don't enjoy, the cost is 90 minutes. But in high-stakes applications, acting on a point prediction without knowing its reliability can be dangerous:</p>
+
+      <ul>
+        <li><strong>Medical dosing.</strong> A predicted dose of 150mg means something very different if the 90% prediction interval is [145mg, 155mg] versus [100mg, 200mg]. The treatment decision depends on the uncertainty, not just the point estimate.</li>
+        <li><strong>Financial risk.</strong> A portfolio model that predicts 7% annual return is useless without a range. The difference between [5%, 9%] and [-10%, 24%] is the difference between a conservative allocation and a gamble.</li>
+        <li><strong>Autonomous systems.</strong> A self-driving car that predicts a pedestrian will be at position (x, y) needs to know whether that prediction is reliable to within 10cm or 2m. The braking decision depends on the uncertainty envelope, not the point estimate.</li>
+      </ul>
+
+      <p>In each case, the decision-maker needs to know not just <em>what</em> the model predicts, but <em>how much to trust</em> that prediction.</p>
+
+      <h2>Prediction Intervals vs. Confidence Intervals vs. Calibration</h2>
+
+      <p>These three concepts are often confused. They are distinct.</p>
+
+      <p><strong>Confidence intervals</strong> quantify uncertainty about a <em>parameter</em>. If you estimate that the average height of adults in a population is 170cm with a 95% confidence interval of [168cm, 172cm], you are saying something about where the <em>true population mean</em> lies. This is useful for inference about fixed quantities.</p>
+
+      <p><strong>Prediction intervals</strong> quantify uncertainty about a <em>future observation</em>. If you predict that the <em>next person</em> you measure will have a height in [155cm, 185cm] with 90% probability, you are saying something about where a single new data point will land. Prediction intervals are always wider than confidence intervals because they must account for both the uncertainty in the model and the intrinsic variability of the outcome.</p>
+
+      <p><strong>Calibration</strong> describes whether predicted probabilities match observed frequencies. A weather model is well-calibrated if, among all days it assigns a 70% chance of rain, it actually rains about 70% of the time. Calibration is a property of probabilistic predictions, not interval predictions.</p>
+
+      <p>For this series, we care about <strong>prediction intervals</strong>: given features x, produce an interval [L(x), U(x)] such that the true response Y falls inside with high probability.</p>
+
+      <h2>The Classical Approach and Its Assumptions</h2>
+
+      <p>Statistics has produced prediction intervals for over a century. In linear regression with Gaussian errors, the textbook prediction interval at a point x is:</p>
+
+      $$\hat{y}(x) \pm t_{1-\alpha/2, n-p} \cdot \hat{\sigma} \cdot \sqrt{1 + h(x)}$$
+
+      <p>where t is a quantile of the t-distribution, n is the sample size, p is the number of features, h(x) is a quantity called the <em>leverage</em> (more on this in Part 4), and the whole expression depends on knowing both the error distribution (Gaussian) and the model form (linear).</p>
+
+      <p>This is elegant. It is also fragile. It requires:</p>
+
+      <ol>
+        <li>The true relationship between features and response is linear.</li>
+        <li>Errors are Gaussian.</li>
+        <li>Errors have constant variance (homoscedasticity).</li>
+        <li>Observations are independent.</li>
+      </ol>
+
+      <p>Violate any of these, and the coverage guarantee evaporates. In practice, models are often nonlinear (random forests, neural networks), error distributions are unknown and non-Gaussian, and variance is rarely constant across the feature space.</p>
+
+      <p>We need prediction intervals that work without these assumptions.</p>
+
+      <h2>The Desiderata</h2>
+
+      <p>What would an ideal prediction interval method look like?</p>
+
+      <ol>
+        <li><strong>Valid coverage.</strong> If we claim 90% coverage, at least 90% of future observations should fall inside the interval. This should hold as a finite-sample guarantee, not just asymptotically.</li>
+        <li><strong>Distribution-free.</strong> The guarantee should not depend on the error distribution being Gaussian, or the model being linear, or any parametric assumption.</li>
+        <li><strong>Model-agnostic.</strong> It should work with any prediction model: linear regression, random forests, neural networks, anything.</li>
+        <li><strong>Adaptive width.</strong> The interval should be wider where the model is less certain and narrower where it is more certain, rather than having the same width everywhere.</li>
+        <li><strong>Computationally efficient.</strong> It should not require retraining the model many times or running expensive simulations.</li>
+      </ol>
+
+      <p>Desiderata 1-3 and 5 are achievable with a method called <em>conformal prediction</em>, which we will cover in the next post. Desideratum 4 is where things get interesting, and where the rest of this series leads.</p>
+
+      <h2>What Comes Next</h2>
+
+      <p>The next post introduces conformal prediction: a framework that provides distribution-free, finite-sample prediction intervals for any model. The recipe is surprisingly simple, and the coverage guarantee is surprisingly strong.</p>
+
+      <p>But there is a catch, and it involves the word "adaptive." We will get there.</p>
+
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Geisser, S. (1993). <em>Predictive Inference: An Introduction.</em> Chapman &amp; Hall.</li>
+        <li>Gneiting, T. &amp; Raftery, A. E. (2007). Strictly proper scoring rules, prediction, and estimation. <em>Journal of the American Statistical Association</em>, 102(477), 359-378.</li>
+        <li>Angelopoulos, A. N. &amp; Bates, S. (2023). Conformal prediction: A gentle introduction. <em>Foundations and Trends in Machine Learning</em>.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post02.html" class="next">Conformal Prediction</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <span><a href="/blog/">All posts</a></span>
+</footer>
+
+</body>
+</html>

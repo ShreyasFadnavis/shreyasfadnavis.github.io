@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conformal Prediction: The Distribution-Free Guarantee You Didn't Know Existed — Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Writing</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <article class="post">
+    <div class="post-header">
+      <h1>Conformal Prediction: The Distribution-Free Guarantee You Didn't Know Existed</h1>
+      <p class="post-subtitle">Part 2 of a 10-part series on prediction intervals, conformal prediction, and leverage scores.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/">From Predictions to Prediction Intervals</a>.
+      <a href="post01.html" class="prev">Your Model Is Confident</a>
+      <a href="post03.html" class="next">The Constant-Width Problem</a>
+    </div>
+
+    <div class="post-body">
+
+      <p>In Part 1, we argued that point predictions are incomplete. What we need are prediction intervals with <em>guaranteed</em> coverage: if we claim 90%, then 90% of future observations should fall inside. We also want this guarantee to hold without assuming Gaussian errors, linear models, or any parametric form.</p>
+
+      <p>This sounds like a tall order. It turns out there is an elegant, surprisingly simple method that delivers exactly this. It is called <em>conformal prediction</em>, and it has been around since 2005, though it has only recently gained widespread attention in the machine learning community.</p>
+
+      <h2>The Core Idea</h2>
+
+      <p>The central insight of conformal prediction is this: <strong>if you know how to rank a new observation among past observations, you can construct a valid prediction interval</strong>.</p>
+
+      <p>Think of it this way. Suppose you have a trained model and a set of held-out data points (the <em>calibration set</em>) that the model has never seen. For each calibration point, you compute the absolute residual: how far off was the model's prediction? This gives you a collection of "error magnitudes."</p>
+
+      <p>Now a new test point arrives. You do not know its true response Y, but you do know that — if the data are exchangeable — the new point's residual has no reason to be systematically larger or smaller than the calibration residuals. It is, in a statistical sense, "just another one of them."</p>
+
+      <p>So if you want a 90% prediction interval, you find the 90th percentile of the calibration residuals and use that as the interval half-width. The new point's residual will fall below this threshold at least 90% of the time, simply because its rank among all the residuals is uniformly distributed.</p>
+
+      <p>That is conformal prediction in one paragraph. Let us make it precise.</p>
+
+      <h2>The Split Conformal Prediction Recipe</h2>
+
+      <p><strong>Inputs:</strong> A dataset of n examples, a desired coverage level 1-$\alpha$ (e.g., 90%), and any prediction model.</p>
+
+      <p><strong>Step 1: Split.</strong> Divide the data into a <em>training set</em> $D_1$ ($n_1$ points) and a <em>calibration set</em> $D_2$ ($n_2$ points). These must be disjoint.</p>
+
+      <p><strong>Step 2: Train.</strong> Fit your prediction model $\hat{f}$ on $D_1$. This can be anything: OLS, a random forest, a neural network, an ensemble. The method does not care.</p>
+
+      <p><strong>Step 3: Calibrate.</strong> For each calibration point $(X_i, Y_i)$ in $D_2$, compute the <em>nonconformity score</em>:</p>
+
+      $$S_i = |Y_i - \hat{f}(X_i)|$$
+
+      <p>This is just the absolute residual. Sort these scores. Let $\hat{q}$ be the $\lceil(1-\alpha)(n_2+1)\rceil$-th smallest score. This is the <em>conformal quantile</em>.</p>
+
+      <p><strong>Step 4: Predict.</strong> For a new test point x, the prediction interval is:</p>
+
+      $$\hat{C}(x) = [\hat{f}(x) - \hat{q}, \;\; \hat{f}(x) + \hat{q}]$$
+
+      <p>That's it. Four steps. No distributional assumptions. No retraining.</p>
+
+      <h2>The Coverage Guarantee</h2>
+
+      <p>The remarkable property of this procedure is:</p>
+
+      $$P(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - \alpha$$
+
+      <p>This holds in <em>finite samples</em> — not just asymptotically. The only requirement is <strong>exchangeability</strong>: the data points $(X_1,Y_1), \ldots, (X_n,Y_n), (X_{n+1},Y_{n+1})$ are exchangeable, meaning their joint distribution is invariant to permutation. This is weaker than the iid assumption: iid implies exchangeability, but exchangeability allows some forms of dependence.</p>
+
+      <p>Where does the guarantee come from? The key is a <em>rank argument</em>. Conditional on the training set $D_1$ (which determines the model $\hat{f}$), the calibration scores $S_1, \ldots, S_{n_2}$ and the test score $S_{n+1}$ are all computed the same way from exchangeable data. By symmetry, the rank of $S_{n+1}$ among all $n_2+1$ scores is uniformly distributed over $\{1, 2, \ldots, n_2+1\}$. So the probability that $S_{n+1}$ falls at or below the $\lceil(1-\alpha)(n_2+1)\rceil$-th score is at least $(1-\alpha)$.</p>
+
+      <p>This is the <em>rank uniformity lemma</em> from Vovk et al. (2005), and it is the backbone of all conformal prediction guarantees. The proof is roughly five lines of algebra, yet it delivers a finite-sample, distribution-free coverage guarantee for any model.</p>
+
+      <h2>What Exchangeability Means (and Doesn't Mean)</h2>
+
+      <p>Exchangeability deserves a moment of attention, because it is the <em>only</em> assumption conformal prediction makes, and understanding it is critical to understanding when CP works.</p>
+
+      <p>A sequence of random variables $Z_1, Z_2, \ldots, Z_n$ is <strong>exchangeable</strong> if for any permutation $\pi$:</p>
+
+      $$(Z_1, Z_2, \ldots, Z_n) \stackrel{d}{=} (Z_{\pi(1)}, Z_{\pi(2)}, \ldots, Z_{\pi(n)})$$
+
+      <p>In words: the joint distribution does not change if you reorder the data. This is automatically satisfied if the data are iid (sampled independently from the same distribution), which covers most supervised learning settings.</p>
+
+      <p>Exchangeability <em>fails</em> when:</p>
+
+      <ul>
+        <li>Data arrive in a non-stationary order (e.g., time series with a trend).</li>
+        <li>There is distribution shift between training and deployment.</li>
+        <li>The sampling mechanism depends on the order (e.g., active learning).</li>
+      </ul>
+
+      <p>When exchangeability holds, the conformal guarantee is exact. When it is violated, the guarantee degrades — but there are extensions of conformal prediction that handle some forms of non-exchangeability (adaptive conformal inference, weighted conformal prediction). We will not cover these here, but they exist.</p>
+
+      <h2>The Quantile Computation</h2>
+
+      <p>The specific quantile used in Step 3 deserves unpacking. We compute $\hat{q}$ as the $\lceil(1-\alpha)(n_2+1)\rceil$-th smallest calibration score. Why $n_2+1$ and not $n_2$?</p>
+
+      <p>The "+1" accounts for the test point. There are $n_2$ calibration scores and 1 test score, for a total of $n_2+1$. We want the test score to fall at or below the threshold with probability at least $1-\alpha$. Since the test score's rank is uniform over $\{1, \ldots, n_2+1\}$, the probability that it falls at or below rank $k$ is $k/(n_2+1)$. Setting $k = \lceil(1-\alpha)(n_2+1)\rceil$ ensures this probability is at least $1-\alpha$.</p>
+
+      <p>For concrete numbers: if $\alpha = 0.1$ and $n_2 = 500$, then $k = \lceil 0.9 \times 501 \rceil = \lceil 450.9 \rceil = 451$. So $\hat{q}$ is the 451st smallest residual out of 500. The coverage is exactly $451/501 \approx 0.9002$, slightly above the nominal 90%.</p>
+
+      <p>As $n_2$ grows, the coverage approaches $1-\alpha$ from above, and the "+1" correction becomes negligible.</p>
+
+      <h2>What the Guarantee Gives You</h2>
+
+      <p>Split conformal prediction gives you a <strong>marginal coverage guarantee</strong>: averaging over the randomness in both the test point and the calibration set, the interval covers the true response at least $1-\alpha$ of the time.</p>
+
+      <p>This is:</p>
+
+      <ul>
+        <li><strong>Finite-sample:</strong> Not asymptotic. Holds for any $n_2$.</li>
+        <li><strong>Distribution-free:</strong> No parametric assumptions on the data distribution.</li>
+        <li><strong>Model-agnostic:</strong> Works with any prediction model.</li>
+        <li><strong>Computationally trivial:</strong> After training the model, the only additional cost is sorting $n_2$ residuals.</li>
+      </ul>
+
+      <p>These are strong properties. But there is something this guarantee does <em>not</em> give you, and it is a fundamental limitation that will drive the rest of this series.</p>
+
+      <p>The guarantee is <em>marginal</em>: it averages over all possible test points. It says nothing about coverage at any <em>specific</em> test point. If the model is very accurate in one region of feature space and very inaccurate in another, the interval will overcover in the easy region and undercover in the hard region. The average will be correct, but the per-point coverage will vary.</p>
+
+      <p>This is the constant-width problem, and it is the subject of the next post.</p>
+
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Vovk, V., Gammerman, A., &amp; Shafer, G. (2005). <em>Algorithmic Learning in a Random World.</em> Springer.</li>
+        <li>Lei, J., G'Sell, M., Rinaldo, A., Tibshirani, R. J., &amp; Wasserman, L. (2018). Distribution-free predictive inference for regression. <em>Journal of the American Statistical Association</em>, 113(523), 1094-1111.</li>
+        <li>Shafer, G. &amp; Vovk, V. (2008). A tutorial on conformal prediction. <em>Journal of Machine Learning Research</em>, 9, 371-421.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post01.html" class="prev">Your Model Is Confident</a>
+      <a href="post03.html" class="next">The Constant-Width Problem</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <span><a href="/blog/">All posts</a></span>
+</footer>
+
+</body>
+</html>

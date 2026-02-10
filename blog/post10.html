@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Missing Connection: When Geometry Meets Distribution-Free Inference &mdash; Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Writing</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <article class="post">
+    <div class="post-header">
+      <h1>The Missing Connection: When Geometry Meets Distribution-Free Inference</h1>
+      <p class="post-subtitle">Part 10 of a 10-part series on prediction intervals, conformal prediction, and leverage scores.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/">From Predictions to Prediction Intervals</a>.
+    </div>
+
+    <div class="post-body">
+
+      <p>Over the past nine posts, we have built up two bodies of knowledge that, as far as the existing literature is concerned, have lived mostly separate lives.</p>
+
+      <p><strong>The conformal prediction track</strong> (Posts 1-3, 8) established that:</p>
+      <ul>
+        <li>Point predictions are incomplete; we need prediction intervals (Post 1).</li>
+        <li>Split conformal prediction provides distribution-free, finite-sample coverage guarantees for any model (Post 2).</li>
+        <li>But these intervals have constant width, leading to overcoverage in easy regions and undercoverage in hard regions (Post 3).</li>
+        <li>Existing adaptive methods &mdash; CQR, Studentized CP, Localized CP &mdash; each address this by introducing auxiliary models, hyperparameters, or computational overhead (Post 8).</li>
+      </ul>
+
+      <p><strong>The leverage track</strong> (Posts 4-7, 9) established that:</p>
+      <ul>
+        <li>The hat matrix diagonal &mdash; the leverage score &mdash; measures how far each point sits from the training distribution in Mahalanobis distance (Post 4).</li>
+        <li>Leverage has a 50-year history in regression diagnostics but has been largely overlooked by the ML community (Post 5).</li>
+        <li>Prediction error variance is $\sigma^2(1+h)$, while training residual variance is $\sigma^2(1-h)$ &mdash; the sign flip means that residual-based variance estimators systematically underestimate uncertainty at high-leverage points (Post 6).</li>
+        <li>Variance stabilization provides the framework for making heteroscedastic residuals comparable (Post 7).</li>
+        <li>Leverage scores provide a closed-form, model-free, computationally negligible, sign-flip-immune measure of where predictions are hard (Post 9).</li>
+      </ul>
+
+      <p>These two tracks are pointing toward an obvious combination.</p>
+
+      <h2>The Question</h2>
+
+      <p>What if we used leverage scores directly as the weighting function in conformal prediction?</p>
+
+      <p>That is: instead of computing raw residuals $|Y_i - \hat{f}(X_i)|$ (vanilla CP) or normalized residuals $|Y_i - \hat{f}(X_i)| / \hat{\sigma}(X_i)$ (studentized CP), what if we computed <em>leverage-weighted residuals</em>:</p>
+
+      $$S_i = |Y_i - \hat{f}(X_i)| \cdot w(h(X_i))$$
+
+      <p>where $w(h)$ is a function that decreases with leverage &mdash; say, $w(h) = (1+h)^{-1/2}$?</p>
+
+      <p>The conformal quantile of these weighted scores would yield a prediction interval with width proportional to $1/w(h(x)) = \sqrt{1+h(x)}$ &mdash; wider at high-leverage points (where prediction is harder) and narrower at low-leverage points (where prediction is easier).</p>
+
+      <h2>What Would This Need?</h2>
+
+      <p>For such a method to be useful, it would need to satisfy several requirements. Let us check each one against what we have established:</p>
+
+      <p><strong>Requirement 1: Marginal coverage guarantee.</strong></p>
+
+      <p>From Part 2, we know that the conformal coverage guarantee relies on <em>exchangeability</em> of the scores, not on any specific form of the scores. The rank uniformity argument works for <em>any</em> function of $(X, Y)$ that is applied uniformly to calibration and test points. So replacing raw residuals with weighted residuals preserves the coverage guarantee, for <em>any</em> weight function $w$, for <em>any</em> model $\hat{f}$.</p>
+
+      <p>This is not a conjecture &mdash; it follows directly from the proof structure. The weight $w(h(X))$ is a deterministic function of $X$ (given the training set), so it does not break exchangeability.</p>
+
+      <p><strong>Requirement 2: Improved conditional coverage.</strong></p>
+
+      <p>From Parts 6-7, we know that under a linear model with homoscedastic errors, the prediction error has variance $\sigma^2(1+h(x))$. The variance-stabilized score &mdash; dividing by $\sqrt{1+h}$ &mdash; yields scores with approximately constant variance, which is exactly the condition for the conformal quantile to estimate the correct conditional quantile at each leverage level.</p>
+
+      <p>Under the scale family framework (Part 7), using the optimal weight $w^*(h) = 1/\sqrt{g(h)}$ produces scores that are not just variance-stabilized but <em>identically distributed</em> across the calibration set. This is the strongest possible condition for the conformal quantile to be uniformly informative.</p>
+
+      <p><strong>Requirement 3: No auxiliary models or hyperparameters.</strong></p>
+
+      <p>The weight $w(h) = (1+h)^{-1/2}$ is a fixed, known function of the leverage score. The leverage score is computed from the SVD of the design matrix. No model is trained, no hyperparameters are tuned, no cross-validation is performed.</p>
+
+      <p><strong>Requirement 4: Computational efficiency.</strong></p>
+
+      <p>The additional cost is one SVD ($O(n_1 p^2)$, or $O(n_1 p \log p)$ with randomized methods) plus $O(p)$ per point for leverage computation. For most practical datasets, this is negligible compared to the cost of training the prediction model.</p>
+
+      <p><strong>Requirement 5: Robustness to the sign flip.</strong></p>
+
+      <p>The leverage-based weight does not use training residuals at all. It is computed from the design matrix geometry. There is no sign to flip.</p>
+
+      <h2>What Remains Open</h2>
+
+      <p>The sketch above is suggestive, but several questions remain before it can be called a complete method:</p>
+
+      <p><strong>Efficiency.</strong> The marginal coverage guarantee holds for <em>any</em> weight function &mdash; including terrible ones. But does the leverage-based weight achieve <em>good</em> conditional coverage? Is there a formal sense in which it is optimal? Does it come at a cost in terms of marginal interval width?</p>
+
+      <p><strong>Finite samples.</strong> The variance formula $\sigma^2(1+h)$ and the scale-family analysis are asymptotic or assume a correctly specified linear model. How does the method behave when $p/n$ is not negligible? When the model is misspecified?</p>
+
+      <p><strong>Approximate leverage.</strong> If we use randomized SVD to approximate the leverage scores (for computational efficiency), does the coverage guarantee still hold? How does the approximation error affect the interval width?</p>
+
+      <p><strong>Non-linear models.</strong> The variance decomposition $\sigma^2(1+h)$ applies to OLS. What happens when the prediction model is a random forest or neural network? The coverage guarantee still holds (it is model-free), but does the leverage-based adaptation still improve conditional coverage?</p>
+
+      <p><strong>Combination with learned scale.</strong> When heteroscedasticity has both leverage-dependent and feature-dependent components, can leverage weighting be combined with a lightweight scale estimator for additional adaptation? Does the leverage component help with the sign flip problem of the scale estimator?</p>
+
+      <p>These are precisely the kinds of questions that motivate a rigorous theoretical and empirical investigation.</p>
+
+      <h2>The Convergence</h2>
+
+      <p>Looking back at the full arc of this series, the convergence of conformal prediction and leverage scores is not a coincidence. It is the meeting of two fundamental ideas:</p>
+
+      <p><strong>Conformal prediction</strong> provides the <em>inferential framework</em>: a way to convert any score function into a prediction interval with guaranteed coverage. The framework is agnostic to the score function &mdash; it treats it as a black box. The coverage guarantee is "free" in the sense that it holds for any score.</p>
+
+      <p><strong>Leverage scores</strong> provide the <em>score function</em>: a principled, closed-form, computationally efficient measure of prediction difficulty that arises from the geometry of the feature space. The leverage-based weight is "free" in the sense that it requires no additional learning.</p>
+
+      <p>The combination is natural: use conformal prediction for the guarantee, and leverage for the adaptation. The guarantee is exact and finite-sample. The adaptation is based on 50 years of regression theory. The computational cost is a single SVD.</p>
+
+      <p>Whether this combination can be made rigorous &mdash; with formal optimality results, finite-sample bounds, and empirical validation &mdash; is a question worth investigating carefully.</p>
+
+      <p>Stay tuned. There is more to come.</p>
+
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Vovk, V., Gammerman, A., &amp; Shafer, G. (2005). <em>Algorithmic Learning in a Random World.</em> Springer.</li>
+        <li>Hoaglin, D. C. &amp; Welsch, R. E. (1978). The hat matrix in regression and ANOVA. <em>The American Statistician</em>.</li>
+        <li>Lei, J., G'Sell, M., Rinaldo, A., Tibshirani, R. J., &amp; Wasserman, L. (2018). Distribution-free predictive inference for regression. <em>JASA</em>.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post09.html" class="prev">Leverage as a Free Lunch</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <span><a href="/blog/">All posts</a></span>
+</footer>
+
+</body>
+</html>

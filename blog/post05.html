@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leverage and Influence: The 50-Year-Old Tool That ML Forgot — Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Writing</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <article class="post">
+    <div class="post-header">
+      <h1>Leverage and Influence: The 50-Year-Old Tool That ML Forgot</h1>
+      <p class="post-subtitle">Part 5 of a 10-part series on prediction intervals, conformal prediction, and leverage scores.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/">From Predictions to Prediction Intervals</a>.
+    </div>
+
+    <div class="post-body">
+      <p>In Part 4, we defined leverage scores as the diagonal of the hat matrix and showed that they measure how far each point sits from the center of the training data in Mahalanobis distance. In this post, we explore the classical use of leverage in regression diagnostics — a rich tradition dating back to the late 1970s that the machine learning community has largely overlooked.</p>
+
+      <h2>The Leverage-Residual Plot</h2>
+
+      <p>In 1978, Hoaglin and Welsch published a paper titled "The Hat Matrix in Regression and ANOVA" in <em>The American Statistician</em>. It introduced what has become one of the most important diagnostic plots in applied statistics: the <strong>leverage-residual plot</strong>.</p>
+
+      <p>The idea is simple. For each training point, compute two quantities:</p>
+      <ul>
+        <li><strong>Leverage</strong> $h_i$ (how unusual is this point's position in feature space?)</li>
+        <li><strong>Standardized residual</strong> $e_i / s\sqrt{1 - h_i}$ (how far is this point from the fitted surface, adjusting for leverage?)</li>
+      </ul>
+
+      <p>Plotting these against each other creates a diagnostic that partitions observations into four categories:</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>Low residual</th>
+            <th>High residual</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Low leverage</strong></td>
+            <td>Good — typical point, well-fit</td>
+            <td>Outlier — unusual response, but not unusual features</td>
+          </tr>
+          <tr>
+            <td><strong>High leverage</strong></td>
+            <td>Leverage point — unusual features, but well-fit</td>
+            <td>Influential point — unusual features AND unusual response</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>The distinction between high-leverage points and influential points is critical. A high-leverage point that falls near the regression surface is not problematic — it may even help stabilize the fit by providing information in a sparse region. But a high-leverage point with a large residual is <em>influential</em>: it has disproportionate power to pull the regression surface toward itself.</p>
+
+      <h2>Cook's Distance</h2>
+
+      <p>Cook (1977) formalized the concept of influence by asking: how much do the fitted values change if we delete observation i? The answer is <strong>Cook's distance</strong>:</p>
+
+      $$D_i = \frac{(\hat{\mathbf{Y}} - \hat{\mathbf{Y}}_{(i)})^\top (\hat{\mathbf{Y}} - \hat{\mathbf{Y}}_{(i)})}{p \cdot s^2}$$
+
+      <p>where $\hat{Y}_{(i)}$ denotes the fitted values from the model trained without point i, and $s^2$ is the residual variance. This can be rewritten in terms of leverage and residuals:</p>
+
+      $$D_i = \frac{e_i^2}{p \cdot s^2} \cdot \frac{h_i}{(1-h_i)^2}$$
+
+      <p>The factorization is revealing: Cook's distance is the product of a <em>residual term</em> (how far the point is from the surface) and a <em>leverage term</em> (how much power the point has to move the surface). A point needs <em>both</em> a large residual and high leverage to be truly influential.</p>
+
+      <h2>Practical Flagging Rules</h2>
+
+      <p>The classical literature developed several rules of thumb for flagging points based on leverage:</p>
+
+      <p><strong>Rule 1:</strong> Flag points with $h_i > 2p/n$. Since the average leverage is $p/n$, this flags points with more than twice the average leverage. In a dataset with $n = 1000$ and $p = 10$, this threshold is 0.02 — meaning a point is flagged if it has more than 2% leverage.</p>
+
+      <p><strong>Rule 2:</strong> Flag points with $h_i > 0.5$ as "highly leveraged." These points have an outsized effect on the fit regardless of their residuals.</p>
+
+      <p><strong>Rule 3:</strong> Flag points with Cook's distance $D_i > 4/n$ or $D_i > 1$. These combine leverage and residual information.</p>
+
+      <p>These rules remain in active use in applied statistics. They are taught in every introductory regression course. Yet they are almost completely absent from the machine learning literature, where models are typically evaluated only on held-out prediction accuracy.</p>
+
+      <h2>Why ML Forgot About Leverage</h2>
+
+      <p>The machine learning community's neglect of leverage is understandable, if unfortunate. There are several reasons:</p>
+
+      <p><strong>Nonlinearity.</strong> Modern ML models (random forests, neural networks, gradient boosting) are nonlinear. The hat matrix is defined for linear models. There is no direct analog for a random forest.</p>
+
+      <p><strong>High dimensionality.</strong> In settings where p is large relative to n, <em>every</em> point has high leverage (since the average leverage is $p/n$). When $p = n$, every point has leverage 1. The concept seems to lose its discriminative power.</p>
+
+      <p><strong>Focus on prediction.</strong> ML emphasizes held-out prediction accuracy, not diagnostic checks on the training data. Leverage is a training-set diagnostic, which feels like it belongs to a different paradigm.</p>
+
+      <p>However, all three objections have counterarguments:</p>
+
+      <ul>
+        <li>For nonlinear models, one can compute leverage on the <em>feature space</em> of the last layer of a neural network or on the raw design matrix (which captures the geometry of the feature space regardless of the model used for prediction).</li>
+        <li>In high-dimensional settings, leverage <em>variation</em> (not just the average level) contains useful signal. Even when the average is high, some points have much higher leverage than others.</li>
+        <li>As we will argue later in this series, leverage is not just a training diagnostic — it is directly relevant to <em>prediction uncertainty</em>, which is critical for prediction intervals.</li>
+      </ul>
+
+      <h2>Leverage at Scale: Randomized Algorithms</h2>
+
+      <p>For large datasets, computing exact leverage scores via a full SVD of the $n \times p$ design matrix costs $O(np^2)$. This is fine for moderate dimensions but becomes expensive when both n and p are large.</p>
+
+      <p>A line of work in randomized numerical linear algebra, pioneered by Drineas, Kannan, Mahoney, and collaborators, showed that leverage scores can be approximated efficiently.</p>
+
+      <p>The key result, from Drineas, Mahoney, and Muthukrishnan (2006, 2012), is that <strong>randomized SVD</strong> can produce $(1+\varepsilon)$-approximate leverage scores in time $O(np \log p)$, which is nearly linear in the size of the data matrix. The idea is to sketch the matrix $\mathbf{X}$ using a random projection, compute the SVD of the smaller sketch, and use it to approximate the leverage scores of the original matrix.</p>
+
+      <p>Clarkson and Woodruff (2013) pushed this further, achieving input-sparsity time $O(\text{nnz}(\mathbf{X}) + p^3)$ for sparse matrices, where nnz is the number of nonzero entries.</p>
+
+      <p>These algorithmic advances mean that leverage scores are computable at the scale of modern datasets. The cost is comparable to — or less than — a single pass over the data.</p>
+
+      <h2>Leverage Beyond Linear Regression</h2>
+
+      <p>Although leverage is defined via the hat matrix of a linear model, the concept extends naturally to other settings:</p>
+
+      <p><strong>Ridge regression.</strong> When the design matrix is ill-conditioned or $p > n$, the OLS hat matrix is not well-defined. Ridge regression replaces $(\mathbf{X}^\top\mathbf{X})^{-1}$ with $(\mathbf{X}^\top\mathbf{X} + \lambda\mathbf{I})^{-1}$, giving <em>ridge leverage scores</em>:</p>
+
+      $$h_\lambda(x) = x^\top (\mathbf{X}^\top \mathbf{X} + \lambda \mathbf{I})^{-1} x$$
+
+      <p>Ridge leverage scores are always well-defined and are bounded above by $1/\lambda$. As $\lambda \to 0$, they approach the OLS leverage scores; as $\lambda \to \infty$, they shrink toward zero.</p>
+
+      <p><strong>Kernel methods.</strong> In kernel regression or kernel ridge regression, the "design matrix" lives in a (possibly infinite-dimensional) feature space. Leverage scores are defined in terms of the kernel matrix $\mathbf{K}$: $h_i = (\mathbf{K}(\mathbf{K} + \lambda\mathbf{I})^{-1})_{ii}$.</p>
+
+      <p><strong>Neural networks.</strong> For a neural network with parameters $\theta$, one can define <em>feature-space leverage</em> using the activations of the penultimate layer. If $\Phi(x) \in \mathbb{R}^d$ denotes the penultimate-layer representation, then:</p>
+
+      $$h^{NN}(x) = \Phi(x)^\top (\boldsymbol{\Phi}_{train}^\top \boldsymbol{\Phi}_{train} + \lambda \mathbf{I})^{-1} \Phi(x)$$
+
+      <p>This measures how unusual x is in the <em>learned representation space</em>, which may be more relevant than the raw feature space.</p>
+
+      <p>In all cases, the interpretation is the same: leverage measures how unusual a point is relative to the training distribution, in a geometry adapted to the model's representation.</p>
+
+      <h2>The Deeper Story</h2>
+
+      <p>We have presented leverage as a diagnostic tool: a way to find unusual, potentially problematic data points. This is its classical role, and it is a valuable one.</p>
+
+      <p>But leverage has a much deeper connection to prediction uncertainty. In Part 4, we previewed the formula $\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \sigma^2(1 + h(x))$. This says that the variance of the prediction error — the very quantity that prediction intervals need to capture — is directly controlled by leverage.</p>
+
+      <p>In the next post, we explore this connection in depth and reveal a surprising subtlety: the variance of <em>training residuals</em> depends on leverage with the <em>opposite sign</em> from the variance of <em>prediction errors</em>. This "sign flip" has profound implications for methods that try to estimate prediction uncertainty from training data.</p>
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Hoaglin, D. C. &amp; Welsch, R. E. (1978). The hat matrix in regression and ANOVA. <em>The American Statistician</em>, 32(1), 17-22.</li>
+        <li>Chatterjee, S. &amp; Hadi, A. S. (1986). Influential observations, high leverage points, and outliers in linear regression. <em>Statistical Science</em>, 1(3), 379-393.</li>
+        <li>Drineas, P., Mahoney, M. W., &amp; Muthukrishnan, S. (2006). Sampling algorithms for $\ell_2$ regression and applications. <em>Proceedings of the 17th Annual ACM-SIAM Symposium on Discrete Algorithms (SODA)</em>, 1127-1136.</li>
+        <li>Mahoney, M. W. (2011). Randomized algorithms for matrices and data. <em>Foundations and Trends in Machine Learning</em>, 3(2), 123-224.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post04.html" class="prev">The Hat Matrix</a>
+      <a href="post06.html" class="next">The Sign Flip</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <span><a href="/blog/">All posts</a></span>
+</footer>
+
+</body>
+</html>

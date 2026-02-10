@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adaptive Conformal Methods: CQR, Studentized CP, and Their Trade-offs &mdash; Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Writing</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <article class="post">
+    <div class="post-header">
+      <h1>Adaptive Conformal Methods: CQR, Studentized CP, and Their Trade-offs</h1>
+      <p class="post-subtitle">Part 8 of a 10-part series on prediction intervals, conformal prediction, and leverage scores.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/">From Predictions to Prediction Intervals</a>.
+    </div>
+
+    <div class="post-body">
+
+      <p>We have now established the problem (constant-width intervals, Part 3), the tool for diagnosis (leverage scores, Parts 4-5), the key structural insight (the sign flip, Part 6), and the remedy framework (variance stabilization, Part 7). Before we synthesize these ideas, we need to survey the existing landscape: what methods are already available for constructing adaptive conformal prediction intervals, and where do they succeed or fall short?</p>
+
+      <h2>Conformalized Quantile Regression (CQR)</h2>
+
+      <p><strong>Reference:</strong> Romano, Patterson, and Candes, NeurIPS 2019.</p>
+
+      <p>CQR was the first widely adopted method for adaptive conformal prediction intervals. The core idea is to replace the point prediction + constant interval with learned quantile estimates.</p>
+
+      <p><strong>Step 1:</strong> Train two quantile regressors on D&#8321;: one targeting the &#945;/2 quantile ($\hat{Q}_{\text{lo}}(x)$) and one targeting the $1-\alpha/2$ quantile ($\hat{Q}_{\text{hi}}(x)$). These estimate the lower and upper bounds of the prediction interval directly.</p>
+
+      <p><strong>Step 2:</strong> On the calibration set D&#8322;, compute conformity scores:</p>
+
+      $$S_i = \max\left(\hat{Q}_{\text{lo}}(X_i) - Y_i, \;\; Y_i - \hat{Q}_{\text{hi}}(X_i)\right)$$
+
+      <p>This score measures how far the true response falls outside the predicted quantile range. If the quantile estimates are perfect, most scores will be negative (meaning Y falls inside the range).</p>
+
+      <p><strong>Step 3:</strong> Compute the conformal quantile $\hat{q}$ of these scores. The prediction interval is:</p>
+
+      $$\hat{C}(x) = [\hat{Q}_{\text{lo}}(x) - \hat{q}, \;\; \hat{Q}_{\text{hi}}(x) + \hat{q}]$$
+
+      <p><strong>Strengths:</strong></p>
+      <ul>
+        <li>Naturally adaptive: the width $\hat{Q}_{\text{hi}}(x) - \hat{Q}_{\text{lo}}(x)$ varies across $x$.</li>
+        <li>Can capture asymmetric intervals (different upper and lower tails).</li>
+        <li>The conformal correction $\hat{q}$ preserves marginal coverage regardless of how good the quantile regressors are.</li>
+      </ul>
+
+      <p><strong>Limitations:</strong></p>
+      <ul>
+        <li>Requires choosing and training quantile regression models &mdash; two of them.</li>
+        <li>The quality of adaptation depends entirely on how well the quantile models fit. Poor quantile estimates lead to poor adaptation, even though coverage is maintained.</li>
+        <li>Computational cost: training two quantile regressors adds significant overhead. For gradient-boosted trees, this roughly triples the training time.</li>
+        <li>Hyperparameters: the quantile models introduce all the usual hyperparameters (tree depth, learning rate, regularization) that must be tuned.</li>
+      </ul>
+
+      <h2>Studentized (Normalized) Conformal Prediction</h2>
+
+      <p><strong>Reference:</strong> Papadopoulos, Proedrou, Vovk, and Gammerman, 2008; Lei, G'Sell, Rinaldo, Tibshirani, and Wasserman, 2018.</p>
+
+      <p>Studentized CP normalizes residuals by an estimated standard deviation, following the classical idea of studentization in statistics.</p>
+
+      <p><strong>Step 1:</strong> Train a point prediction model $\hat{f}$ on D&#8321;. Additionally, train a scale estimator $\hat{\sigma}(x)$ on D&#8321;, typically by fitting a model to the absolute residuals $\{(X_i, |Y_i - \hat{f}(X_i)|)\}$ for $i$ in D&#8321;.</p>
+
+      <p><strong>Step 2:</strong> Compute normalized scores on D&#8322;:</p>
+
+      $$S_i = \frac{|Y_i - \hat{f}(X_i)|}{\hat{\sigma}(X_i)}$$
+
+      <p><strong>Step 3:</strong> Compute the conformal quantile $\hat{q}$. The prediction interval is:</p>
+
+      $$\hat{C}(x) = [\hat{f}(x) - \hat{q} \cdot \hat{\sigma}(x), \;\; \hat{f}(x) + \hat{q} \cdot \hat{\sigma}(x)]$$
+
+      <p><strong>Strengths:</strong></p>
+      <ul>
+        <li>Intuitive: divide by the estimated scale, multiply back when forming the interval.</li>
+        <li>Flexible: any regression model can serve as $\hat{\sigma}$.</li>
+        <li>Preserves marginal coverage by the standard conformal argument.</li>
+      </ul>
+
+      <p><strong>Limitations:</strong></p>
+      <ul>
+        <li>Requires training an auxiliary model for $\hat{\sigma}$.</li>
+        <li><strong>The sign flip problem</strong> (Part 6). The scale estimator is trained on training residuals, which have variance $\sigma^2(1-h)$. But calibration/test residuals have variance $\sigma^2(1+h)$. The estimator learns the wrong function. At high-leverage points, it predicts small variance (because training residuals were small) when the true prediction variance is large.</li>
+        <li>This systematic bias degrades conditional coverage precisely where it matters most.</li>
+      </ul>
+
+      <p>The sign flip problem is particularly insidious because it is invisible in standard evaluation. If you evaluate $\hat{\sigma}$ on held-out training-like data, it looks fine. The failure only manifests at prediction time, at unusual points &mdash; exactly where you most need the uncertainty estimate to be correct.</p>
+
+      <h2>Localized Conformal Prediction</h2>
+
+      <p><strong>Reference:</strong> Guan, 2023.</p>
+
+      <p>Localized CP takes a different approach: instead of normalizing the scores, it re-weights the calibration set to focus on points similar to the test point.</p>
+
+      <p><strong>Idea:</strong> For each test point $x$, assign kernel weights to the calibration points based on their similarity to $x$:</p>
+
+      $$w_i(x) = K\left(\frac{X_i - x}{\text{bandwidth}}\right)$$
+
+      <p>Then compute a <em>weighted</em> conformal quantile: the $(1-\alpha)$-quantile of the calibration scores under the kernel weights. Points similar to $x$ get more weight in determining the quantile; dissimilar points get less.</p>
+
+      <p><strong>Strengths:</strong></p>
+      <ul>
+        <li>Achieves approximate conditional coverage by localizing the quantile computation.</li>
+        <li>Does not require training auxiliary models.</li>
+        <li>Theoretically grounded: under regularity conditions, the weighted quantile converges to the conditional quantile.</li>
+      </ul>
+
+      <p><strong>Limitations:</strong></p>
+      <ul>
+        <li><strong>Kernel and bandwidth selection:</strong> The choice of kernel function and bandwidth is critical and introduces hyperparameters that must be tuned.</li>
+        <li><strong>Computational cost:</strong> For each test point, you must recompute the weighted quantile over the entire calibration set. This costs $O(n_2)$ per test point, versus $O(1)$ for vanilla CP. In high dimensions, the kernel weights may degenerate (curse of dimensionality).</li>
+        <li><strong>Effective sample size:</strong> In high dimensions, most calibration points will receive negligible weight, leaving very few effective calibration points and degrading the coverage guarantee.</li>
+        <li>The locality is with respect to <em>all</em> features simultaneously. In linear regression, prediction difficulty depends on the Mahalanobis distance (leverage), not the Euclidean distance. A kernel that localizes in Euclidean distance may miss the structure that actually matters.</li>
+      </ul>
+
+      <h2>A Comparison</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>Auxiliary models</th>
+            <th>Hyperparameters</th>
+            <th>Cost per test point</th>
+            <th>Sign flip?</th>
+            <th>Adaptation mechanism</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Vanilla CP</td>
+            <td>None</td>
+            <td>None</td>
+            <td>$O(1)$</td>
+            <td>N/A</td>
+            <td>None (constant width)</td>
+          </tr>
+          <tr>
+            <td>CQR</td>
+            <td>2 quantile regressors</td>
+            <td>Model hyperparams</td>
+            <td>$O(1)$</td>
+            <td>Partial</td>
+            <td>Learned quantile gap</td>
+          </tr>
+          <tr>
+            <td>Studentized CP</td>
+            <td>1 scale estimator</td>
+            <td>Model hyperparams</td>
+            <td>$O(1)$</td>
+            <td>Yes</td>
+            <td>Estimated $\sigma(x)$</td>
+          </tr>
+          <tr>
+            <td>Localized CP</td>
+            <td>None</td>
+            <td>Kernel, bandwidth</td>
+            <td>$O(n_2)$</td>
+            <td>No</td>
+            <td>Kernel weights</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>Three observations emerge:</p>
+
+      <ol>
+        <li><strong>Every adaptive method involves a trade-off.</strong> Either you train auxiliary models (CQR, Studentized), choose kernel parameters (Localized), or accept constant width (Vanilla). There is no existing method that adapts without introducing additional complexity.</li>
+        <li><strong>Methods that estimate variance from residuals inherit the sign flip.</strong> This includes Studentized CP and, to a lesser extent, CQR (whose quantile regressors are also trained on D&#8321; and therefore see attenuated residuals at high-leverage points).</li>
+        <li><strong>Computational costs vary dramatically.</strong> Vanilla CP and CQR/Studentized CP have $O(1)$ cost per test point (after training). Localized CP has $O(n_2)$ cost per test point. For a test set of 10,000 points and a calibration set of 5,000 points, Localized CP requires 50 million kernel evaluations.</li>
+      </ol>
+
+      <h2>What Is Missing?</h2>
+
+      <p>Looking at this landscape through the lens of Parts 4-7, a gap becomes apparent. We know that:</p>
+
+      <ul>
+        <li>Leverage scores provide a <em>closed-form, exact</em> description of how prediction variance depends on feature-space geometry (Part 6).</li>
+        <li>Leverage can be computed from the design matrix alone, without looking at residuals, so it is immune to the sign flip (Part 6).</li>
+        <li>Leverage computation is dominated by a single SVD, which may already be computed as part of fitting the regression (Part 4).</li>
+        <li>Variance stabilization using the known variance function $\sigma^2(1+h)$ converts the heteroscedastic problem into a homoscedastic one (Part 7).</li>
+      </ul>
+
+      <p>Yet no existing adaptive conformal method uses leverage scores as the adaptation mechanism. CQR and Studentized CP train auxiliary models to <em>learn</em> what leverage already <em>knows</em>. Localized CP uses a kernel to approximate locality, while leverage provides an exact, closed-form measure of feature-space position.</p>
+
+      <p>This gap &mdash; between what existing methods do and what the design matrix geometry already provides &mdash; is the subject of the next two posts.</p>
+
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Romano, Y., Patterson, E., &amp; Candes, E. J. (2019). Conformalized quantile regression. <em>NeurIPS</em>.</li>
+        <li>Papadopoulos, H., Proedrou, K., Vovk, V., &amp; Gammerman, A. (2002). Inductive confidence machines for regression. <em>ECML</em>.</li>
+        <li>Lei, J., G'Sell, M., Rinaldo, A., Tibshirani, R. J., &amp; Wasserman, L. (2018). Distribution-free predictive inference for regression. <em>JASA</em>.</li>
+        <li>Guan, L. (2023). Localized conformal prediction: A generalized inference framework for conformal prediction. <em>Biometrika</em>.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post07.html" class="prev">Heteroscedasticity and Variance Stabilization</a>
+      <a href="post09.html" class="next">Leverage as a Free Lunch</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <span><a href="/blog/">All posts</a></span>
+</footer>
+
+</body>
+</html>

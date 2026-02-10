@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Constant-Width Problem: When Your Error Bars Lie — Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Writing</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <article class="post">
+    <div class="post-header">
+      <h1>The Constant-Width Problem: When Your Error Bars Lie</h1>
+      <p class="post-subtitle">Part 3 of a 10-part series on prediction intervals, conformal prediction, and leverage scores.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/">From Predictions to Prediction Intervals</a>.
+      <a href="post02.html" class="prev">Conformal Prediction</a>
+      <a href="post04.html" class="next">The Hat Matrix</a>
+    </div>
+
+    <div class="post-body">
+
+      <p>In Part 2, we saw that split conformal prediction delivers a finite-sample, distribution-free coverage guarantee for any model. The recipe is simple: compute calibration residuals, take a quantile, form an interval. The coverage is at least $1-\alpha$, guaranteed.</p>
+
+      <p>But look at the interval again:</p>
+
+      $$\hat{C}(x) = [\hat{f}(x) - \hat{q}, \;\; \hat{f}(x) + \hat{q}]$$
+
+      <p>The half-width is $\hat{q}$ — a single number, the same for every test point. The interval is centered at the model's prediction, but its <em>width does not depend on x</em>.</p>
+
+      <p>This is the constant-width problem, and it is the central limitation of vanilla conformal prediction.</p>
+
+      <h2>A Concrete Example</h2>
+
+      <p>Consider predicting house prices. Suppose you train a model on a dataset that includes both dense suburban neighborhoods (many similar houses, lots of comparable training data) and remote luxury estates (each one unique, very few comparable training points).</p>
+
+      <p>The model will be very accurate for suburban homes — the training data is rich in similar examples — and much less accurate for luxury estates, where it is effectively extrapolating.</p>
+
+      <p>But conformal prediction gives the same interval width to both. If the conformal quantile is $50,000, then a suburban home predicted at $350,000 gets the interval [$300K, $400K], and a remote estate predicted at $2.5M also gets the interval [$2.45M, $2.55M].</p>
+
+      <p>The suburban interval is probably too wide (the model is very accurate there), and the estate interval is almost certainly too narrow (the model is guessing). The average coverage across all test points might be 90%, but the per-point coverage varies wildly.</p>
+
+      <h2>Marginal vs. Conditional Coverage</h2>
+
+      <p>This distinction is central to everything that follows.</p>
+
+      <p><strong>Marginal coverage</strong> is the guarantee that conformal prediction actually provides:</p>
+
+      $$P(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - \alpha$$
+
+      <p>This averages over both the test point X and its response Y. It says: if you draw a random test point from the same distribution, the interval covers it with probability at least $1-\alpha$. Over many test points, the coverage rate will be at least 90%.</p>
+
+      <p><strong>Conditional coverage</strong> is what we actually want:</p>
+
+      $$P(Y_{n+1} \in \hat{C}(X_{n+1}) \mid X_{n+1} = x) \geq 1 - \alpha \quad \text{for all } x$$
+
+      <p>This says: for <em>each specific</em> test point x, the interval covers the response with probability at least $1-\alpha$. This is a much stronger requirement. It means that the interval is correctly calibrated everywhere in the feature space, not just on average.</p>
+
+      <p>An analogy: marginal coverage is like saying "the average temperature in this hospital is 72 degrees Fahrenheit." Conditional coverage is like saying "the temperature in every room is 72 degrees." The first statement is compatible with some patients being in a sauna and others in a walk-in freezer.</p>
+
+      <h2>The Impossibility Result</h2>
+
+      <p>Here is the sobering fact: <strong>exact conditional coverage is impossible to achieve in a distribution-free setting</strong>.</p>
+
+      <p>This was established by Vovk (2012) and formalized more precisely by Barber, Candes, Ramdas, and Tibshirani (2021). The result, informally, states:</p>
+
+      <blockquote>
+        <p>For any distribution-free prediction interval procedure that achieves marginal coverage $1-\alpha$, there exist distributions under which the conditional coverage at some points is as low as 0 and at other points is as high as 1.</p>
+      </blockquote>
+
+      <p>In other words, any method that works without distributional assumptions <em>must</em> have uneven conditional coverage under some data distribution. You cannot have both "distribution-free" and "perfect conditional coverage" simultaneously.</p>
+
+      <p>This is not a failure of existing methods — it is a mathematical impossibility. The proof works by construction: given any distribution-free method, one can craft an adversarial distribution that forces the method to misallocate its interval widths.</p>
+
+      <p>The impossibility result does not say that all methods are equally bad at conditional coverage. Some methods achieve much better <em>approximate</em> conditional coverage than others. And under structural assumptions (which are weaker than full parametric assumptions), near-perfect conditional coverage is achievable. The impossibility result sets a lower bound on what is possible, and the gap between that lower bound and what practical methods achieve is where all the interesting work happens.</p>
+
+      <h2>What Constant Width Gets Wrong</h2>
+
+      <p>To see concretely how constant-width intervals fail, consider a one-dimensional regression where the noise variance increases with x:</p>
+
+      $$Y = f(x) + \varepsilon(x), \quad \text{where } \text{Var}(\varepsilon(x)) \text{ increases with } |x|$$
+
+      <p>Points near the center have small noise, and points far from the center have large noise. A constant-width interval calibrated on the calibration set will:</p>
+
+      <ul>
+        <li><strong>Overcover near the center:</strong> The interval is wider than needed, because the noise is small. Coverage might be 99% instead of 90%.</li>
+        <li><strong>Undercover at the extremes:</strong> The interval is too narrow for the large noise. Coverage might be 70% instead of 90%.</li>
+      </ul>
+
+      <p>The marginal coverage is 90% (the overcoverage at the center compensates for the undercoverage at the extremes), but the conditional coverage varies from 70% to 99%. This is the "hospital temperature" problem in action.</p>
+
+      <p>In high-stakes applications, undercoverage at the extremes is dangerous. The extreme regions are often where predictions matter most (unusual patients, extreme market conditions, edge cases in autonomous driving) and where the model is least reliable.</p>
+
+      <h2>Why Does This Happen?</h2>
+
+      <p>The root cause is that conformal prediction uses a single quantile for all test points. The quantile $\hat{q}$ is calibrated to be correct <em>on average</em> over the calibration set, which is a mix of easy and hard points. For easy points, $\hat{q}$ is too large; for hard points, $\hat{q}$ is too small.</p>
+
+      <p>What we need is a way to make the interval width depend on x: wider where prediction is harder, narrower where it is easier. This requires knowing — or estimating — what makes some predictions harder than others.</p>
+
+      <p>There are two fundamentally different approaches to this:</p>
+
+      <ol>
+        <li><strong>Learn the difficulty.</strong> Train an auxiliary model to estimate where predictions are hard (e.g., estimate the conditional variance, or fit quantile regressors). This is the approach taken by methods like CQR and studentized conformal prediction.</li>
+        <li><strong>Derive the difficulty from data geometry.</strong> Use structural properties of the feature space — specifically, how far each point is from the training distribution — to determine prediction difficulty. This requires no auxiliary model.</li>
+      </ol>
+
+      <p>The first approach has been extensively studied and is the subject of Part 8. The second approach is what the later posts in this series build toward.</p>
+
+      <p>But before we can understand either approach, we need to understand what determines prediction difficulty in the first place. In linear models, there is a remarkably clean answer involving a quantity called the <em>leverage score</em>. That is where we go next.</p>
+
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Vovk, V. (2012). Conditional validity of inductive conformal predictors. <em>Asian Conference on Machine Learning</em>, 475-490.</li>
+        <li>Barber, R. F., Candes, E. J., Ramdas, A., &amp; Tibshirani, R. J. (2021). The limits of distribution-free conditional predictive inference. <em>Information and Inference</em>, 10(2), 455-482.</li>
+        <li>Tibshirani, R. J. (2023). Conformal prediction: A gentle introduction. <em>Foundations and Trends in Machine Learning</em>.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post02.html" class="prev">Conformal Prediction</a>
+      <a href="post04.html" class="next">The Hat Matrix</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <span><a href="/blog/">All posts</a></span>
+</footer>
+
+</body>
+</html>

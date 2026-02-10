@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Sign Flip: Why Training Residuals Lie About Prediction Uncertainty — Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Writing</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <article class="post">
+    <div class="post-header">
+      <h1>The Sign Flip: Why Training Residuals Lie About Prediction Uncertainty</h1>
+      <p class="post-subtitle">Part 6 of a 10-part series on prediction intervals, conformal prediction, and leverage scores.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/">From Predictions to Prediction Intervals</a>.
+    </div>
+
+    <div class="post-body">
+      <p>This is the conceptual core of the series. Everything in Parts 1-5 has been building to this point: the conformal prediction track established that we need adaptive prediction intervals, and the leverage track established that leverage scores capture the geometry of feature space. This post connects the two through a precise mathematical relationship — and reveals a subtle trap that undermines existing methods.</p>
+
+      <h2>The Variance Decomposition</h2>
+
+      <p>Consider a linear model:</p>
+
+      $$Y = X^\top \beta^* + \varepsilon, \quad \text{where } \mathbb{E}[\varepsilon \mid X] = 0, \; \text{Var}(\varepsilon \mid X) = \sigma^2$$
+
+      <p>The OLS estimator is $\hat{\beta} = (\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{Y}$, and the prediction at a new test point x is:</p>
+
+      $$\hat{Y}(x) = x^\top \hat{\beta}$$
+
+      <p>The prediction error is:</p>
+
+      $$Y_{\text{new}} - \hat{Y}(x) = (x^\top \beta^* + \varepsilon_{\text{new}}) - x^\top \hat{\beta} = \varepsilon_{\text{new}} - x^\top(\hat{\beta} - \beta^*)$$
+
+      <p>This has two components:</p>
+
+      <ol>
+        <li><strong>Noise:</strong> $\varepsilon_{\text{new}}$, the irreducible randomness in the new observation.</li>
+        <li><strong>Estimation error:</strong> $-x^\top(\hat{\beta} - \beta^*)$, the error from estimating the coefficients.</li>
+      </ol>
+
+      <p>Since $\varepsilon_{\text{new}}$ is independent of $\hat{\beta}$ (the new noise is independent of the training data), the variances add:</p>
+
+      $$\text{Var}(Y_{\text{new}} - \hat{Y}(x) \mid x, \mathbf{X}) = \text{Var}(\varepsilon_{\text{new}}) + \text{Var}(x^\top\hat{\beta} \mid \mathbf{X})$$
+
+      <p>The first term is $\sigma^2$. The second term is:</p>
+
+      $$\text{Var}(x^\top\hat{\beta} \mid \mathbf{X}) = x^\top \text{Var}(\hat{\beta} \mid \mathbf{X}) \, x = x^\top [\sigma^2(\mathbf{X}^\top\mathbf{X})^{-1}] \, x = \sigma^2 \cdot h(x)$$
+
+      <p>Combining:</p>
+
+      $$\boxed{\text{Var}(Y_{\text{new}} - \hat{Y}(x) \mid x, \mathbf{X}) = \sigma^2(1 + h(x))}$$
+
+      <p>This is the <strong>prediction error variance</strong>. It has a beautiful interpretation:</p>
+
+      <ul>
+        <li>The "1" comes from the irreducible noise in the new observation.</li>
+        <li>The "$h(x)$" comes from the estimation uncertainty — the model does not know $\beta^*$ exactly, and the error in $\hat{\beta}$ is amplified by how far x is from the training centroid.</li>
+      </ul>
+
+      <p>At the center of the training data ($h(x) \approx 0$), the prediction variance is approximately $\sigma^2$ — just noise. At a high-leverage point ($h(x)$ large), the estimation error dominates, and the prediction variance grows substantially.</p>
+
+      <h2>Training Residuals: The Other Side</h2>
+
+      <p>Now consider the training residuals. The i-th training residual is:</p>
+
+      $$e_i = Y_i - \hat{Y}_i = Y_i - X_i^\top \hat{\beta}$$
+
+      <p>Using the hat matrix, the residual vector is $\mathbf{e} = (\mathbf{I} - \mathbf{H})\mathbf{Y} = (\mathbf{I} - \mathbf{H})(\mathbf{X}\beta^* + \varepsilon) = (\mathbf{I} - \mathbf{H})\varepsilon$ (since $\mathbf{X}\beta^*$ is in the column space of $\mathbf{X}$ and thus annihilated by $\mathbf{I} - \mathbf{H}$). The variance of the i-th residual is:</p>
+
+      $$\text{Var}(e_i \mid \mathbf{X}) = \sigma^2(1 - h_i)$$
+
+      <p>Stop and compare. For prediction errors:</p>
+
+      $$\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \sigma^2(1 + h(x))$$
+
+      <p>For training residuals:</p>
+
+      $$\text{Var}(e_i) = \sigma^2(1 - h_i)$$
+
+      <p><strong>The sign of h flips.</strong> The leverage contribution is $+h$ for prediction errors and $-h$ for training residuals.</p>
+
+      <p>This is not a minor technicality. It is a fundamental structural property with far-reaching consequences.</p>
+
+      <h2>Why the Signs Are Opposite</h2>
+
+      <p>The intuition behind the sign flip is mechanical:</p>
+
+      <p><strong>Prediction errors (1+h):</strong> The model has been fit to the training data. When you predict at a new point x, two things contribute to uncertainty. First, the new observation has its own noise (the "1" term). Second, the model's coefficients are imprecise, and this imprecision is amplified by the leverage of x (the "+h" term). At a high-leverage point, the coefficient uncertainty translates into a large prediction error because x lies in a direction where the coefficients are poorly determined.</p>
+
+      <p><strong>Training residuals (1-h):</strong> For a training point i, the model has already seen $Y_i$ and has <em>adjusted itself</em> to accommodate it. A high-leverage point has a strong "pull" on the fit — the model bends to pass near it. This means the residual $e_i$ is <em>smaller</em> than the true noise $\varepsilon_i$, because the model has absorbed some of the noise by fitting it. The factor $(1-h)$ captures this attenuation: the higher the leverage, the more the model has absorbed the noise, and the smaller the residual.</p>
+
+      <p>In short:</p>
+      <ul>
+        <li><strong>Prediction errors are amplified by leverage</strong> because the model is uncertain in high-leverage directions.</li>
+        <li><strong>Training residuals are attenuated by leverage</strong> because the model has fit itself to high-leverage points.</li>
+      </ul>
+
+      <h2>The Trap for Uncertainty Estimation</h2>
+
+      <p>Now consider what happens when you try to estimate prediction uncertainty using training data.</p>
+
+      <p>A natural approach is: fit a variance estimator $\hat{\sigma}(x)$ to the training absolute residuals $\{(X_i, |e_i|)\}$. This is exactly what studentized conformal prediction does (we will cover this in Part 8). The estimator learns the pattern:</p>
+
+      $$\hat{\sigma}(x) \approx \sigma\sqrt{1 - h(x)}$$
+
+      <p>because the training residuals have variance $\sigma^2(1-h)$.</p>
+
+      <p>But when this estimator is applied to a test point, the <em>true</em> prediction error has variance $\sigma^2(1+h(x))$. The estimator has learned the wrong function. At a high-leverage point:</p>
+
+      <ul>
+        <li>The estimator predicts small uncertainty (because training residuals were small there).</li>
+        <li>The true prediction error has <em>large</em> uncertainty (because the model is extrapolating).</li>
+      </ul>
+
+      <p>The estimator is not just slightly wrong — it is wrong in the <em>opposite direction</em> from what you need. Where the prediction is most uncertain, the estimator says it is most certain.</p>
+
+      <h2>Quantifying the Mismatch</h2>
+
+      <p>To see the magnitude of this problem, consider the ratio between the true prediction uncertainty and the estimated uncertainty at a high-leverage point:</p>
+
+      $$\frac{\sigma\sqrt{1+h}}{\sigma\sqrt{1-h}} = \sqrt{\frac{1+h}{1-h}}$$
+
+      <p>For a moderate leverage value of $h = 0.3$, this ratio is $\sqrt{1.3/0.7} \approx 1.36$ — the true uncertainty is 36% larger than what the estimator predicts.</p>
+
+      <p>For $h = 0.5$, the ratio is $\sqrt{1.5/0.5} = \sqrt{3} \approx 1.73$ — the estimator underestimates uncertainty by 73%.</p>
+
+      <p>As $h \to 1$ (which happens for highly unusual points or when p is close to n), the ratio diverges to infinity: the estimator predicts near-zero uncertainty while the true uncertainty is enormous.</p>
+
+      <p>In a conformal prediction context, this means that studentized scores (residuals divided by the estimated standard deviation) inherit this h-dependent distortion:</p>
+
+      $$s_i^{\text{stud}} = \frac{|Y_i - \hat{f}(X_i)|}{\hat{\sigma}(X_i)} \approx \sqrt{\frac{1+h_i}{1-h_i}} \cdot |\eta_i|$$
+
+      <p>where $\eta_i$ is a standardized error term. These scores are <em>not</em> identically distributed across the calibration set — they carry a systematic, leverage-dependent bias. The conformal quantile is contaminated, and the resulting intervals are poorly adapted.</p>
+
+      <h2>The Diagram</h2>
+
+      <p>To visualize the sign flip, imagine a 1D regression with a cluster of training points near the center and a single high-leverage point far to the right.</p>
+
+      <p><strong>Training phase:</strong> The model fits a line through all points. At the high-leverage point, the line is pulled close to the observed value, so the residual is tiny. The model "absorbs" the noise at that point.</p>
+
+      <p><strong>Prediction phase:</strong> A new test point arrives near the high-leverage training point. The model's prediction is based on the same line — but the line's slope is uncertain precisely because it was determined in part by that single distant point. The prediction error is large.</p>
+
+      <p>The training residual at the high-leverage point was deceptively small. The prediction error at a nearby test point is deceptively large. The leverage contribution to variance has flipped sign.</p>
+
+      <h2>The Implication</h2>
+
+      <p><strong>Any method that estimates prediction uncertainty from training residuals alone will systematically underestimate uncertainty at high-leverage points and overestimate it at low-leverage points.</strong></p>
+
+      <p>This affects not only studentized conformal prediction but any method that trains a variance estimator on in-sample data, including some Bayesian approaches and ensemble methods that use training-set variability as a proxy for prediction uncertainty.</p>
+
+      <p>The way out is to use a quantity that directly reflects the <em>prediction-time</em> variance structure rather than the <em>training-time</em> residual structure. Leverage scores, computed from the design matrix without looking at residuals, provide exactly this. The formula $\sigma^2(1+h(x))$ describes the prediction variance without any reference to training residuals, so it avoids the sign flip entirely.</p>
+
+      <p>In Part 7, we will discuss how to turn this insight into a practical method through the concept of <em>variance stabilization</em>.</p>
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Cook, R. D. &amp; Weisberg, S. (1982). <em>Residuals and Influence in Regression.</em> Chapman &amp; Hall.</li>
+        <li>Chatterjee, S. &amp; Hadi, A. S. (1988). <em>Sensitivity Analysis in Linear Regression.</em> Wiley.</li>
+        <li>Seber, G. A. F. &amp; Lee, A. J. (2003). <em>Linear Regression Analysis</em>, 2nd ed. Wiley. (Chapter 10 on prediction and the variance decomposition.)</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post05.html" class="prev">Leverage and Influence</a>
+      <a href="post07.html" class="next">Heteroscedasticity and Variance Stabilization</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <span><a href="/blog/">All posts</a></span>
+</footer>
+
+</body>
+</html>
