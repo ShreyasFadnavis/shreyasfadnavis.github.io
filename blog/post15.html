@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Randomized Numerical Linear Algebra: Why Leverage Scores Are the Right Sampling Distribution &mdash; Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Notes</a>
+      <a href="/links.html">Links</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <article class="post">
+    <div class="post-header">
+      <h1>Randomized Numerical Linear Algebra: Why Leverage Scores Are the Right Sampling Distribution</h1>
+      <p class="post-subtitle">Part 15 of a series on prediction intervals, conformal prediction, and leverage scores.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/">From Predictions to Prediction Intervals</a>.
+    </div>
+
+    <div class="post-body">
+
+      <p>In the previous post, we traced the history of leverage from regression diagnostics to algorithmic primitives. This post dives deeper into the algorithmic side: the field of <strong>randomized numerical linear algebra</strong> (RNLA), where leverage scores play a starring role. The central question is deceptively simple: if you have a matrix with a million rows and you can only afford to work with a thousand of them, which thousand should you pick? The answer &mdash; <em>sample proportional to leverage scores</em> &mdash; was established by Petros Drineas, Michael Mahoney, and collaborators, and it transformed how we think about large-scale matrix computation.</p>
+
+      <p>The story of RNLA is, in many ways, the story of how a classical statistical concept &mdash; the leverage score, defined by the hat matrix in the 1970s &mdash; found a second life as the key to making linear algebra scale. Drineas, more than anyone, drove this transformation. His work with Kannan, Mahoney, and others showed that leverage scores are not just diagnostic tools for regression: they are the theoretically optimal importance sampling distribution for a wide class of matrix approximation problems. This post is an attempt to explain why.</p>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 1: INTUITIVE                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>The Sampling Problem</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>When Classical Linear Algebra Breaks Down</h3>
+
+          <p>Classical numerical linear algebra is one of the great achievements of applied mathematics. Over centuries, mathematicians and computer scientists have perfected algorithms for the core operations: the singular value decomposition (SVD), QR factorization, least squares regression, eigenvalue computation. These algorithms are numerically stable, thoroughly analyzed, and implemented in libraries (LAPACK, BLAS) that squeeze every cycle out of modern hardware. For a matrix with $n$ rows and $p$ columns, the cost is typically $O(np^2)$ &mdash; roughly, you look at every entry a few times, do some arithmetic, and you are done.</p>
+
+          <p>For decades, this was fine. A matrix with $n = 1{,}000$ and $p = 50$ takes a fraction of a second. Even $n = 100{,}000$ and $p = 500$ is manageable on a laptop. But modern datasets have changed the arithmetic. A genomics dataset might have $n = 500{,}000$ samples and $p = 20{,}000$ features. A recommendation system at a major tech company might involve a matrix with $n = 100{,}000{,}000$ rows. A natural language processing pipeline might produce embeddings with $n = 10^9$ rows. At these scales, $O(np^2)$ is not just slow &mdash; it is physically impossible. You cannot even read all the entries in a reasonable time, let alone factor the matrix.</p>
+
+          <p>This is the problem that randomized numerical linear algebra sets out to solve: <strong>can you get approximately the right answer by looking at only a small fraction of the matrix?</strong></p>
+
+          <h3>The Obvious Idea and Why It Fails</h3>
+
+          <p>The most natural approach is uniform random sampling: pick $s$ rows out of $n$ uniformly at random, work with the $s \times p$ submatrix, and hope the answer is close. This sounds reasonable. If the rows of the matrix are all roughly similar &mdash; all contributing equally to the structure &mdash; then any random sample is a good representative.</p>
+
+          <p>But matrices are not democracies. Some rows matter far more than others. Consider a concrete scenario: you have a matrix $A$ with $n = 1{,}000{,}000$ rows in $p = 100$ dimensions. Suppose that 999,997 of the rows lie in a 99-dimensional subspace, and only 3 rows have any component in the 100th direction. These 3 rows are the only ones that "see" an entire dimension of the column space. If you sample $s = 1{,}000$ rows uniformly at random, the probability of picking <em>any</em> of those 3 critical rows is:</p>
+
+          $$P(\text{at least one of the 3}) = 1 - \left(\frac{999{,}997}{1{,}000{,}000}\right)^{1000} \approx 1 - e^{-0.003} \approx 0.003$$
+
+          <p>A 0.3% chance. You will almost certainly miss all three, and your approximation will behave as though the matrix has rank 99 instead of 100. The error is not small &mdash; it is catastrophic. An entire dimension of the solution space is invisible.</p>
+
+          <p>This is not a contrived example. In real datasets, the information is often distributed very unevenly. In text corpora, a few documents may be the only ones containing certain rare-but-important terms. In genomic data, a few individuals may carry rare variants that span a unique direction in genotype space. In sensor networks, a few sensors may be positioned in critical locations. Uniform sampling systematically under-represents these rare-but-important contributors.</p>
+
+          <h3>Leverage Scores as the Answer</h3>
+
+          <p>The solution, championed by Petros Drineas and Michael Mahoney, is to sample rows <em>non-uniformly</em>, in proportion to their importance. But how do you measure importance? This is where leverage scores enter the picture.</p>
+
+          <p>Recall from earlier posts that the leverage score of row $i$ is $h_i = a_i^\top (A^\top A)^{-1} a_i$, where $a_i^\top$ is the $i$-th row of $A$. Equivalently, if $A = U\Sigma V^\top$ is the SVD, then $h_i = \|U_i\|^2$ &mdash; the squared norm of the $i$-th row of the left singular vector matrix. Leverage scores live in $[0, 1]$ and sum to $p$ (the number of columns). A row with high leverage is one that "sticks out" from the bulk of the data &mdash; it spans a direction that few other rows span. A row with low leverage is one that is well-represented by many other rows.</p>
+
+          <p>The systematic study of leverage score sampling for matrix computation was initiated by Drineas, Kannan, and Mahoney in a series of papers starting in the early 2000s. Their key insight was this: <strong>if you sample row $i$ with probability proportional to its leverage score $h_i$, then every direction of the column space is represented proportionally in the sample</strong>. The 3 critical rows from our earlier example would have leverage close to 1 (they are the only rows spanning the 100th direction), so they would be sampled with near certainty. Meanwhile, the 999,997 "boring" rows would each have tiny leverage, so most of them would be skipped &mdash; but enough would be included to represent their 99-dimensional subspace. The sample captures the geometry of the full matrix, at a fraction of the cost.</p>
+
+          <div class="mermaid">
+flowchart LR
+    subgraph Uniform["Uniform Sampling"]
+      direction TB
+      U1["Sample 1000 rows\nuniformly at random"]
+      U2["99.7% chance of\nmissing ALL 3 critical rows"]
+      U3["Entire dimension\ncollapsed"]
+      U1 --> U2 --> U3
+    end
+    subgraph Leverage["Leverage Score Sampling"]
+      direction TB
+      L1["Sample 1000 rows\nproportional to hᵢ"]
+      L2["Critical rows have\nhigh leverage, sampled\nwith near certainty"]
+      L3["All directions\npreserved"]
+      L1 --> L2 --> L3
+    end
+    U3 -.- R["Rank deficient\napproximation"]
+    L3 -.- G["Faithful\napproximation"]
+    style U3 fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style R fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style L3 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style G fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">Uniform sampling misses structurally important rows. Leverage score sampling, as proposed by Drineas, Kannan, and Mahoney, preferentially includes them.</p>
+
+          <h3>The Book Analogy</h3>
+
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p>Imagine you need to summarize a 500-page book by reading only 50 pages. Uniform sampling would pick 50 pages at random &mdash; you might get 50 consecutive pages from the slow-moving middle section, missing the introduction, the climax, and the resolution entirely. Your summary would be badly skewed. Leverage-based sampling identifies the "critical pages" &mdash; the first chapter, the turning points, the climax, the denouement &mdash; and ensures they are in your sample. You might still pick some pages from the middle, but the structurally important pages are guaranteed to be represented. The result is a summary that captures the full arc of the story, not just the bulk of the text.</p>
+          </div>
+
+          <p>Drineas and Mahoney showed that this intuition could be made rigorous: leverage score sampling yields provably good approximations for least squares, low-rank approximation, and matrix decomposition, with sample sizes that depend on the number of columns $p$ (the "intrinsic dimension") rather than the number of rows $n$. This is what makes RNLA practical: for a matrix with $n = 10^8$ rows and $p = 100$ columns, you might need only $s = O(p \log p) \approx 700$ samples to get a $(1+\varepsilon)$-approximate solution. That is a compression ratio of over 100,000 to 1.</p>
+
+          <h3>Why This Matters</h3>
+
+          <p>The impact of Drineas and Mahoney's work extends far beyond algorithms. They showed that leverage &mdash; a concept from 1970s regression diagnostics &mdash; is fundamentally the right way to measure the importance of data points for linear algebraic computation. This realization has influenced how people think about data summarization, coresets, streaming algorithms, and the theoretical foundations of data science. Drineas was elected a SIAM Fellow in recognition of these contributions, and the body of work he helped create &mdash; now called RandNLA &mdash; is a cornerstone of modern computational mathematics.</p>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 2: TECHNICAL                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge technical">Technical</span>
+          <h2>The Core Algorithms</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Algorithm 1: Leverage Score Sampling for Least Squares</h3>
+
+          <p>The foundational algorithm in Drineas, Mahoney, and Muthukrishnan (2006) addresses the most basic problem in numerical linear algebra: <strong>least squares regression</strong>. Given $A \in \mathbb{R}^{n \times p}$ with $n \gg p$ and a response vector $b \in \mathbb{R}^n$, find $x^* = \arg\min_x \|Ax - b\|_2$. The classical solution is $x^* = (A^\top A)^{-1} A^\top b$, which costs $O(np^2)$. When $n$ is in the millions, this is prohibitive.</p>
+
+          <p>The randomized approach proceeds as follows. First, compute (or approximate) the leverage scores $h_i = U_i^\top U_i$ from the thin SVD $A = U\Sigma V^\top$. Define sampling probabilities $p_i = h_i / p$ (since leverage scores sum to $p$, these form a valid probability distribution). Then, independently sample $s$ rows from the augmented matrix $[A \mid b]$: for each sample $k = 1, \ldots, s$, draw index $i_k$ with probability $p_{i_k}$, and include the rescaled row $\tilde{a}_{i_k}^\top / \sqrt{s \cdot p_{i_k}}$ in the subsampled matrix $\tilde{A}$ and $\tilde{b}_{i_k} / \sqrt{s \cdot p_{i_k}}$ in the subsampled response. Finally, solve the small $s \times p$ least squares problem $\tilde{x} = \arg\min_x \|\tilde{A}x - \tilde{b}\|_2$.</p>
+
+          <p>The rescaling by $1/\sqrt{s \cdot p_i}$ is essential: it ensures that the subsampled matrix is an unbiased estimator of the original Gram matrix, i.e., $\mathbb{E}[\tilde{A}^\top \tilde{A}] = A^\top A$. Without this rescaling, rows sampled with higher probability would be over-represented.</p>
+
+          <p>The guarantee, proven by Drineas, Mahoney, and Muthukrishnan, is remarkable:</p>
+
+          $$\|A\tilde{x} - b\|_2 \leq (1+\varepsilon)\|Ax^* - b\|_2$$
+
+          <p>with high probability, provided $s = O(p \log p / \varepsilon^2)$. The sample size depends on $p$ and the desired accuracy $\varepsilon$ &mdash; <em>not on $n$</em>. For $p = 100$ and $\varepsilon = 0.1$, you need roughly $s \approx 50{,}000$ samples regardless of whether $n$ is one million or one billion. The total cost drops from $O(np^2)$ to $O(np)$ (one pass to compute leverage scores) plus $O(sp^2)$ (solving the small problem) &mdash; a massive savings when $n \gg s$.</p>
+
+          <h3>Algorithm 2: CUR Decomposition</h3>
+
+          <p>The SVD is the gold standard of matrix decomposition: $A \approx U_k \Sigma_k V_k^\top$, where $U_k$ and $V_k$ are orthonormal matrices and $\Sigma_k$ is diagonal. This is mathematically optimal (the Eckart&ndash;Young theorem), but it has a practical drawback: the columns of $U_k$ and the rows of $V_k^\top$ are abstract linear combinations of the original data. They are hard to interpret. If $A$ is a document-term matrix, the "topics" in $U_k$ are dense mixtures of all terms &mdash; useful for computation, but not for human understanding.</p>
+
+          <p>The CUR decomposition, developed by Drineas and Mahoney (with key contributions from Kannan and others), offers an alternative. Instead of abstract singular vectors, express the approximation in terms of <em>actual columns and rows of the original matrix</em>:</p>
+
+          $$A \approx C \cdot U \cdot R$$
+
+          <p>Here, $C \in \mathbb{R}^{n \times c}$ consists of $c$ actual columns of $A$, selected by sampling columns with probability proportional to their <strong>column leverage scores</strong> (from the right singular vectors). $R \in \mathbb{R}^{r \times p}$ consists of $r$ actual rows of $A$, selected by sampling rows with probability proportional to their <strong>row leverage scores</strong> (from the left singular vectors). $U \in \mathbb{R}^{c \times r}$ is a small linking matrix computed to make the approximation as good as possible &mdash; typically $U = C^\dagger A R^\dagger$, where $\dagger$ denotes the pseudoinverse.</p>
+
+          <p>The beauty of CUR is interpretability. If $A$ is a document-term matrix, then $C$ consists of actual documents, $R$ consists of actual terms, and the approximation says: "This corpus can be approximately described by these representative documents, these representative terms, and their interactions." In genomics, $C$ might be representative individuals and $R$ might be representative genetic loci. In recommender systems, $C$ might be representative users and $R$ might be representative items. Drineas showed that leverage score sampling selects columns and rows that are provably as informative as the SVD, in the sense that $\|A - CUR\|_F \leq (1+\varepsilon)\|A - A_k\|_F$ for appropriate sample sizes.</p>
+
+          <h3>Algorithm 3: Fast Leverage Score Approximation</h3>
+
+          <p>There is a chicken-and-egg problem lurking in all of the above. To sample rows by leverage score, you need the leverage scores. But computing exact leverage scores requires the SVD of $A$, which costs $O(np^2)$ &mdash; the very cost you are trying to avoid. If you have to do $O(np^2)$ work before you can even start sampling, the randomized approach offers no savings.</p>
+
+          <p>Drineas, Magdon-Ismail, Mahoney, and Woodruff (2012) broke this circularity with a beautiful algorithmic idea: <strong>use a random projection to approximate the leverage scores quickly</strong>. The algorithm works as follows. First, draw a random projection matrix $\Pi \in \mathbb{R}^{m \times n}$ (such as a matrix of i.i.d. Gaussian entries, or a subsampled randomized Hadamard transform), where $m = O(p \log p)$. Compute $\Pi A \in \mathbb{R}^{m \times p}$ &mdash; this costs $O(np \log n)$ with a fast transform. Compute the QR factorization of $\Pi A$: write $\Pi A = QR$ where $R \in \mathbb{R}^{p \times p}$ is upper triangular. Then the approximate leverage scores are $\tilde{h}_i = \|a_i^\top R^{-1}\|^2$, where $a_i^\top$ is the $i$-th row of $A$.</p>
+
+          <p>The key insight is that $R$ captures the "scale" of the column space of $A$ &mdash; it is essentially a rotation and rescaling that whitens the columns. The approximate leverages $\tilde{h}_i$ satisfy $h_i / \kappa \leq \tilde{h}_i \leq \kappa \cdot h_i$ for a small constant $\kappa$, and this constant-factor approximation is sufficient for sampling: the resulting least squares solution still achieves a $(1+\varepsilon)$ approximation, with only a constant-factor increase in sample size. The total cost is $O(np \log n)$ for the projection plus $O(np)$ for computing the approximate leverages &mdash; linear in the number of entries of $A$, which is optimal.</p>
+
+          <div class="mermaid">
+flowchart LR
+    A["Large Matrix\nA (n x p)"] --> B["Random Projection\nPA (m x p)"]
+    B --> C["QR Factorization\nPA = QR"]
+    C --> D["Approximate Leverages\nh&#771;&#7522; = ||a&#7522;R&#8315;&#185;||&#178;"]
+    D --> E["Sample s rows\nproportional to h&#771;&#7522;"]
+    E --> F["Solve small\nproblem (s x p)"]
+    F --> G["(1+e)-approximate\nsolution"]
+    style A fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style G fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">The full RNLA pipeline: a random projection yields approximate leverage scores in near-linear time, enabling sampling and a fast approximate solve. This pipeline, due to Drineas et al. (2012), made leverage-based sampling practical for truly large-scale problems.</p>
+
+          <h3>Error Bounds and Sample Complexity</h3>
+
+          <p>To summarize the theoretical guarantees across these algorithms:</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Problem</th>
+                <th>Sample Size $s$</th>
+                <th>Guarantee</th>
+                <th>Reference</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Least squares</td>
+                <td>$O(p \log p / \varepsilon^2)$</td>
+                <td>$(1+\varepsilon)$-approx residual</td>
+                <td>Drineas, Mahoney, Muthukrishnan (2006)</td>
+              </tr>
+              <tr>
+                <td>Low-rank approx</td>
+                <td>$O(k \log k / \varepsilon^2)$</td>
+                <td>$(1+\varepsilon)\|A - A_k\|_F$</td>
+                <td>Drineas, Mahoney, Muthukrishnan (2008)</td>
+              </tr>
+              <tr>
+                <td>CUR decomposition</td>
+                <td>$O(k \log k / \varepsilon^2)$ cols/rows</td>
+                <td>$(1+\varepsilon)\|A - A_k\|_F$</td>
+                <td>Drineas, Mahoney (2005)</td>
+              </tr>
+              <tr>
+                <td>Leverage approx</td>
+                <td>$m = O(p \log p)$ projection dim</td>
+                <td>Constant-factor approx of $h_i$</td>
+                <td>Drineas, Magdon-Ismail, Mahoney, Woodruff (2012)</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>The unifying theme across all of these results, established by Drineas and collaborators, is that leverage scores are not just one possible importance sampling distribution &mdash; they are the <em>right</em> one. They emerge naturally from the matrix structure, they are computable (exactly or approximately), and they yield optimal or near-optimal sample complexity bounds. This is what earned leverage-based RNLA its central position in modern computational mathematics.</p>
+
+          <div class="callout">
+            <div class="callout-label">Drineas's Contribution</div>
+            <p>It is worth pausing to appreciate the scope of Petros Drineas's contribution to this field. Along with Ravi Kannan and Michael Mahoney, he was among the first to recognize that randomized sampling &mdash; guided by leverage scores &mdash; could yield provable approximation guarantees for core linear algebra problems. His work spans the theoretical foundations (sampling bounds, CUR analysis, subspace embedding), the algorithmic innovations (fast leverage approximation, practical implementations), and the applications (genomics, text mining, recommender systems). The 2016 <em>Communications of the ACM</em> article by Drineas and Mahoney, "RandNLA: Randomized Numerical Linear Algebra," is perhaps the best single entry point to this entire body of work.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 3: ADVANCED                                           -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>Optimality and Extensions</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Why Leverage Is Optimal: The Variance Argument</h3>
+
+          <p>To understand why leverage scores are the right sampling distribution, consider the mechanics of row sampling for matrix multiplication. Suppose we want to approximate $A^\top A$ by sampling $s$ rows of $A$. If we sample row $i$ with probability $p_i$ and rescale by $1/\sqrt{s \cdot p_i}$, the resulting estimator is:</p>
+
+          $$\tilde{A}^\top \tilde{A} = \frac{1}{s} \sum_{k=1}^{s} \frac{1}{p_{i_k}} a_{i_k} a_{i_k}^\top$$
+
+          <p>This is an unbiased estimator: $\mathbb{E}[\tilde{A}^\top \tilde{A}] = A^\top A$ for any valid probability distribution $\{p_i\}$. So the choice of sampling distribution does not affect the bias &mdash; it affects the <em>variance</em>. The variance of the estimator (in the Frobenius norm sense) is:</p>
+
+          $$\text{Var}_F = \frac{1}{s} \sum_{i=1}^{n} \frac{\|a_i\|^4}{p_i} - \frac{1}{s}\|A^\top A\|_F^2$$
+
+          <p>The second term is a constant (independent of the sampling distribution), so minimizing the variance is equivalent to minimizing $\sum_i \|a_i\|^4 / p_i$ subject to $\sum_i p_i = 1$. By the Cauchy-Schwarz inequality, the minimum is achieved at $p_i \propto \|a_i\|^2$, which gives the <strong>squared row norm</strong> distribution.</p>
+
+          <p>For the Frobenius norm objective, squared row norms suffice. But for the more demanding <strong>spectral norm</strong> objective &mdash; controlling the largest eigenvalue of $\tilde{A}^\top \tilde{A} - A^\top A$ &mdash; the analysis is more delicate, and leverage scores emerge as the natural quantity. The reason is that spectral norm bounds require controlling the contribution of each sampled row <em>in every direction</em>, not just its overall magnitude. A row $a_i$ with large $\|a_i\|$ but pointing in a well-represented direction contributes little to the spectral error, while a row with moderate $\|a_i\|$ pointing in a poorly represented direction can dominate the spectral error. The leverage score $h_i = a_i^\top (A^\top A)^{-1} a_i = \|U_i\|^2$ exactly captures this directional importance: it measures how much of the column space's "rare directions" the row spans.</p>
+
+          <p>Formally, when $p_i = h_i / p$, each rescaled outer product $a_i a_i^\top / (s \cdot p_i) = (p/s) \cdot a_i a_i^\top / h_i$ has bounded spectral norm. Since $a_i a_i^\top / h_i$ has spectral norm at most $\|A^\top A\|$ (this follows from the definition of leverage), the matrix Bernstein or matrix Chernoff inequality gives:</p>
+
+          $$\|\tilde{A}^\top \tilde{A} - A^\top A\| \leq \varepsilon \|A^\top A\|$$
+
+          <p>with probability at least $1-\delta$ when $s = O(p \log(p/\delta) / \varepsilon^2)$. This is a <strong>relative spectral approximation</strong> &mdash; the strongest type of matrix approximation guarantee &mdash; and it requires $s$ proportional to $p$, not $n$.</p>
+
+          <h3>The Matrix Chernoff Bound and Effective Dimension</h3>
+
+          <p>The concentration argument at the heart of RNLA relies on matrix concentration inequalities, particularly the matrix Chernoff and matrix Bernstein bounds developed by Ahlswede and Winter, Tropp, and others. The key result, as applied by Drineas and collaborators, can be stated as follows.</p>
+
+          <p>Let $X_1, \ldots, X_s$ be independent random positive semidefinite matrices with $\|X_k\| \leq R$ and $\mathbb{E}[\sum_k X_k] = I$. Then:</p>
+
+          $$P\left(\left\|\sum_{k=1}^{s} X_k - I\right\| \geq \varepsilon\right) \leq 2p \cdot \exp\left(-\frac{s\varepsilon^2}{2R}\right)$$
+
+          <p>When sampling with leverage probabilities, the rescaled outer products $X_k = (1/s) \cdot a_{i_k} a_{i_k}^\top / (p_i h_i)$ satisfy $R = O(p/s)$, giving the $s = O(p \log p / \varepsilon^2)$ bound. The parameter $R$ &mdash; the maximum spectral norm of a single sample &mdash; is the bottleneck. Leverage score sampling minimizes $R$ by ensuring that no single row contributes disproportionately to the spectral norm. This is the precise sense in which leverage scores are optimal: they equalize the "worst-case contribution" of each row, minimizing the parameter that controls concentration.</p>
+
+          <p>The concept of <strong>effective dimension</strong> emerges naturally: the sum of leverage scores equals $p$, the rank of $A$, and individual leverage scores measure each row's contribution to this total. A matrix with highly non-uniform leverage scores has a few "high-leverage" rows that are critical and many "low-leverage" rows that are interchangeable. Leverage score sampling adapts to this structure automatically.</p>
+
+          <h3>Subspace Embeddings</h3>
+
+          <p>A deeper perspective on why leverage sampling works comes from the theory of <strong>subspace embeddings</strong>. A matrix $S \in \mathbb{R}^{s \times n}$ is an $\varepsilon$-subspace embedding for the column space of $A \in \mathbb{R}^{n \times p}$ if, for all $x \in \mathbb{R}^p$:</p>
+
+          $$(1-\varepsilon)\|Ax\|^2 \leq \|SAx\|^2 \leq (1+\varepsilon)\|Ax\|^2$$
+
+          <p>Equivalently, the singular values of $SA$ are within a $(1 \pm \varepsilon)$ factor of the singular values of $A$. A subspace embedding preserves the geometry of the column space: norms, angles, and projections are all approximately maintained. If $S$ is a subspace embedding for $[A \mid b]$, then solving least squares on $SA x \approx Sb$ yields a $(1+\varepsilon)$-approximate solution to the original problem.</p>
+
+          <p>Leverage score sampling produces a subspace embedding with $s = O(p \log p / \varepsilon^2)$ rows. The sampling matrix $S$ has at most one nonzero entry per column (corresponding to the sampled row, rescaled by $1/\sqrt{s \cdot p_i}$), making $SA$ extremely fast to form: you just extract and rescale $s$ rows. This was one of the key structural insights from Drineas and Mahoney's program: leverage score sampling is not just an importance sampling scheme &mdash; it produces a subspace embedding, which is a much stronger property that implies approximation guarantees for a wide class of linear algebraic computations simultaneously.</p>
+
+          <h3>Beyond Sampling: Sketching Methods</h3>
+
+          <p>Leverage score sampling was the first major technique in RNLA, but it is not the only one. The broader field of matrix sketching uses random linear maps &mdash; "sketches" &mdash; to compress matrices. Several important sketching methods have been developed, some not directly using leverage scores but achieving similar goals through different mechanisms.</p>
+
+          <p><strong>Gaussian sketching</strong> uses $S$ with i.i.d. $\mathcal{N}(0, 1/s)$ entries. By the Johnson&ndash;Lindenstrauss lemma, this preserves all pairwise distances and is a subspace embedding with $s = O(p / \varepsilon^2)$ &mdash; no $\log p$ factor. However, forming $SA$ costs $O(snp)$, which is expensive.</p>
+
+          <p><strong>The subsampled randomized Hadamard transform (SRHT)</strong>, championed by Tropp and others, applies a randomized Hadamard rotation followed by uniform sampling. The Hadamard rotation "flattens" the leverage scores &mdash; it makes them approximately uniform &mdash; so that uniform sampling after the rotation is as good as leverage sampling before it. The cost is $O(np \log s)$, faster than Gaussian sketching.</p>
+
+          <p><strong>CountSketch</strong>, from the streaming algorithms literature, uses a sparse random sign matrix. It maps each row of $A$ to one of $s$ buckets, with a random sign flip. The cost is $O(\text{nnz}(A))$ &mdash; proportional to the number of nonzero entries, which is optimal for sparse matrices. CountSketch achieves a subspace embedding with $s = O(p^2 / \varepsilon^2)$, which is larger than leverage sampling but has the advantage of being oblivious (it does not need to know anything about $A$).</p>
+
+          <p>The relationship between these methods and leverage score sampling is deep. The SRHT works <em>because</em> it makes leverage scores uniform. CountSketch works despite ignoring leverage because it uses enough samples to handle the worst case. And the <strong>optimal algorithms</strong> &mdash; such as those of Cohen, Lee, Musco, Musco, Peng, and Sidford (2015) &mdash; combine approximate leverage score computation with sketching to achieve the best of both worlds: near-optimal sample complexity $O(p / \varepsilon^2)$ with near-linear computation time.</p>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph Methods["Matrix Approximation Methods"]
+      direction TB
+      M1["Leverage Score\nSampling"]
+      M2["Gaussian\nSketching"]
+      M3["Subsampled Randomized\nHadamard Transform"]
+      M4["CountSketch"]
+      M5["Optimal: Leverage +\nSketching Combined"]
+    end
+    subgraph Properties["Key Properties"]
+      direction TB
+      P1["s = O(p log p / e&#178;)\nuses leverage explicitly"]
+      P2["s = O(p / e&#178;)\noblivious, dense"]
+      P3["s = O(p log p / e&#178;)\nflattens leverage via rotation"]
+      P4["s = O(p&#178; / e&#178;)\noblivious, sparse, O(nnz) time"]
+      P5["s = O(p / e&#178;)\nnear-linear time"]
+    end
+    M1 --- P1
+    M2 --- P2
+    M3 --- P3
+    M4 --- P4
+    M5 --- P5
+    style M1 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style M5 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">The landscape of matrix sketching methods. Leverage score sampling (top) and the combined optimal algorithms (bottom) achieve the best theoretical guarantees. All other methods can be understood in terms of their relationship to leverage scores.</p>
+
+          <h3>Recent Advances and Drineas's Broader Impact</h3>
+
+          <p>The field initiated by Drineas, Kannan, and Mahoney has grown enormously. A few highlights of recent advances are worth mentioning.</p>
+
+          <p><strong>Online and streaming leverage scores.</strong> In many applications, data arrives sequentially and you cannot store the full matrix. Algorithms for maintaining approximate leverage scores in a streaming fashion have been developed, enabling RNLA in settings where even a single pass over the data is expensive. These algorithms maintain a running sketch and update leverage estimates as new rows arrive.</p>
+
+          <p><strong>Optimal leverage score sampling.</strong> Cohen, Lee, Musco, Musco, Peng, and Sidford (2015) showed that $O(p \log p / \varepsilon)$ samples suffice for a $(1+\varepsilon)$-approximate subspace embedding &mdash; removing one factor of $1/\varepsilon$ from earlier bounds. Their algorithm combines fast Johnson&ndash;Lindenstrauss projections with iterative refinement of leverage score estimates.</p>
+
+          <p><strong>Tensor decomposition.</strong> Drineas has extended leverage-based ideas to tensors &mdash; higher-dimensional arrays &mdash; where the computational challenges are even more severe (most tensor problems are NP-hard in the worst case). Leverage-based sampling provides a principled heuristic for these problems.</p>
+
+          <p><strong>Matrix completion and recommendation.</strong> In the Netflix Prize-style problem of filling in missing entries of a partially observed matrix, leverage scores characterize which entries are most informative to observe. This connection has influenced both the theory and practice of matrix completion.</p>
+
+          <p>Drineas's broader impact on the field is substantial. Beyond the specific algorithms, he helped establish a paradigm: that randomization is not a concession to computational limitations but a <em>tool</em> that can yield algorithms with provable guarantees, practical efficiency, and theoretical elegance. His work, alongside Mahoney's, Woodruff's, and others', built the mathematical foundations that make it possible to do linear algebra at the scale of modern data. The 2016 RandNLA article in <em>Communications of the ACM</em> by Drineas and Mahoney remains the definitive overview of this program, and the ideas they developed continue to shape research in numerical computing, machine learning, and theoretical computer science.</p>
+
+          <div class="callout">
+            <div class="callout-label">The Legacy</div>
+            <p>The central lesson of randomized numerical linear algebra, as articulated by Drineas and Mahoney, is this: leverage scores are not merely a diagnostic tool for regression. They are a fundamental measure of the structural importance of data points for linear algebraic computation. Whether you are solving least squares, approximating a matrix, decomposing it into interpretable components, or sketching it for downstream analysis, the leverage scores tell you where the information lives. This insight &mdash; that a concept from 1970s statistics is the key to 21st-century computation &mdash; is one of the most satisfying intellectual connections in modern applied mathematics.</p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Drineas, P., Mahoney, M. W., &amp; Muthukrishnan, S. (2006). Sampling algorithms for $\ell_2$ regression and applications. <em>Proceedings of the 17th Annual ACM-SIAM Symposium on Discrete Algorithms (SODA)</em>.</li>
+        <li>Drineas, P., Magdon-Ismail, M., Mahoney, M. W., &amp; Woodruff, D. P. (2012). Fast approximation of matrix coherence and statistical leverage. <em>Journal of Machine Learning Research</em>, 13, 3475&ndash;3506.</li>
+        <li>Mahoney, M. W. (2011). Randomized algorithms for matrices and data. <em>Foundations and Trends in Machine Learning</em>, 3(2), 123&ndash;224.</li>
+        <li>Woodruff, D. P. (2014). Sketching as a tool for numerical linear algebra. <em>Foundations and Trends in Theoretical Computer Science</em>, 10(1&ndash;2), 1&ndash;157.</li>
+        <li>Drineas, P. &amp; Mahoney, M. W. (2016). RandNLA: Randomized numerical linear algebra. <em>Communications of the ACM</em>, 59(6), 80&ndash;90.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post14.html" class="prev">A Brief History of Leverage</a>
+      <a href="post16.html" class="next">Leverage in High Dimensions</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <span><a href="/blog/">Notes</a></span>
+</footer>
+
+<script src="../js/lightbox.js"></script>
+</body>
+</html>

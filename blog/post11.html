@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Origins of Conformal Prediction &mdash; Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Notes</a>
+      <a href="/links.html">Links</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <article class="post">
+    <div class="post-header">
+      <h1>The Origins of Conformal Prediction</h1>
+      <p class="post-subtitle">Part 11 of a series on prediction intervals, conformal prediction, and leverage scores.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/">From Predictions to Prediction Intervals</a>.
+    </div>
+
+    <div class="post-body">
+
+      <p>In Part 2, we presented split conformal prediction as a clean, ready-to-use recipe. You split the data, train a model, compute residuals on a held-out calibration set, take a quantile, and use it as your margin of error. The coverage guarantee followed from a single symmetry argument &mdash; exchangeability &mdash; and the whole thing fit on one page.</p>
+
+      <p>But the method did not appear from nothing. It has roots in game-theoretic probability, algorithmic randomness, and a 50-year tradition of nonparametric inference. This post traces that history &mdash; not because the history is required to use conformal prediction, but because understanding where an idea came from often deepens understanding of what it can and cannot do. Ideas that look like clever tricks when encountered in isolation often turn out to be natural consequences of deeper principles. Conformal prediction is one of those ideas.</p>
+
+      <p>This post walks through the story at three levels. The first gives the narrative arc without equations. The second compares the original "full conformal" method to the practical split version we use today. The third goes to the foundations: game-theoretic probability, algorithmic randomness, and the supermartingale arguments that underpin the entire framework.</p>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 1: INTUITIVE                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>Where Did This Come From?</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>The Intellectual Lineage</h3>
+
+          <p>The story of conformal prediction begins long before anyone used that name. It begins with a deceptively simple question that statisticians have been asking since the 1930s: <em>can we make valid inferences without knowing the shape of the data distribution?</em></p>
+
+          <p>In the 1930s, R. A. Fisher introduced the idea of <strong>permutation tests</strong>. The insight was striking: if the null hypothesis is true and the treatment has no effect, then the assignment of observations to groups is arbitrary. You can shuffle the labels and recompute your test statistic. The fraction of shuffles that produce a result as extreme as the observed one gives you an exact p-value &mdash; no Gaussian assumption, no parametric model, no asymptotics. The validity comes purely from the symmetry of exchangeable labels.</p>
+
+          <p>This idea propagated through decades of statistics. In the 1940s and 1950s, Wilcoxon, Mann, Whitney, and others developed <strong>rank-based nonparametric tests</strong>. These methods replaced raw data values with their ranks, throwing away information about magnitude but gaining robustness to distributional assumptions. The Wilcoxon signed-rank test, the Mann-Whitney U test, and others in this family all share the same logical core: if the observations are exchangeable, then the ranks are uniformly distributed, and you can make exact probability statements from ranks alone.</p>
+
+          <p>The deep principle running through all of this is <strong>exchangeability</strong>: if the data points have no preferred ordering &mdash; if any permutation of the data is equally likely &mdash; then rank-based reasoning gives you exact, distribution-free guarantees. This principle would eventually become the single assumption underlying conformal prediction.</p>
+
+          <h3>Vovk's Question</h3>
+
+          <p>Fast forward to the late 1990s. Vladimir Vovk, a mathematician at Royal Holloway, University of London, was working at the intersection of algorithmic randomness and online learning. His research agenda was unusual: he was developing a <strong>game-theoretic</strong> foundation for probability, in which the laws of probability emerge from the inability to make money via a sequential betting strategy, rather than from measure-theoretic axioms.</p>
+
+          <p>Within this framework, Vovk asked a pointed question: <em>can we make prediction-time guarantees &mdash; not just testing-time guarantees &mdash; without assuming any distributional model for the data?</em> The permutation test tradition answered the testing question (is there a difference between groups?) but not the prediction question (where will the next observation fall?). Vovk wanted the prediction version.</p>
+
+          <p>The answer was <strong>conformal prediction</strong>. The core idea: for each candidate value $y$ of the next observation, temporarily include it in the dataset, compute a measure of how "nonconforming" it is relative to the rest, and check if its nonconformity rank is extreme. The prediction set is the collection of all $y$ values whose rank is not too extreme. Because exchangeability makes every element's rank equally likely, this set has guaranteed coverage.</p>
+
+          <h3>The Founding Text</h3>
+
+          <p>Vovk, together with Alex Gammerman and Glenn Shafer, developed the theory systematically over several years. The result was the 2005 book <em>Algorithmic Learning in a Random World</em> &mdash; the founding text of conformal prediction. The book is dense, mathematical, and deeply original. It presented conformal prediction not as an isolated technique but as a consequence of a broader program: using algorithmic randomness as the foundation for statistical inference.</p>
+
+          <p>The book introduced the "full conformal" method, proved its coverage properties, connected it to Martin-Lof randomness tests, and showed how it could be applied to classification and regression. It was a major intellectual achievement. And it was almost entirely ignored by the mainstream statistics and machine learning communities for the next 15 years.</p>
+
+          <h3>Why Was It Ignored?</h3>
+
+          <p>The original full conformal method had a devastating computational problem. To construct a prediction set for a single test point in regression, you had to consider every possible value $y$ in the real line (or a fine discretization of it). For <em>each</em> candidate $y$, you had to add the pair $(x_{\text{test}}, y)$ to the entire dataset, <em>refit the model from scratch</em>, compute nonconformity scores for all data points, and check the rank. For a discretization with 1000 grid points and a model that takes one second to train, predicting a single test point would take over 16 minutes. For a dataset with 10,000 test points, the method was simply not usable.</p>
+
+          <p>Beyond the computational issue, the book's intellectual framing &mdash; rooted in algorithmic randomness and game-theoretic probability &mdash; was far from the mainstream vocabulary of either statistics or machine learning. Most practitioners did not read it, and those who encountered it found the connection to practical problems unclear.</p>
+
+          <h3>The Split Conformal Breakthrough</h3>
+
+          <p>The computational barrier was broken by a simple observation, first proposed by Papadopoulos, Proedrou, Vovk, and Gammerman in 2002: <strong>split the data</strong>. Train the model on one portion, compute nonconformity scores on a separate held-out calibration set, and use the quantile of those scores as the threshold. This avoids refitting the model entirely. The cost drops from $O(|\mathcal{Y}| \times \text{model fit})$ to a single model fit plus sorting a list of numbers.</p>
+
+          <p>The price of splitting is that you use less data for training (which may produce a slightly worse model and therefore wider intervals) and less data for calibration (which introduces more variability in the quantile estimate). But the coverage guarantee is <em>exact</em> for any split size, and the quantile variability decreases rapidly with the calibration set size. In practice, calibration sets of a few hundred points are usually sufficient.</p>
+
+          <h3>The Mainstream Arrives</h3>
+
+          <p>For over a decade after Papadopoulos et al., split conformal prediction existed in a small research niche. The method appeared in scattered papers and conference workshops but had not penetrated the broader statistics or ML communities. Two papers changed this.</p>
+
+          <p>In 2018, <strong>Lei, G'Sell, Rinaldo, Tibshirani, and Wasserman</strong> published "Distribution-Free Predictive Inference for Regression" in the <em>Journal of the American Statistical Association</em>. This paper reintroduced split conformal prediction in the language of modern statistics, proved clean finite-sample results, compared conformal methods to classical prediction intervals, and connected the framework to the broader program of distribution-free inference. It was rigorous, clearly written, and published in the most prestigious statistics journal. For many statisticians, this was the first time they encountered conformal prediction.</p>
+
+          <p>In 2021, <strong>Angelopoulos and Bates</strong> published "A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification." This tutorial, aimed squarely at machine learning practitioners, explained conformal prediction with code, examples, and an emphasis on practical implementation. It arrived at exactly the right moment: the ML community was increasingly aware that uncertainty quantification mattered &mdash; for safety-critical applications, for large language models, for scientific discovery &mdash; and conformal prediction offered a solution that was model-agnostic, assumption-light, and easy to implement. The paper went viral by academic standards.</p>
+
+          <p>The result was an explosion of interest. Between 2021 and the present, conformal prediction has been applied to medical imaging, drug discovery, autonomous driving, weather forecasting, natural language processing, and many other domains. The number of papers on conformal prediction has grown roughly tenfold in five years.</p>
+
+          <div class="mermaid">
+timeline
+    title The Arc of Conformal Prediction
+    section Foundations
+      1930s : Fisher's permutation tests
+            : Distribution-free testing via exchangeability
+    section Nonparametric Era
+      1945-1960s : Wilcoxon, Mann-Whitney rank tests
+                 : Rank-based inference matures
+    section Theoretical Origins
+      1990s : Vovk works on algorithmic randomness
+            : Game-theoretic probability framework
+      1999-2005 : Vovk, Gammerman, Shafer develop conformal prediction
+                : Full conformal method published
+    section Making It Practical
+      2002 : Papadopoulos et al. propose split conformal
+           : Computational barrier broken
+    section Mainstream Adoption
+      2018 : Lei, G'Sell, Rinaldo, Tibshirani, Wasserman
+           : Conformal enters mainstream statistics
+      2021 : Angelopoulos and Bates tutorial
+           : ML community adopts conformal prediction
+      2022+ : Explosion of applications
+             : Medical imaging, NLP, autonomous systems
+          </div>
+          <p class="diagram-caption">From Fisher's permutation tests to the modern adoption explosion &mdash; a 90-year intellectual arc.</p>
+
+          <h3>Why the History Matters</h3>
+
+          <p>Understanding this lineage clarifies several things about conformal prediction that might otherwise seem mysterious. Why is exchangeability the only assumption? Because the method descends from permutation tests, which rely on exchangeability and nothing else. Why is the coverage guarantee exact in finite samples? Because it is a rank argument, and ranks are exactly uniform under exchangeability &mdash; no asymptotics needed. Why does conformal prediction work with any model? Because the model only enters through the nonconformity score, and the rank argument holds for any score function. These are not isolated design choices; they are inherited from the 90-year tradition of nonparametric, exchangeability-based inference.</p>
+
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p>Conformal prediction's relationship to permutation tests is like the relationship between a car engine and the internal combustion principle. Fisher discovered the combustion principle in the 1930s. Decades of engineering turned it into rank-based tests, then nonparametric methods, then game-theoretic probability. Vovk took that principle and built a new engine &mdash; one that produces prediction sets instead of p-values. The fuel is the same: exchangeability. The output is different: not "reject or fail to reject" but "here is where the next observation will land, with a guarantee."</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 2: TECHNICAL                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge technical">Technical</span>
+          <h2>From Full Conformal to Split Conformal</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>The Full Conformal Method</h3>
+
+          <p>The original conformal prediction method, as presented by Vovk, Gammerman, and Shafer, works as follows. You have a training set $Z_1 = (X_1, Y_1), \ldots, Z_n = (X_n, Y_n)$ and a new test point $X_{n+1}$. You want to construct a prediction set $\hat{C}(X_{n+1})$ for $Y_{n+1}$.</p>
+
+          <p>For each candidate label $y$, form the <strong>augmented dataset</strong>:</p>
+
+          $$\{Z_1, \ldots, Z_n, (X_{n+1}, y)\}$$
+
+          <p>Fit a model $\hat{f}_y$ on this augmented dataset (note: the model depends on $y$). Compute nonconformity scores for every point in the augmented dataset:</p>
+
+          $$S_i^{(y)} = |Y_i - \hat{f}_y(X_i)|, \quad i = 1, \ldots, n$$
+          $$S_{n+1}^{(y)} = |y - \hat{f}_y(X_{n+1})|$$
+
+          <p>Compute the <strong>conformal p-value</strong> for the candidate $y$:</p>
+
+          $$p(y) = \frac{\#\{i : S_i^{(y)} \geq S_{n+1}^{(y)}\}}{n+1}$$
+
+          <p>This is the fraction of scores (including the test point's own score) that are at least as large as the test point's score. The prediction set is:</p>
+
+          $$\hat{C}(X_{n+1}) = \{y : p(y) > \alpha\}$$
+
+          <p>That is, include all candidate labels $y$ whose nonconformity rank is not in the most extreme $\alpha$ fraction. By the rank uniformity argument (Part 2), the true label $Y_{n+1}$ has a uniformly distributed rank among the $n+1$ scores, so $P(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - \alpha$.</p>
+
+          <h3>The Computational Problem</h3>
+
+          <p>The elegance of the theory masks a brutal computational reality. For regression problems, the candidate label $y$ ranges over the entire real line. Even after discretizing to a grid of $G$ values, you must refit the model $G$ times. The total cost is $O(G \times T_{\text{fit}})$, where $T_{\text{fit}}$ is the cost of fitting the model once. For a random forest with $T_{\text{fit}} = 10$ seconds and a grid of $G = 1000$ points, computing the prediction set for a <em>single</em> test point takes nearly 3 hours.</p>
+
+          <p>For classification with $K$ classes, the situation is better: you only need to try $K$ candidate labels. But even there, refitting a neural network $K$ times per test point is impractical for modern models.</p>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph Full["Full Conformal"]
+      direction TB
+      F1["For each candidate y:"]
+      F2["Add (x_test, y) to dataset"]
+      F3["Refit model on n+1 points"]
+      F4["Compute all n+1 scores"]
+      F5["Check rank of test score"]
+      F6["Include y if rank not extreme"]
+      F1 --> F2 --> F3 --> F4 --> F5 --> F6
+      F6 -.->|"Repeat for next y"| F1
+    end
+    subgraph Split["Split Conformal"]
+      direction TB
+      S1["Train model on D1 once"]
+      S2["Compute scores on D2"]
+      S3["Sort scores, take quantile"]
+      S4["For new x: width = 2 * quantile"]
+      S1 --> S2 --> S3 --> S4
+    end
+    Full -.-|"Cost: G x model fits\n(hours per test point)"| CostF["Impractical for\nregression"]
+    Split -.-|"Cost: 1 model fit\n+ sort n2 numbers"| CostS["Fast and\nscalable"]
+    style CostF fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style CostS fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">Full conformal requires refitting for every candidate label. Split conformal fits once and calibrates on held-out data.</p>
+
+          <h3>Transductive vs. Inductive</h3>
+
+          <p>The distinction between full and split conformal maps onto a deeper distinction in learning theory: <strong>transductive</strong> vs. <strong>inductive</strong> inference.</p>
+
+          <p><strong>Transductive learning</strong> uses all available data &mdash; including the test point's features &mdash; jointly. The full conformal method is transductive: it considers the augmented dataset $\{Z_1, \ldots, Z_n, (X_{n+1}, y)\}$ as a whole, and the model is fitted on this augmented set. The advantage is that no data is wasted. The disadvantage is the computational cost of revisiting all data for each test prediction.</p>
+
+          <p><strong>Inductive learning</strong> builds a model from training data once, then applies it to test data without revisiting the training process. Split conformal prediction is inductive: the model is trained on $D_1$, the calibration scores are computed on $D_2$, and test predictions use only the pre-computed model and quantile. The advantage is efficiency. The disadvantage is the data split: some data goes to training and some to calibration, and neither portion sees the full dataset.</p>
+
+          <h3>The Split: What Do You Lose?</h3>
+
+          <p>Splitting costs you in two ways, but neither is as severe as it might first appear.</p>
+
+          <p><strong>Loss 1: Training data.</strong> The model $\hat{f}$ is trained on $n_1 < n$ points instead of $n$. With less training data, the model may be slightly worse, producing larger residuals and therefore wider intervals. But the coverage guarantee is <em>exact for any split</em>. Even if you train on 10 points and calibrate on 990, the guarantee holds. The split affects efficiency (interval width), not validity (coverage).</p>
+
+          <p><strong>Loss 2: Quantile estimation.</strong> The conformal quantile $\hat{q}$ is estimated from $n_2$ calibration scores. The variability of this estimator decreases as $O(1/\sqrt{n_2})$. With $n_2 = 500$, the quantile is already quite stable; with $n_2 = 100$, there is noticeable variability but the coverage guarantee still holds exactly. The variability affects the <em>width</em> of the interval (it may fluctuate from one random split to another), not the <em>validity</em> of the coverage.</p>
+
+          <p>In practice, a 50-50 or 70-30 split (training-calibration) works well for most problems. The Lei et al. (2018) paper showed that the efficiency loss from splitting is modest compared to the enormous computational savings.</p>
+
+          <h3>The Mondrian Approach</h3>
+
+          <p>One of the most prescient ideas in the 2005 book was the <strong>Mondrian conformal predictor</strong>, named after the painter Piet Mondrian. The idea: partition the data into groups (or "categories"), and run conformal prediction separately within each group. If you partition the calibration set into $K$ groups and compute a separate quantile within each group, you get <strong>group-conditional coverage</strong>:</p>
+
+          $$P(Y_{n+1} \in \hat{C}(X_{n+1}) \mid X_{n+1} \in \text{Group}_k) \geq 1 - \alpha, \quad \text{for each } k = 1, \ldots, K$$
+
+          <p>This is stronger than marginal coverage. It guarantees that coverage holds not just on average, but within each group. The cost is that each group has fewer calibration points, so the quantile estimates are noisier and the intervals may be wider.</p>
+
+          <p>The Mondrian approach was an early form of what we now call <strong>adaptive</strong> or <strong>conditional</strong> conformal prediction. The idea of making intervals adapt to local difficulty &mdash; the problem we tackled in posts 3 and 8 using other methods &mdash; was already present in the original framework. Modern methods like conformalized quantile regression (CQR) and locally-weighted conformal prediction can be viewed as continuous generalizations of the Mondrian partition idea.</p>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph Vanilla["Vanilla Split Conformal"]
+      direction LR
+      V1["All calibration scores"] --> V2["Single quantile q"] --> V3["Same width\neverywhere"]
+    end
+    subgraph Mondrian["Mondrian Conformal"]
+      direction LR
+      M1["Partition into groups"] --> M2a["Group 1 scores -> q1"]
+      M1 --> M2b["Group 2 scores -> q2"]
+      M1 --> M2c["Group K scores -> qK"]
+      M2a --> M3["Different width\nper group"]
+      M2b --> M3
+      M2c --> M3
+    end
+    subgraph Modern["Modern Adaptive Methods"]
+      direction LR
+      A1["Continuous weighting\nor quantile regression"] --> A2["Smooth, point-wise\nadaptation"]
+    end
+    Vanilla -->|"Group-level\nadaptation"| Mondrian
+    Mondrian -->|"Continuous\ngeneralization"| Modern
+    style V3 fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style M3 fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+    style A2 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">The Mondrian approach bridges vanilla conformal (constant width) and modern adaptive methods (smooth adaptation). It was proposed in 2005, more than a decade before adaptive conformal methods became popular.</p>
+
+          <h3>A Formal Summary</h3>
+
+          <p>The following table summarizes the key properties of the three approaches.</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>Full Conformal</th>
+                <th>Split Conformal</th>
+                <th>Mondrian</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Training data used</strong></td>
+                <td>All $n$ points</td>
+                <td>$n_1$ points</td>
+                <td>$n_1$ points</td>
+              </tr>
+              <tr>
+                <td><strong>Model refits</strong></td>
+                <td>$G$ per test point</td>
+                <td>1 total</td>
+                <td>1 total</td>
+              </tr>
+              <tr>
+                <td><strong>Coverage guarantee</strong></td>
+                <td>Marginal, exact</td>
+                <td>Marginal, exact</td>
+                <td>Group-conditional, exact</td>
+              </tr>
+              <tr>
+                <td><strong>Interval adaptation</strong></td>
+                <td>Implicit (via refit)</td>
+                <td>None (constant width)</td>
+                <td>Per group</td>
+              </tr>
+              <tr>
+                <td><strong>Practical for large models?</strong></td>
+                <td>No</td>
+                <td>Yes</td>
+                <td>Yes (if groups not too many)</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="callout">
+            <div class="callout-label">The Practical Takeaway</div>
+            <p>Split conformal prediction is the method you should use in practice. Full conformal is theoretically cleaner (it uses all data jointly) but computationally prohibitive for any non-trivial model. The coverage guarantee of split conformal is identical &mdash; exact, finite-sample, distribution-free &mdash; and the efficiency loss from splitting is typically small. The Mondrian extension offers group-conditional coverage when you have a natural partition of the data.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 3: ADVANCED                                           -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>The Game-Theoretic Foundation</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Probability Without Measure Theory</h3>
+
+          <p>The standard foundation for probability is Kolmogorov's measure-theoretic framework (1933): a probability space $(\Omega, \mathcal{F}, P)$ where $P$ is a countably additive measure. Events have probabilities, random variables have distributions, and theorems like the law of large numbers and the central limit theorem follow from the axioms.</p>
+
+          <p>Vovk and Shafer proposed an alternative foundation: <strong>game-theoretic probability</strong>. In their framework, there is no underlying probability measure. Instead, probability emerges from a sequential game between two players: <strong>Skeptic</strong> (who bets) and <strong>Reality</strong> (who chooses outcomes). A probabilistic statement is "true" if Skeptic cannot become infinitely rich by betting against it. If a law of large numbers holds, it is because any betting strategy that bets against the sample mean converging to the true mean will go bankrupt. The measure-theoretic probability is recovered as a special case, but the game-theoretic framework is more general: it applies even when no probability measure exists.</p>
+
+          <p>This is not merely a philosophical curiosity. The game-theoretic framework leads naturally to <em>online</em> guarantees &mdash; guarantees that hold sequentially, one observation at a time, without any probabilistic assumptions about how the data are generated. Conformal prediction is a direct product of this way of thinking.</p>
+
+          <h3>The Connection to Algorithmic Randomness</h3>
+
+          <p>Vovk's route to conformal prediction passed through <strong>algorithmic randomness</strong>, a branch of computability theory that defines what it means for an individual sequence to be "random." The key definition, due to Martin-Lof (1966), is:</p>
+
+          <p>A sequence $z_1, z_2, \ldots$ is <strong>Martin-Lof random</strong> (with respect to a computable probability measure $P$) if no effective statistical test can distinguish it from a typical sequence drawn from $P$.</p>
+
+          <p>An effective statistical test is, roughly, a computable function that assigns a "nonrandomness score" to each initial segment of the sequence. If the test score grows without bound, the sequence fails the test and is declared non-random. The key theorem: a sequence is Martin-Lof random if and only if no computable martingale (a betting strategy with expected value zero) can make the bettor infinitely rich by betting on the sequence.</p>
+
+          <p>The connection to conformal prediction is this: the conformal p-value $p(y)$ for a candidate label $y$ is essentially a randomness test. It checks whether the augmented sequence $z_1, \ldots, z_n, (x_{n+1}, y)$ "looks random" &mdash; i.e., whether the test point's nonconformity score has a rank that is consistent with exchangeability. If the p-value is very small (the test point's score has an extreme rank), the candidate $y$ fails the randomness test and is excluded from the prediction set. The prediction set is the collection of all $y$ values that pass the test.</p>
+
+          <p>This perspective explains why conformal prediction requires so few assumptions. A randomness test does not need to know the distribution; it only needs to check whether the observed data are consistent with the hypothesis that the data are exchangeable. The test is purely <em>structural</em> &mdash; it examines ranks, not magnitudes &mdash; and structural tests are inherently distribution-free.</p>
+
+          <h3>Online Conformal Prediction</h3>
+
+          <p>The game-theoretic framework naturally extends conformal prediction to the <strong>online</strong> (sequential) setting. In the online setting, data arrive one at a time: at each round $t$, Nature reveals $X_t$, the forecaster produces a prediction set $\hat{C}_t(X_t)$, and then Nature reveals $Y_t$. The forecaster wants cumulative coverage: the fraction of rounds where $Y_t \in \hat{C}_t(X_t)$ should converge to $1 - \alpha$.</p>
+
+          <p>In the batch setting (split conformal), we have a fixed calibration set and the coverage guarantee is over the randomness of the test point. In the online setting, there is no fixed calibration set &mdash; the "calibration set" is the entire history of past observations. The full conformal method adapts naturally: at each round, the augmented dataset includes all past observations plus the new test point with each candidate label. The prediction set for $Y_t$ is the set of labels with conformal p-values above $\alpha$.</p>
+
+          <p>The online coverage guarantee takes the following form. Define the <strong>error process</strong>:</p>
+
+          $$\text{Err}_t = \mathbf{1}\{Y_t \notin \hat{C}_t(X_t)\}$$
+
+          <p>Under exchangeability, $\mathbb{E}[\text{Err}_t \mid \text{past}] \leq \alpha$ at each round. The cumulative error rate satisfies:</p>
+
+          $$\frac{1}{T}\sum_{t=1}^{T} \text{Err}_t \leq \alpha + O\left(\sqrt{\frac{\log T}{T}}\right)$$
+
+          <p>with high probability. The cumulative coverage converges to $1 - \alpha$ at rate $O(\sqrt{\log T / T})$. This is not merely an asymptotic statement; the finite-time bound holds with explicit constants.</p>
+
+          <h3>The Supermartingale Argument</h3>
+
+          <p>Vovk's original coverage proof used a <strong>betting argument</strong> rooted in game-theoretic probability. The structure is as follows.</p>
+
+          <p>Suppose, for contradiction, that the conformal prediction sets systematically fail to cover &mdash; that is, the error rate exceeds $\alpha$ by some positive margin. Then Skeptic can adopt the following betting strategy: at each round, bet that the true label will fall outside the prediction set. If the prediction set has coverage $1 - \alpha$, this bet has expected payoff zero (it is a fair bet). If coverage is less than $1 - \alpha$, the bet has positive expected payoff, and Skeptic's wealth grows.</p>
+
+          <p>Formally, define Skeptic's wealth process $\mathcal{K}_t$ as:</p>
+
+          $$\mathcal{K}_t = \prod_{s=1}^{t} \left(1 + \lambda(\text{Err}_s - \alpha)\right)$$
+
+          <p>where $\lambda > 0$ is a betting fraction. Under exchangeability, this is a <strong>nonnegative supermartingale</strong> with $\mathbb{E}[\mathcal{K}_t] \leq \mathcal{K}_0 = 1$. By Ville's inequality (the supermartingale analogue of Markov's inequality):</p>
+
+          $$P\left(\sup_{t \geq 1} \mathcal{K}_t \geq 1/\delta\right) \leq \delta$$
+
+          <p>If the error rate persistently exceeds $\alpha$, the wealth $\mathcal{K}_t$ grows exponentially (because $\mathbb{E}[\text{Err}_s - \alpha] > 0$ at each round). But the supermartingale bound says the wealth cannot grow unboundedly with positive probability. Contradiction. Therefore, the cumulative error rate must converge to at most $\alpha$.</p>
+
+          <p>This argument has several notable features. It is <em>constructive</em>: it specifies a concrete betting strategy. It is <em>anytime-valid</em>: the bound holds simultaneously for all time horizons $T$, not just a single fixed $T$. And it is <em>non-asymptotic</em>: the bound is finite-sample, with explicit constants that depend on $\lambda$ and $\delta$.</p>
+
+          <div class="mermaid">
+flowchart TD
+    A["Hypothesis: Coverage fails\npersistently below 1-alpha"]
+    B["Skeptic bets on errors:\nwealth K_t = product of\n(1 + lambda * (Err_s - alpha))"]
+    C["If coverage < 1-alpha:\nE[Err - alpha] > 0\nK_t grows exponentially"]
+    D["But K_t is a nonneg.\nsupermartingale\nE[K_t] <= 1"]
+    E["Ville's inequality:\nP(sup K_t >= 1/delta) <= delta"]
+    F["Contradiction:\nK_t cannot grow\nunboundedly"]
+    G["Conclusion:\nCumulative error rate\nconverges to <= alpha"]
+    A --> B --> C --> D --> E --> F --> G
+    style F fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style G fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">The supermartingale proof by contradiction: if coverage fails, Skeptic can make unbounded wealth, which contradicts the supermartingale property.</p>
+
+          <h3>Adaptive Conformal Inference</h3>
+
+          <p>The game-theoretic perspective also opens the door to <strong>adaptive</strong> online conformal prediction. In the standard setting, exchangeability assumes the data distribution is stationary. But in many real-world applications &mdash; financial time series, sensor data, clinical monitoring &mdash; the distribution changes over time.</p>
+
+          <p>Gibbs and Candes (2021) proposed <strong>Adaptive Conformal Inference (ACI)</strong>, which maintains the betting-style guarantee even under distribution shift. The idea: instead of using a fixed significance level $\alpha$, update $\alpha_t$ at each round based on whether coverage was achieved:</p>
+
+          $$\alpha_{t+1} = \alpha_t + \gamma(\alpha - \text{Err}_t)$$
+
+          <p>where $\gamma > 0$ is a learning rate. If the prediction set covered at round $t$ ($\text{Err}_t = 0$), the significance level increases slightly, making the next prediction set smaller. If coverage failed ($\text{Err}_t = 1$), the significance level decreases, making the next prediction set larger. This feedback loop tracks the changing error rate and adapts the prediction set size accordingly.</p>
+
+          <p>The coverage guarantee of ACI is:</p>
+
+          $$\left|\frac{1}{T}\sum_{t=1}^{T}\text{Err}_t - \alpha\right| \leq O\left(\frac{1}{\gamma T}\right) + O(\gamma)$$
+
+          <p>The first term decreases with $T$ (more data helps), and the second is the price of adaptation (larger $\gamma$ tracks distribution shifts faster but introduces more variability). Choosing $\gamma = T^{-1/2}$ balances these terms and gives convergence at rate $O(T^{-1/2})$.</p>
+
+          <p>Remarkably, this guarantee holds <em>without any assumption on how the distribution changes</em>. The data need not be exchangeable, need not be stationary, and need not follow any parametric model. The guarantee is purely about the cumulative error rate of the adaptive procedure. This is as close to "assumption-free" as sequential prediction gets.</p>
+
+          <h3>The Big Picture</h3>
+
+          <p>The history of conformal prediction is a story about the slow convergence of several intellectual traditions. Permutation tests provided the symmetry argument. Algorithmic randomness provided the framework for defining "consistency with randomness" without a probability model. Game-theoretic probability provided the betting language and supermartingale machinery for online guarantees. And the practical innovations &mdash; split conformal, Mondrian conformal, adaptive conformal inference &mdash; made these ideas computationally and statistically useful.</p>
+
+          <p>What makes conformal prediction special is not any single technical trick. It is the depth of the foundation: a guarantee that holds because exchangeability forces ranks to be uniform, and ranks being uniform is a consequence so basic that it requires almost nothing of the data-generating process. The method is not robust <em>despite</em> its simplicity; it is robust <em>because</em> of its simplicity. When your guarantee depends on almost nothing, almost nothing can break it.</p>
+
+          <div class="callout">
+            <div class="callout-label">The Deeper Point</div>
+            <p>Conformal prediction is sometimes described as "just a quantile of residuals." Technically, this is true. But the same could be said of many deep results: the central limit theorem is "just" a statement about sums. What gives conformal prediction its power is the logical chain behind the quantile: exchangeability implies rank uniformity, rank uniformity implies exact finite-sample coverage, and the argument is indifferent to the model, the distribution, and the dimensionality of the data. Understanding the game-theoretic and algorithmic-randomness origins of this chain makes clear why the method works so broadly &mdash; and also where it breaks down (when exchangeability fails, as in time series or distribution shift, which is precisely the gap that adaptive conformal inference fills).</p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Vovk, V., Gammerman, A., &amp; Shafer, G. (2005). <em>Algorithmic Learning in a Random World.</em> Springer.</li>
+        <li>Shafer, G. &amp; Vovk, V. (2008). A tutorial on conformal prediction. <em>Journal of Machine Learning Research</em>, 9, 371&ndash;421.</li>
+        <li>Papadopoulos, H., Proedrou, K., Vovk, V., &amp; Gammerman, A. (2002). Inductive confidence machines for regression. <em>Proceedings of ECML</em>.</li>
+        <li>Lei, J., G'Sell, M., Rinaldo, A., Tibshirani, R. J., &amp; Wasserman, L. (2018). Distribution-free predictive inference for regression. <em>Journal of the American Statistical Association</em>, 113(523), 1094&ndash;1111.</li>
+        <li>Angelopoulos, A. N. &amp; Bates, S. (2023). Conformal prediction: A gentle introduction. <em>Foundations and Trends in Machine Learning</em>, 16(4), 494&ndash;591.</li>
+        <li>Gibbs, I. &amp; Cand&egrave;s, E. (2021). Adaptive conformal inference under distribution shift. <em>Advances in Neural Information Processing Systems</em>.</li>
+        <li>Vovk, V. &amp; Shafer, G. (2019). <em>Game-Theoretic Foundations for Probability and Finance.</em> Wiley.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post08.html" class="prev">Adaptive Conformal Methods</a>
+      <a href="post12.html" class="next">Beyond the Split</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <span><a href="/blog/">Notes</a></span>
+</footer>
+
+<script src="../js/lightbox.js"></script>
+</body>
+</html>

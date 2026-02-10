@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A Brief History of Leverage: From Regression Diagnostics to Randomized Algorithms &mdash; Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Notes</a>
+      <a href="/links.html">Links</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <article class="post">
+    <div class="post-header">
+      <h1>A Brief History of Leverage: From Regression Diagnostics to Randomized Algorithms</h1>
+      <p class="post-subtitle">Part 14 of a series on prediction intervals, conformal prediction, and leverage scores.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/">From Predictions to Prediction Intervals</a>.
+    </div>
+
+    <div class="post-body">
+
+      <p>In Parts 4 and 5, we introduced leverage scores as a geometric diagnostic &mdash; the diagonal of the hat matrix, measuring how unusual each point is in feature space. But leverage has a history much richer than "just a diagnostic." It begins in the 1970s with classical regression diagnostics, grows through the influence function literature of the 1980s, and then takes a remarkable turn in the 2000s when a group of computer scientists &mdash; led by <strong>Petros Drineas</strong> and <strong>Michael Mahoney</strong> &mdash; discovered that leverage scores are the <em>optimal</em> sampling distribution for randomized matrix algorithms. This post traces that arc: from a small formula scribbled in the margins of regression textbooks to a computational primitive powering algorithms on matrices with millions of rows.</p>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 1: INTUITIVE                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>Three Eras of Leverage</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Era 1: The Diagnostic Era (1970s&ndash;1980s)</h3>
+
+          <p>The story begins in the mid-1970s, when statisticians were getting serious about understanding what happens when individual data points behave badly in a regression. The central object of study was a matrix that had been known to mathematicians for decades but had never been given a memorable name. In 1978, David Hoaglin and Roy Welsch published a paper in <em>The American Statistician</em> called "The Hat Matrix in Regression and ANOVA," and everything clicked into place.</p>
+
+          <p>Their observation was disarmingly simple. In ordinary least squares, the fitted values are a linear function of the observed responses: $\hat{Y} = HY$, where $H = X(X^\top X)^{-1}X^\top$. The matrix $H$ literally "puts the hat on" $Y$ &mdash; it transforms observed values into fitted values. Hoaglin and Welsch called it the <em>hat matrix</em>, and the diagonal entries $h_i = H_{ii}$ became known as <em>leverage scores</em>. The name was perfect: a point with high $h_i$ has disproportionate influence on its own fitted value, like a fulcrum that amplifies small perturbations.</p>
+
+          <p>The practical rule they proposed was equally memorable: flag any point with $h_i > 2p/n$, where $p$ is the number of predictors and $n$ is the sample size. Since the leverage scores sum to $p$, the average leverage is $p/n$, and anything more than twice the average deserves scrutiny. This rule became a standard diagnostic, still taught in every regression course today.</p>
+
+          <p>Around the same time, R. Dennis Cook introduced what would become the single most famous influence diagnostic in statistics. Cook's distance, published in 1977, combines leverage with residual size into a single measure: a point is influential if it both sits in an unusual location (high leverage) AND has a large residual. A high-leverage point with a small residual is unusual but benign. A low-leverage point with a large residual is noisy but contained. Cook's distance captures the dangerous combination: unusual placement with a large discrepancy. Chatterjee and Hadi's 1986 review in <em>Statistical Science</em> brought all of these ideas together into a coherent framework for understanding influential observations.</p>
+
+          <p>The defining characteristic of this era was its <em>scale</em>. Datasets had dozens or hundreds of observations. Leverage was computed exactly, by direct matrix inversion. The question was always about individual data points: "Is this one observation corrupting my regression?" The hat matrix was small enough to print on a page.</p>
+
+          <h3>Era 2: The Algorithmic Revolution (2000s&ndash;2010s)</h3>
+
+          <p>Then came a paradigm shift, and it came from computer science rather than statistics.</p>
+
+          <p>In the early 2000s, <strong>Petros Drineas</strong> &mdash; then a young faculty member at Rensselaer Polytechnic Institute, now the Head of the Department of Computer Science at Purdue University &mdash; began asking a question that seemed entirely unrelated to regression diagnostics. The question was about matrix approximation: given a massive matrix $A$ with $n$ rows and $p$ columns, where $n$ might be in the millions, how can you approximate $A$ using only a small subset of its rows?</p>
+
+          <p>The naive answer is to sample rows uniformly at random. But Drineas, working with Ravi Kannan and <strong>Michael Mahoney</strong> (now at UC Berkeley), showed that uniform sampling is wasteful and sometimes catastrophically bad. Some rows are far more important than others for preserving the matrix's structure. The right sampling distribution, they proved, is proportional to the <em>leverage scores</em>.</p>
+
+          <p>This was a revelatory insight. The same diagonal entries of the hat matrix that Hoaglin and Welsch had used to flag suspicious data points turned out to be the mathematically optimal importance weights for matrix sampling. High-leverage rows carry more information about the matrix's column space &mdash; they span directions that few other rows span. Miss them, and your approximation collapses. Include them, and a surprisingly small sample captures most of the matrix's structure.</p>
+
+          <p>Drineas, Kannan, and Mahoney's 2006 paper on the CUR decomposition made this precise. Their work showed that you can express a matrix as $A \approx C \cdot U \cdot R$, where $C$ is a small set of sampled columns and $R$ is a small set of sampled rows, both selected using leverage score sampling. Unlike the SVD, which produces abstract singular vectors, CUR uses actual rows and columns of the original matrix &mdash; making it interpretable in a way that SVD never could be.</p>
+
+          <p>But there was a practical barrier: computing exact leverage scores requires the SVD, which costs $O(np^2)$ time &mdash; the very operation you are trying to avoid by sampling. Drineas attacked this problem head-on. Together with Malik Magdon-Ismail, Michael Mahoney, and David Woodruff, he published a landmark 2012 paper in the <em>Journal of Machine Learning Research</em> showing how to <em>approximate</em> all $n$ leverage scores in $O(np\log n)$ time using randomized linear algebra. The key idea: sketch the matrix with a random projection, compute leverage scores of the much smaller sketch, and use those as proxies for the true leverage scores. The approximation is good enough for sampling to work.</p>
+
+          <p><strong>Agniva Chowdhury</strong>, one of Drineas's PhD students at Purdue (now at Intel), extended this line of work to iterative sketching algorithms and contributed to making leverage score computation practical for the largest datasets in scientific computing.</p>
+
+          <p>The magnitude of this shift cannot be overstated. Leverage went from a diagnostic that statisticians computed on 100-row datasets to a computational primitive that algorithms researchers deployed on million-row matrices. The conceptual core &mdash; "some data points matter more than others for understanding the structure of a matrix" &mdash; was the same. But the scale, the applications, and the theoretical foundations were entirely new.</p>
+
+          <h3>Era 3: Modern Applications (2010s&ndash;Present)</h3>
+
+          <p>Once leverage was understood as a computational primitive rather than just a diagnostic, applications proliferated. In <strong>active learning</strong>, leverage scores guide which data points to label next: high-leverage points are the most informative for the model, so querying them first reduces the number of labels needed. In <strong>data summarization</strong>, leverage-based coreset selection produces compact summaries of massive datasets that preserve regression accuracy. In <strong>experimental design</strong>, D-optimal designs &mdash; which maximize the determinant of the information matrix &mdash; naturally favor high-leverage points, and the connection to leverage-based sampling has been made precise. And in <strong>algorithmic fairness</strong>, leverage reveals which subgroups of a dataset have outsized influence on the model: underrepresented groups may have high average leverage, meaning the model's predictions for them are disproportionately sensitive to small perturbations.</p>
+
+          <p>The throughline from 1978 to today is continuous. Hoaglin and Welsch asked: "Which data points have disproportionate influence?" Drineas and Mahoney answered: "Those same points are the ones you must sample to approximate a matrix." Modern applications ask: "How can we use this knowledge to build better algorithms?" The mathematics has not changed. The questions have.</p>
+
+          <div class="mermaid">
+timeline
+    title Three Eras of Leverage Scores
+    section Diagnostic Era
+      1977 : Cook's distance
+           : Leverage + residual = influence
+      1978 : Hoaglin and Welsch
+           : The hat matrix gets its name
+           : h_i > 2p/n flagging rule
+      1986 : Chatterjee and Hadi
+           : Definitive review of influence
+    section Algorithmic Revolution
+      2006 : Drineas, Kannan, Mahoney
+           : CUR decomposition via leverage sampling
+      2009 : Drineas and Mahoney
+           : CUR with actual rows and columns
+      2011 : Drineas, Mahoney, Muthukrishnan, Sarlos
+           : Faster leverage approximation
+      2012 : Drineas, Magdon-Ismail, Mahoney, Woodruff
+           : O(np log n) leverage approximation (JMLR)
+    section Modern Applications
+      2012 : Batson, Spielman, Srivastava
+           : Deterministic sparsification
+      2015+ : Active learning and coresets
+            : Leverage-based data summarization
+      2020+ : Fairness and experimental design
+            : Leverage for subgroup analysis
+          </div>
+          <p class="diagram-caption">The evolution of leverage scores across five decades: from a regression diagnostic to a computational primitive powering modern algorithms.</p>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 2: TECHNICAL                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge technical">Technical</span>
+          <h2>The Key Results That Changed Everything</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>The Classical Foundations</h3>
+
+          <p><strong>Hoaglin and Welsch (1978)</strong> established the basic properties of leverage that every statistician now learns. Given a design matrix $X \in \mathbb{R}^{n \times p}$ with hat matrix $H = X(X^\top X)^{-1}X^\top$, the leverage of the $i$-th observation is:</p>
+
+          $$h_i = x_i^\top (X^\top X)^{-1} x_i$$
+
+          <p>Three fundamental properties govern this quantity. First, $0 \leq h_i \leq 1$, since $H$ is an orthogonal projection matrix (its eigenvalues are 0 or 1). Second, $\sum_{i=1}^{n} h_i = \text{tr}(H) = p$, because the rank of $H$ equals the number of predictors. Third, the average leverage is $\bar{h} = p/n$. The flagging rule $h_i > 2p/n$ is simply "twice the mean." If there is an intercept in the model, the minimum leverage is $1/n$, and if the design is balanced (e.g., equally spaced in one dimension), leverage is constant at $p/n$.</p>
+
+          <p><strong>Cook (1977)</strong> wove leverage into a unified influence measure. Cook's distance for the $i$-th observation is:</p>
+
+          $$D_i = \frac{e_i^2}{p \cdot \hat{\sigma}^2} \cdot \frac{h_i}{(1-h_i)^2}$$
+
+          <p>where $e_i = Y_i - \hat{Y}_i$ is the residual and $\hat{\sigma}^2$ is the estimated error variance. The formula reveals the two ingredients of influence: a large standardized residual ($e_i^2 / \hat{\sigma}^2$ is large) and a high leverage ($h_i / (1 - h_i)^2$ is large). A point can have high leverage but low Cook's distance if it lies near the regression surface &mdash; it is unusual in feature space but "well-behaved" in its response. Conversely, a point can have a large residual but low Cook's distance if its leverage is near zero &mdash; it is noisy but cannot steer the fit. Only the combination is dangerous.</p>
+
+          <p>The Chatterjee-Hadi framework (1986) systematized these ideas. They classified observations into four categories based on leverage and residual magnitude: (i) low leverage, small residual (benign); (ii) low leverage, large residual (outlier in $Y$ but contained); (iii) high leverage, small residual (good leverage point &mdash; anchors the fit); (iv) high leverage, large residual (bad leverage point &mdash; potentially distorts the fit). Category (iv) is where Cook's distance sounds the alarm.</p>
+
+          <h3>The Drineas-Mahoney Revolution</h3>
+
+          <p>The transformation of leverage from diagnostic to algorithm begins with a theorem. Given a matrix $A \in \mathbb{R}^{n \times p}$ with thin SVD $A = U\Sigma V^\top$, the leverage score of the $i$-th row is $h_i = \|U_{i*}\|^2$, the squared norm of the $i$-th row of the left singular vector matrix. Now consider the following sampling scheme: independently draw $s$ rows of $A$, where row $i$ is selected with probability $\pi_i = h_i / p$, and rescale each selected row by $1/\sqrt{s \cdot \pi_i}$. Call the resulting matrix $\tilde{A} \in \mathbb{R}^{s \times p}$.</p>
+
+          <p><strong>The Leverage Score Sampling Theorem</strong> (Drineas, Kannan, Mahoney 2006; refined in subsequent work): With probability at least $1 - \delta$, the sampled matrix satisfies:</p>
+
+          $$\|A^\top A - \tilde{A}^\top \tilde{A}\| \leq \varepsilon \|A\|^2$$
+
+          <p>using only $s = O(p \log(p/\delta) / \varepsilon^2)$ rows. The norm on the left is the spectral norm, and $\|A\|$ is the largest singular value. The bound means that the Gram matrix &mdash; and therefore the column space geometry &mdash; of the original matrix is preserved up to $\varepsilon$ relative error by a sample of size depending only on $p$, not on $n$.</p>
+
+          <p>This is a profound result. For a matrix with $n = 10^6$ rows and $p = 100$ columns, leverage score sampling needs roughly $O(100 \cdot \log 100) \approx 700$ rows to approximate the Gram matrix. The dependence on $n$ has been completely eliminated. By contrast, uniform sampling would need $\Omega(n)$ rows in the worst case to achieve the same guarantee when leverage is concentrated.</p>
+
+          <p><strong>Fast Approximation (Drineas, Magdon-Ismail, Mahoney, Woodruff 2012).</strong> The obvious objection is: computing exact leverage scores requires the SVD, which costs $O(np^2)$, so why not just compute the SVD directly? The answer from the 2012 JMLR paper is that <em>approximate</em> leverage scores suffice, and they can be computed much faster. The algorithm proceeds in three steps:</p>
+
+          <ol>
+            <li><strong>Sketch:</strong> Multiply $A$ by a random matrix $\Pi \in \mathbb{R}^{p \times k}$ (where $k \ll n$) to form a sketch $A\Pi \in \mathbb{R}^{n \times k}$. This costs $O(npk)$.</li>
+            <li><strong>Orthogonalize:</strong> Compute the QR decomposition of the sketch to get an approximate orthonormal basis for $A$'s column space. This costs $O(nk^2)$.</li>
+            <li><strong>Estimate:</strong> The squared row norms of this approximate basis are approximate leverage scores. Each estimate is within a constant factor of the true leverage score.</li>
+          </ol>
+
+          <p>Total cost: $O(np\log n)$ with an appropriate choice of random projection (specifically, a subsampled randomized Hadamard transform). This is a factor of $p / \log n$ faster than exact leverage computation via SVD. For $p = 1000$ and $n = 10^6$, this is a speedup of roughly $50\times$.</p>
+
+          <div class="mermaid">
+flowchart LR
+    subgraph Classical["Classical: O(np&#178;)"]
+      direction TB
+      E1["Design matrix\nA (n x p)"] --> E2["Full SVD\nA = U&#931;V&#7488;"]
+      E2 --> E3["Exact leverage\nh&#7522; = &#8214;U&#7522;&#8214;&#178;"]
+    end
+    subgraph Randomized["Drineas et al.: O(np log n)"]
+      direction TB
+      R1["Design matrix\nA (n x p)"] --> R2["Random sketch\nA&#928; (n x k)"]
+      R2 --> R3["QR of sketch\n&#8776; column space"]
+      R3 --> R4["Approx leverage\nh&#771;&#7522; &#8776; h&#7522;"]
+    end
+    Classical ~~~ Randomized
+    style E3 fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style R4 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">Classical leverage computation via SVD versus the fast randomized approximation of Drineas, Magdon-Ismail, Mahoney, and Woodruff (2012). The randomized approach reduces the cubic dependence on $p$ to a logarithmic dependence on $n$.</p>
+
+          <h3>Diagnostic vs. Algorithmic: A Comparison</h3>
+
+          <p>The following table summarizes how the same mathematical object serves two very different roles.</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <th>Classical Diagnostics (1970s&ndash;1980s)</th>
+                <th>Randomized Algorithms (2000s&ndash;2010s)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Central question</strong></td>
+                <td>Is this data point corrupting my regression?</td>
+                <td>Which rows should I sample to approximate this matrix?</td>
+              </tr>
+              <tr>
+                <td><strong>Object of study</strong></td>
+                <td>$h_i = x_i^\top(X^\top X)^{-1}x_i$</td>
+                <td>$h_i = \|U_{i*}\|^2$ (same formula, different notation)</td>
+              </tr>
+              <tr>
+                <td><strong>Typical $n$</strong></td>
+                <td>Tens to hundreds</td>
+                <td>Millions to billions</td>
+              </tr>
+              <tr>
+                <td><strong>Computation</strong></td>
+                <td>Exact, via matrix inversion</td>
+                <td>Approximate, via randomized sketching</td>
+              </tr>
+              <tr>
+                <td><strong>Key result</strong></td>
+                <td>$h_i > 2p/n$ flags influential points</td>
+                <td>$O(p\log p / \varepsilon^2)$ rows suffice for $\varepsilon$-approximation</td>
+              </tr>
+              <tr>
+                <td><strong>Key figure</strong></td>
+                <td>Hoaglin, Welsch, Cook</td>
+                <td>Drineas, Mahoney, Kannan, Woodruff</td>
+              </tr>
+              <tr>
+                <td><strong>Interaction with residuals</strong></td>
+                <td>Cook's distance combines leverage with residual</td>
+                <td>No residuals &mdash; purely geometric</td>
+              </tr>
+              <tr>
+                <td><strong>Goal</strong></td>
+                <td>Detect and remove problematic points</td>
+                <td>Prioritize and sample informative points</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>The philosophical inversion is worth dwelling on. Classical diagnostics treated high-leverage points as <em>suspects</em> &mdash; observations that might be harmful and should perhaps be removed. Drineas and Mahoney's work reframes them as <em>assets</em> &mdash; observations that carry disproportionate information and should be <em>preferentially retained</em>. The mathematical content is identical; the attitude toward it is exactly opposite.</p>
+
+          <div class="callout">
+            <div class="callout-label">The Drineas Contribution</div>
+            <p>Petros Drineas, more than any other individual, is responsible for the transformation of leverage from a statistical diagnostic into a computational tool. His body of work &mdash; from the original CUR decomposition papers with Kannan and Mahoney, through the fast approximation algorithms with Magdon-Ismail and Woodruff, to the training of students like Agniva Chowdhury who continue this research &mdash; represents one of the most consequential bridges between classical statistics and modern algorithm design. The fact that a quantity defined in 1978 for 100-row regression tables would become a fundamental primitive for million-row matrix computations is a testament to the depth of the original mathematical insight and to Drineas's vision in recognizing its algorithmic potential.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 3: ADVANCED                                           -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>Why Leverage Is the Right Sampling Distribution</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>The Volume Argument</h3>
+
+          <p>The deepest reason that leverage scores are the optimal sampling distribution for matrix approximation is geometric: leverage measures how much each row contributes to the <em>volume</em> of the column space.</p>
+
+          <p>Let $A \in \mathbb{R}^{n \times p}$ have thin SVD $A = U\Sigma V^\top$. The leverage of row $i$ is $h_i = \|U_{i*}\|^2$, the squared length of the $i$-th row of $U$. Since $U$ has orthonormal columns, we have $\sum_i h_i = p$, and the leverage scores define a probability distribution $\pi_i = h_i / p$ over the rows.</p>
+
+          <p>Now consider the column space $\text{col}(A) = \text{col}(U)$, a $p$-dimensional subspace of $\mathbb{R}^n$. The matrix $U$ is an orthonormal basis for this subspace. The projection of the $i$-th standard basis vector $e_i$ onto $\text{col}(A)$ has squared length exactly $h_i$. In other words, leverage measures how "aligned" each coordinate direction is with the column space. If $h_i$ is large, the $i$-th row of $A$ lies along a direction that is well-represented in the column space. If $h_i$ is small, the $i$-th row is nearly orthogonal to the column space &mdash; it contributes little information about the directions that $A$'s columns span.</p>
+
+          <p>Here is the critical consequence. Suppose a row $j$ has leverage $h_j = 0.8$ while most other rows have leverage near $p/n \approx 0.01$. Row $j$ accounts for 80% of the projection onto some direction in the column space. If you miss it when sampling, you lose almost all information about that direction, and the Gram matrix approximation $\tilde{A}^\top \tilde{A} \approx A^\top A$ collapses in that direction. Sampling proportional to leverage ensures that such high-information rows are included with high probability.</p>
+
+          <p>More formally, the expected Gram matrix under leverage score sampling with rescaling is exactly the true Gram matrix:</p>
+
+          $$\mathbb{E}\left[\tilde{A}^\top \tilde{A}\right] = \sum_{i=1}^{n} \pi_i \cdot \frac{a_i a_i^\top}{\pi_i} = \sum_{i=1}^{n} a_i a_i^\top = A^\top A$$
+
+          <p>where $a_i$ is the $i$-th row of $A$. The estimator is unbiased for any probability distribution $\pi$. But the <em>variance</em> of the estimator depends critically on $\pi$. It can be shown that the variance is minimized (in a matrix norm sense) when $\pi_i \propto \|a_i\|^2$ (squared row norm sampling) or, more tightly, when $\pi_i \propto h_i$ (leverage sampling). The difference arises because leverage accounts for the <em>directional</em> importance of each row, not just its magnitude.</p>
+
+          <h3>Coherence and the Difficulty of Sampling</h3>
+
+          <p>The concept of <strong>coherence</strong>, formalized in the randomized linear algebra literature, captures the difficulty of leverage-based sampling. The coherence of a matrix is defined as:</p>
+
+          $$\mu(A) = \frac{n}{p} \max_{i} h_i$$
+
+          <p>Coherence ranges from 1 (leverage perfectly uniform, $h_i = p/n$ for all $i$) to $n/p$ (all leverage concentrated on $p$ rows, each with $h_i = 1$). Low coherence means leverage is spread out across many rows, making the matrix "easy" to sample &mdash; even uniform sampling works well. High coherence means a few rows dominate the column space, making the matrix "hard" to sample &mdash; leverage-based sampling is essential.</p>
+
+          <p>The classic example of high coherence is a sparse matrix where one row is a standard basis vector. That row has leverage 1 (it perfectly aligns with one direction of the column space), and missing it destroys all information about that direction. Uniform sampling with $s$ rows captures this row with probability $s/n$, which is negligible for large $n$. Leverage sampling captures it with probability proportional to $h_i / p = 1/p$, which is much larger and independent of $n$.</p>
+
+          <p>Petros Drineas and his collaborators recognized that coherence is the fundamental parameter governing the difficulty of matrix approximation. Their 2012 JMLR paper gave the first efficient algorithm for estimating coherence, which is equivalent to finding the maximum leverage score. This enabled adaptive algorithms that determine whether a matrix is "easy" or "hard" before choosing a sampling strategy.</p>
+
+          <h3>Connection to Volume Sampling</h3>
+
+          <p>The theoretically optimal sampling strategy for least-squares regression is <strong>volume sampling</strong>: select a subset $S$ of $p$ rows with probability proportional to $\det(A_S^\top A_S)$, where $A_S$ denotes the submatrix formed by rows in $S$. Volume sampling selects the $p$ rows that span the largest-volume parallelepiped in the column space &mdash; the rows that, together, capture the most information about $A$.</p>
+
+          <p>The connection to leverage is precise. For a uniformly random subset $S$ of size $p$, the probability that $S$ is the volume-sampled subset is:</p>
+
+          $$P_{\text{vol}}(S) = \frac{\det(A_S^\top A_S)}{\binom{n}{p} \cdot \det(A^\top A / n)}$$
+
+          <p>Leverage score sampling is a tractable, efficient approximation to volume sampling. Instead of the combinatorially expensive volume computation (which requires evaluating $\binom{n}{p}$ determinants), leverage samples rows independently with probability proportional to their individual contributions to the volume. The approximation guarantee is:</p>
+
+          $$\text{If } S \sim \text{Leverage}(s), \; s = O(p \log p), \text{ then } \|A - A_S A_S^+ A\| \leq (1+\varepsilon)\|A - A_p\|$$
+
+          <p>where $A_p$ is the best rank-$p$ approximation and $A_S^+$ is the pseudoinverse. Leverage sampling thus achieves near-optimal regression performance with an efficiently computable sampling scheme.</p>
+
+          <h3>The BSS Barrier and Deterministic Sparsification</h3>
+
+          <p>In 2012, Joshua Batson, Daniel Spielman, and Nikhil Srivastava proved a remarkable result that sets the ultimate limit on matrix sparsification. The <strong>BSS theorem</strong> states: for any matrix $A \in \mathbb{R}^{n \times p}$ and any $\varepsilon > 0$, there exists a set of $O(p/\varepsilon^2)$ reweighted rows that satisfy:</p>
+
+          $$(1-\varepsilon) A^\top A \preceq \tilde{A}^\top \tilde{A} \preceq (1+\varepsilon) A^\top A$$
+
+          <p>where $\preceq$ denotes the Loewner order (the inequalities hold for all quadratic forms simultaneously). The remarkable aspect is that $O(p/\varepsilon^2)$ rows suffice, with <em>no logarithmic factor</em> &mdash; improving on the $O(p \log p / \varepsilon^2)$ achievable by randomized leverage sampling. The construction is deterministic and uses a potential function argument inspired by leverage-like scores.</p>
+
+          <p>The BSS result shows that leverage score sampling is near-optimal (off by a $\log p$ factor) and reveals that the "right" number of rows for $\varepsilon$-approximation is $\Theta(p/\varepsilon^2)$, independent of $n$. For practical purposes, the randomized leverage sampling approach of Drineas and Mahoney is preferred: it is simpler, faster, and the extra logarithmic factor is negligible in practice.</p>
+
+          <h3>The CUR Decomposition: Interpretable Dimensionality Reduction</h3>
+
+          <p>Perhaps the most elegant application of leverage score sampling is the <strong>CUR decomposition</strong>, developed by Drineas and Mahoney. Given a matrix $A \in \mathbb{R}^{n \times p}$, CUR expresses:</p>
+
+          $$A \approx C \cdot U \cdot R$$
+
+          <p>where $C \in \mathbb{R}^{n \times c}$ consists of $c$ actual columns of $A$ (selected by column leverage scores), $R \in \mathbb{R}^{r \times p}$ consists of $r$ actual rows of $A$ (selected by row leverage scores), and $U \in \mathbb{R}^{c \times r}$ is a small linking matrix computed from $C$ and $R$.</p>
+
+          <p>The power of CUR relative to the SVD is <em>interpretability</em>. The SVD writes $A \approx U_k \Sigma_k V_k^\top$, where the singular vectors are abstract linear combinations of the original rows and columns. A singular vector might represent "0.3 times gene A minus 0.7 times gene B plus 0.1 times gene C" &mdash; mathematically precise but biologically opaque. CUR instead selects actual genes (columns) and actual samples (rows) that best represent the matrix. A biologist can look at the selected columns and say: "These specific genes capture most of the variation in the dataset." This is possible because leverage scores identify the rows and columns that matter most.</p>
+
+          <p>Drineas and Mahoney's theoretical analysis shows that CUR with $c = O(p \log p / \varepsilon^2)$ columns and $r = O(p \log p / \varepsilon^2)$ rows achieves:</p>
+
+          $$\|A - CUR\|_F \leq (1 + \varepsilon) \|A - A_k\|_F$$
+
+          <p>where $A_k$ is the best rank-$k$ approximation. The approximation is nearly as good as the SVD, but composed entirely of actual data.</p>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph SVD["SVD: Abstract Basis"]
+      direction TB
+      S1["A &#8776; U&#8342;&#931;&#8342;V&#8342;&#7488;"]
+      S2["Singular vectors are\nlinear combinations\nof all rows/columns"]
+      S1 --> S2
+      S3["Optimal approximation\nbut not interpretable"]
+      S2 --> S3
+    end
+    subgraph CUR["CUR: Data-Driven Basis"]
+      direction TB
+      C1["A &#8776; C &#183; U &#183; R"]
+      C2["C = actual columns\nR = actual rows\nselected by leverage"]
+      C1 --> C2
+      C3["Near-optimal approximation\nAND interpretable"]
+      C2 --> C3
+    end
+    L["Leverage Score Sampling"] --> CUR
+    style S3 fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style C3 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style L fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+          </div>
+          <p class="diagram-caption">SVD versus CUR decomposition. Both approximate the matrix, but CUR &mdash; powered by leverage score sampling &mdash; uses actual rows and columns, yielding an interpretable decomposition.</p>
+
+          <h3>Drineas's Broader Legacy</h3>
+
+          <p>The body of work initiated by Petros Drineas &mdash; together with Mahoney, Kannan, Woodruff, Magdon-Ismail, and students like Chowdhury &mdash; has reshaped how we think about large-scale linear algebra. Before their work, the standard tools for matrix approximation were the SVD and its relatives: elegant but expensive. After their work, we have a toolkit of randomized algorithms that trade a small amount of accuracy for massive speedups, with leverage scores as the central sampling primitive.</p>
+
+          <p>The intellectual contribution is not just algorithmic. Drineas's work established a <em>conceptual bridge</em> between classical statistics and theoretical computer science. The hat matrix diagonal, which Hoaglin and Welsch analyzed as a regression diagnostic, turned out to encode exactly the information needed for a different, seemingly unrelated problem: efficient matrix approximation. This kind of cross-disciplinary connection &mdash; where a well-understood quantity in one field provides the solution to an open problem in another &mdash; is rare and valuable. It suggests that leverage scores occupy a fundamental position in the mathematics of high-dimensional data, one that extends well beyond any single application.</p>
+
+          <p>Michael Mahoney's 2011 monograph, <em>Randomized Algorithms for Matrices and Data</em>, provides a comprehensive treatment of these ideas and remains the standard reference. It is a remarkable document: a coherent narrative that connects fifty years of work on leverage, from Hoaglin and Welsch through CUR and beyond, into a unified theory of randomized numerical linear algebra.</p>
+
+          <div class="callout">
+            <div class="callout-label">A Unified View</div>
+            <p>Leverage scores appear wherever the question "which parts of the data matter most?" has a linear-algebraic answer. In regression diagnostics, the answer identifies influential observations. In matrix approximation, it identifies informative rows for sampling. In experimental design, it identifies optimal measurement locations. In active learning, it identifies the most informative queries. The mathematics is always the same: $h_i = \|U_{i*}\|^2$, the squared projection onto the column space. What changes across these applications is only the question being asked of this single, fundamental quantity.</p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Hoaglin, D. C. &amp; Welsch, R. E. (1978). The hat matrix in regression and ANOVA. <em>The American Statistician</em>, 32(1), 17&ndash;22.</li>
+        <li>Cook, R. D. (1977). Detection of influential observation in linear regression. <em>Technometrics</em>, 19(1), 15&ndash;18.</li>
+        <li>Chatterjee, S. &amp; Hadi, A. S. (1986). Influential observations, high leverage points, and outliers in linear regression. <em>Statistical Science</em>, 1(3), 379&ndash;393.</li>
+        <li>Drineas, P., Kannan, R., &amp; Mahoney, M. W. (2006). Fast Monte Carlo algorithms for matrices I: Approximating matrix multiplication. <em>SIAM Journal on Computing</em>, 36(1), 132&ndash;157.</li>
+        <li>Drineas, P. &amp; Mahoney, M. W. (2009). CUR matrix decompositions for improved data analysis. <em>Proceedings of the National Academy of Sciences</em>, 106(3), 697&ndash;702.</li>
+        <li>Drineas, P., Magdon-Ismail, M., Mahoney, M. W., &amp; Woodruff, D. P. (2012). Fast approximation of matrix coherence and statistical leverage. <em>Journal of Machine Learning Research</em>, 13, 3475&ndash;3506.</li>
+        <li>Mahoney, M. W. (2011). Randomized algorithms for matrices and data. <em>Foundations and Trends in Machine Learning</em>, 3(2), 123&ndash;224.</li>
+        <li>Batson, J., Spielman, D. A., &amp; Srivastava, N. (2012). Twice-Ramanujan sparsifiers. <em>SIAM Journal on Computing</em>, 41(6), 1704&ndash;1721.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post09.html" class="prev">Leverage as a Free Lunch</a>
+      <a href="post15.html" class="next">Randomized NLA</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <span><a href="/blog/">Notes</a></span>
+</footer>
+
+<script src="../js/lightbox.js"></script>
+</body>
+</html>

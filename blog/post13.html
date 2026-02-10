@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>When Exchangeability Breaks &mdash; Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Notes</a>
+      <a href="/links.html">Links</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <article class="post">
+    <div class="post-header">
+      <h1>When Exchangeability Breaks</h1>
+      <p class="post-subtitle">Part 13 of a series on prediction intervals, conformal prediction, and leverage scores.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/">From Predictions to Prediction Intervals</a>.
+    </div>
+
+    <div class="post-body">
+
+      <p>Every guarantee has assumptions. For conformal prediction, the assumption is exchangeability: the calibration data and test data come from the same process, with no point being special. But real-world data frequently violates this. Time series have temporal structure. Medical models get deployed at hospitals different from where they were trained. Financial models face regime changes. When exchangeability breaks, the coverage guarantee evaporates &mdash; and you may not even notice. This post explores what goes wrong and what can be done about it.</p>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 1: INTUITIVE                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>When the Rules Change</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>The Invisible Assumption</h3>
+
+          <p>Recall the core promise of conformal prediction: if you calibrate on data that "looks like" your test data, the prediction intervals you produce will have valid coverage. More precisely, the guarantee says that a new test point will fall inside the interval at least $1-\alpha$ of the time. This guarantee is distribution-free &mdash; it does not care whether your errors are Gaussian, heavy-tailed, or multimodal. The only thing it needs is <em>exchangeability</em>: the calibration scores and the test score must be drawn from the same process, with no ordering or identity mattering.</p>
+
+          <p>In a laboratory setting, exchangeability is easy to arrange. You randomly split your data, calibrate on one portion, and predict on the other. The split is random, so no point is systematically different from any other. Coverage holds. But laboratory settings are not where models live. Models live in the real world, and the real world has structure that exchangeability cannot accommodate.</p>
+
+          <h3>Three Ways Exchangeability Fails</h3>
+
+          <p><strong>Scenario 1: Time series.</strong> Consider a weather forecasting model. You calibrate it on historical data from March and April, then deploy it to make predictions in July. The calibration residuals reflect spring weather patterns &mdash; moderate temperatures, variable precipitation. But July brings heat waves, drought conditions, and convective storms with entirely different error characteristics. Tomorrow's weather is not exchangeable with last month's weather. There is temporal structure: autocorrelation, seasonality, and trends. The calibration scores from spring are not a representative sample of the errors you will see in summer. Your 90% prediction intervals might only cover 60% of summer outcomes, and nothing in the conformal framework will warn you.</p>
+
+          <p><strong>Scenario 2: Covariate shift.</strong> A medical AI is trained and calibrated on patient data from Hospital A &mdash; a large urban research hospital with a young, diverse patient population. The model is then deployed at Hospital B &mdash; a rural community hospital where patients are older, have more comorbidities, and present with later-stage conditions. The relationship between features and outcomes may be the same at both hospitals (the biology has not changed), but the distribution of features has shifted. Hospital B has far more patients in regions of feature space that were sparsely represented at Hospital A. The calibration quantile from Hospital A is based on a distribution of residuals that does not represent what the model will encounter at Hospital B. The intervals may be systematically too narrow for the sicker, older population that Hospital B serves &mdash; precisely the setting where reliable uncertainty quantification matters most.</p>
+
+          <p><strong>Scenario 3: Concept drift.</strong> A model predicts housing prices based on features like square footage, neighborhood, and interest rates. The model is calibrated on data from 2018&ndash;2019 and deployed in 2020&ndash;2021. This time, it is not just the input distribution that changed &mdash; the very relationship between inputs and outputs has shifted. The pandemic altered the value of location, remote work changed demand for suburban homes, and interest rate volatility made the feature-outcome mapping unstable. Even if the covariate distribution were identical (it was not), the conditional distribution $P(Y \mid X)$ changed, and no amount of reweighting can fix that from calibration data alone.</p>
+
+          <div class="mermaid">
+flowchart TD
+    ROOT["Exchangeability Violated"]
+    ROOT --> TS["Time Series"]
+    ROOT --> CS["Covariate Shift"]
+    ROOT --> CD["Concept Drift"]
+    TS --> TSF["Temporal autocorrelation\nSeasonality, trends"]
+    CS --> CSF["P(X) changes\nP(Y|X) stays same"]
+    CD --> CDF["P(Y|X) changes\nFeature-outcome map shifts"]
+    TSF --> F1["Intervals calibrated on\npast may not cover future"]
+    CSF --> F2["Intervals too narrow\nin underrepresented regions"]
+    CDF --> F3["Calibration fundamentally\ninvalid"]
+    style ROOT fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style F1 fill:#fff3e0,stroke:#e65100,color:#1c1917
+    style F2 fill:#fff3e0,stroke:#e65100,color:#1c1917
+    style F3 fill:#fff3e0,stroke:#e65100,color:#1c1917
+          </div>
+          <p class="diagram-caption">Three distinct scenarios that violate exchangeability, each producing a different failure mode for conformal prediction.</p>
+
+          <h3>The Weather Analogy</h3>
+
+          <p>To make this concrete, think of calibrating a thermostat. You set it in summer: 72 degrees feels comfortable, the AC runs a certain number of hours, and you measure how well it performs. Now winter arrives. The thermostat still "works" &mdash; it turns on the heat when the temperature drops below 72 &mdash; but its calibration is completely wrong. The summer data told it that the house cools by 2 degrees per hour overnight; in winter, it cools by 8 degrees per hour. The thermostat thinks it needs to run for 20 minutes; it actually needs 80 minutes. The house ends up freezing.</p>
+
+          <p>Conformal prediction with stale calibration data is the same. The quantile computed from summer residuals reflects summer variability. Applying it to winter predictions gives intervals that are absurdly narrow &mdash; because summer was mild and predictable, but winter is volatile. The intervals have 90% written on the label, but the actual coverage might be 40%.</p>
+
+          <h3>The Failure Mode You Cannot See</h3>
+
+          <p>The most dangerous aspect of exchangeability failure is that <em>you often cannot detect it from the inside</em>. Conformal prediction does not come with a built-in alarm that rings when its assumptions are violated. The procedure still outputs intervals. They still have a width and a center. They still look like prediction intervals. Nothing in the output format distinguishes a valid interval from a useless one.</p>
+
+          <p>The failure can go in either direction. If the test distribution has larger errors than the calibration distribution, the intervals become <strong>too narrow</strong> &mdash; this is the dangerous case, because it gives false confidence. If the test distribution has smaller errors, the intervals become <strong>too wide</strong> &mdash; less dangerous, but wasteful. You are paying for uncertainty you do not have, making decisions that are overly cautious. And without monitoring actual outcomes against predictions, you cannot tell which case you are in. This is why exchangeability is not just a mathematical technicality. It is the load-bearing wall of the entire conformal guarantee.</p>
+
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p>Using conformal prediction under broken exchangeability is like wearing a life jacket rated for a swimming pool while sailing in the North Atlantic. The label says it provides a certain level of safety. The testing was rigorous &mdash; under pool conditions. But the pool conditions are not the ocean conditions, and the label's assurance becomes meaningless the moment the environment changes. The jacket does not announce that it is no longer adequate. You only find out when you are in the water.</p>
+          </div>
+
+          <h3>What Can Be Done?</h3>
+
+          <p>The good news is that the machine learning and statistics communities have developed tools for exactly these situations. Two main strategies have emerged. The first, <strong>weighted conformal prediction</strong>, handles covariate shift by reweighting the calibration scores to account for the difference in feature distributions. The intuition is straightforward: if the test population has more patients in a certain region of feature space, then calibration scores from that region should count more when computing the quantile. The second, <strong>adaptive conformal inference</strong>, handles distribution shift that evolves over time. Instead of computing a single quantile and applying it forever, it continuously adjusts the quantile level based on recent performance &mdash; widening intervals when coverage has been too low, narrowing them when it has been too high. Both approaches relax the exchangeability assumption in controlled ways while preserving as much of the coverage guarantee as possible. The next two sections make these ideas precise.</p>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 2: TECHNICAL                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge technical">Technical</span>
+          <h2>Weighted Conformal Prediction and ACI</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Weighted Conformal Prediction</h3>
+
+          <p>The first principled fix addresses <strong>covariate shift</strong>: the setting where the distribution of features changes between calibration and test time, but the conditional distribution $P(Y \mid X)$ remains the same. This is precisely the hospital deployment scenario. The biology has not changed; only the patient demographics have.</p>
+
+          <p>The key idea, due to Tibshirani, Barber, Cand&egrave;s, and Ramdas (2019), is to replace the uniform quantile in standard conformal prediction with a <em>weighted</em> quantile. In standard (split) conformal prediction, each calibration score contributes equally to the empirical quantile. Under covariate shift, this is wrong: calibration points that are more "test-like" should contribute more. The importance weight for calibration point $i$ is the density ratio:</p>
+
+          $$w_i = \frac{p_{\text{test}}(X_i)}{p_{\text{cal}}(X_i)}$$
+
+          <p>where $p_{\text{test}}$ is the test covariate density and $p_{\text{cal}}$ is the calibration covariate density. Points in regions where the test distribution has more mass than the calibration distribution receive higher weight, and vice versa. The weighted conformal quantile is then defined as the smallest $q$ such that:</p>
+
+          $$\frac{\sum_{i=1}^{n} w_i \, \mathbf{1}\{S_i \leq q\}}{\sum_{i=1}^{n} w_i + w_{n+1}} \geq 1 - \alpha$$
+
+          <p>where $S_i$ are the conformal scores of the calibration points, $w_{n+1}$ is the weight assigned to the test point, and the normalization in the denominator ensures that the total probability sums correctly. When all weights are equal ($w_i = 1$), this reduces to the standard conformal quantile. When the weights correctly reflect the density ratio, the coverage guarantee extends to the test distribution.</p>
+
+          <p>The practical challenge is that <strong>you need to estimate the density ratio</strong>, and density ratio estimation is itself a hard statistical problem. In low dimensions, kernel density estimation works. In moderate dimensions, methods like KLIEP (Kullback-Leibler Importance Estimation Procedure) or uLSIF (unconstrained Least-Squares Importance Fitting) can be effective. In very high dimensions, the density ratio may be poorly estimated, and the weighted quantile may be unreliable. This limitation is fundamental: if the covariate shift is so severe that the calibration and test distributions have very little overlap, no reweighting scheme can rescue the situation. The support of the calibration distribution must cover the support of the test distribution.</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Scenario</th>
+                <th>Exchangeability</th>
+                <th>What changes</th>
+                <th>Approach</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Standard (i.i.d.)</td>
+                <td>Holds</td>
+                <td>Nothing</td>
+                <td>Standard conformal prediction</td>
+              </tr>
+              <tr>
+                <td>Covariate shift</td>
+                <td>Broken</td>
+                <td>$P(X)$ changes, $P(Y \mid X)$ fixed</td>
+                <td>Weighted conformal prediction</td>
+              </tr>
+              <tr>
+                <td>Temporal drift</td>
+                <td>Broken</td>
+                <td>Distribution evolves over time</td>
+                <td>Adaptive conformal inference (ACI)</td>
+              </tr>
+              <tr>
+                <td>Concept drift</td>
+                <td>Broken</td>
+                <td>$P(Y \mid X)$ changes</td>
+                <td>Re-calibration + ACI / no easy fix</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Adaptive Conformal Inference (ACI)</h3>
+
+          <p>The second fix, due to Gibbs and Cand&egrave;s (2021), addresses a more challenging setting: <strong>distribution shift that evolves over time</strong>. In a time series or streaming setting, the distribution may change slowly or abruptly, and you do not know the density ratio. You cannot compute importance weights because you do not have access to the future distribution.</p>
+
+          <p>ACI takes a different approach entirely. Instead of trying to characterize the shift, it <em>adapts</em> to it in an online fashion. The core idea is elegantly simple: maintain a running quantile level $\alpha_t$ and update it at each time step based on whether the most recent prediction interval achieved coverage.</p>
+
+          <p>The update rule is:</p>
+
+          $$\alpha_{t+1} = \alpha_t + \gamma \left( \alpha - \text{err}_t \right)$$
+
+          <p>where $\text{err}_t = \mathbf{1}\{Y_t \notin \hat{C}_t(X_t)\}$ is the miscoverage indicator at time $t$, $\alpha$ is the target miscoverage rate (e.g., 0.1 for 90% coverage), and $\gamma > 0$ is a step size that controls how aggressively the method adapts.</p>
+
+          <p>The intuition is that of a <strong>thermostat</strong>. If the interval failed to cover the true value ($\text{err}_t = 1$), the update becomes $\alpha_{t+1} = \alpha_t + \gamma(\alpha - 1) = \alpha_t - \gamma(1 - \alpha)$, which <em>decreases</em> $\alpha_{t+1}$ &mdash; meaning the next quantile will be higher, producing a <em>wider</em> interval. If the interval did cover ($\text{err}_t = 0$), the update becomes $\alpha_{t+1} = \alpha_t + \gamma \alpha$, which <em>increases</em> $\alpha_{t+1}$ &mdash; meaning the next quantile will be lower, producing a <em>narrower</em> interval. Over time, this negative feedback loop drives the average miscoverage rate toward $\alpha$.</p>
+
+          <div class="mermaid">
+flowchart LR
+    A["Predict: build\ninterval at level alpha_t"] --> B["Observe: see\ntrue outcome Y_t"]
+    B --> C{"Did interval\ncover Y_t?"}
+    C -->|"No: err_t = 1"| D["Decrease alpha:\nwider intervals"]
+    C -->|"Yes: err_t = 0"| E["Increase alpha:\nnarrower intervals"]
+    D --> F["Update:\nalpha_{t+1} = alpha_t + gamma*(alpha - err_t)"]
+    E --> F
+    F --> A
+    style C fill:#fff3e0,stroke:#e65100,color:#1c1917
+    style D fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style E fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">The ACI feedback loop. The quantile level adjusts at each time step, acting like a thermostat that targets the desired coverage rate.</p>
+
+          <p>The remarkable property of ACI is its <strong>long-run coverage guarantee</strong>: regardless of how the distribution changes over time &mdash; arbitrarily, adversarially, with no structural assumptions whatsoever &mdash; the average coverage over time converges to $1 - \alpha$. More precisely:</p>
+
+          $$\frac{1}{T} \sum_{t=1}^{T} \text{err}_t \to \alpha \quad \text{as } T \to \infty$$
+
+          <p>This is a weaker guarantee than finite-sample coverage (which says that each individual interval has $1-\alpha$ probability of covering), but it is a guarantee under <em>no assumptions at all</em> on the data-generating process. The price of this universality is that coverage may be very uneven in the short run: there may be periods of severe undercoverage (during abrupt distribution shifts) followed by periods of overcoverage (as the method corrects). The step size $\gamma$ controls the bias-variance tradeoff: large $\gamma$ adapts quickly but oscillates more; small $\gamma$ is smoother but reacts slowly to shifts.</p>
+
+          <h3>Choosing Between the Two</h3>
+
+          <p>Weighted conformal prediction and ACI address different aspects of the exchangeability problem, and the choice depends on the setting.</p>
+
+          <p>Use <strong>weighted CP</strong> when you have a batch prediction problem with known or estimable covariate shift: you have calibration data from one distribution and test data from another, you can estimate the density ratio, and $P(Y \mid X)$ has not changed. The guarantee is finite-sample (like standard CP), conditioned on the quality of the density ratio estimate.</p>
+
+          <p>Use <strong>ACI</strong> when you have a sequential prediction problem where the distribution may shift over time in unknown ways: streaming data, time series, or deployment settings where the environment changes. The guarantee is asymptotic (long-run average), but requires no knowledge of how the distribution is changing.</p>
+
+          <p>Use <strong>both</strong> when you face covariate shift that also evolves over time. One can run weighted CP with ACI-style updates to the quantile level, getting the best of both worlds: importance weighting corrects for the current covariate shift, while ACI adapts the level when the shift itself changes.</p>
+
+          <div class="callout">
+            <div class="callout-label">Practical Warning</div>
+            <p>Neither method can fix <strong>concept drift</strong> from calibration data alone. If the conditional distribution $P(Y \mid X)$ has changed &mdash; if the same patient with the same features now has a different outcome distribution &mdash; then no reweighting or quantile adjustment based on old calibration scores can recover valid coverage. The only remedy is to re-calibrate with data from the new regime. ACI can partially compensate by widening intervals when it detects undercoverage, but it is fighting a losing battle if the scores themselves are based on a stale model. In practice, concept drift often requires retraining the model, not just re-calibrating the intervals.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 3: ADVANCED                                           -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>The Theory of Weighted Exchangeability</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Formal Framework: Weighted Exchangeability</h3>
+
+          <p>The standard conformal guarantee relies on exchangeability: the joint distribution of $(Z_1, \ldots, Z_n, Z_{n+1})$, where $Z_i = (X_i, Y_i)$, is invariant under permutations. Under covariate shift, this fails. Tibshirani et al. (2019) introduced a notion of <strong>weighted exchangeability</strong> that replaces the uniform permutation distribution with a weighted one.</p>
+
+          <p>Suppose that the calibration points $Z_1, \ldots, Z_n$ are drawn i.i.d. from a distribution $P$, and the test point $Z_{n+1}$ is drawn from a different distribution $Q$, where $Q$ is absolutely continuous with respect to $P$. Define the likelihood ratio (Radon-Nikodym derivative):</p>
+
+          $$w(z) = \frac{dQ(z)}{dP(z)}$$
+
+          <p>Under covariate shift, $P(Y \mid X) = Q(Y \mid X)$, so the likelihood ratio simplifies to the covariate density ratio: $w(z) = w(x) = p_Q(x) / p_P(x)$. The key observation is that while the data are not exchangeable, they satisfy a <em>weighted</em> form of symmetry. The probability of any particular assignment of scores to positions is proportional to the product of the weights at each position. Formally, for any permutation $\sigma$ of $\{1, \ldots, n+1\}$:</p>
+
+          $$P(\text{rank of } Z_{n+1} = k) = \frac{w(Z_k)}{\sum_{j=1}^{n+1} w(Z_j)}$$
+
+          <p>This weighted rank distribution replaces the uniform rank distribution of the exchangeable case. The conformal p-value becomes:</p>
+
+          $$p(Z_{n+1}) = \frac{\sum_{i=1}^{n} w(Z_i) \, \mathbf{1}\{S_i \geq S_{n+1}\} + w(Z_{n+1})}{\sum_{i=1}^{n} w(Z_i) + w(Z_{n+1})}$$
+
+          <p>If we define $\hat{C}_\alpha(X_{n+1}) = \{y : p(X_{n+1}, y) > \alpha\}$, then under the covariate shift assumption and assuming the weights are known:</p>
+
+          $$P_{Q}\left(Y_{n+1} \in \hat{C}_\alpha(X_{n+1})\right) \geq 1 - \alpha$$
+
+          <p>This is the coverage guarantee under weighted exchangeability. It is exact and finite-sample, just like the standard conformal guarantee, but holds under the test distribution $Q$ rather than under $P$.</p>
+
+          <h3>When Density Ratios Are Bounded</h3>
+
+          <p>In practice, the density ratio $w(x) = p_Q(x) / p_P(x)$ must be estimated, introducing error. How does estimation error affect coverage? The analysis depends on the boundedness of the true weights.</p>
+
+          <p>Suppose the density ratio is bounded: $w(x) \leq M$ for all $x$ in the support. Then the effective sample size of the weighted calibration set is:</p>
+
+          $$n_{\text{eff}} = \frac{\left(\sum_{i=1}^{n} w_i\right)^2}{\sum_{i=1}^{n} w_i^2}$$
+
+          <p>When the weights are uniform ($w_i = 1$), we get $n_{\text{eff}} = n$. When the weights are highly variable, $n_{\text{eff}} \ll n$. The coverage guarantee degrades gracefully with the effective sample size: the finite-sample correction term scales as $1/n_{\text{eff}}$ rather than $1/n$.</p>
+
+          <p>More concretely, if the estimated weights $\hat{w}_i$ satisfy $|\hat{w}_i - w_i| \leq \delta$ for all $i$, the coverage guarantee becomes:</p>
+
+          $$P_Q\left(Y_{n+1} \in \hat{C}_\alpha(X_{n+1})\right) \geq 1 - \alpha - O\left(\frac{n \delta}{\sum_{i=1}^{n} w_i}\right)$$
+
+          <p>The coverage degradation is proportional to the total estimation error relative to the total true weight. When $\delta$ is small relative to the average weight, the coverage loss is small. When $\delta$ is comparable to the weights themselves, the guarantee becomes vacuous.</p>
+
+          <h3>Conformal Prediction Beyond Exchangeability</h3>
+
+          <p>Barber, Cand&egrave;s, Ramdas, and Tibshirani (2023) provided the most general treatment of conformal prediction without exchangeability. Their framework encompasses covariate shift, time series, and arbitrary dependence structures. The key result is a coverage bound that depends on the <strong>total variation distance</strong> between the actual data-generating process and the closest exchangeable process.</p>
+
+          <p>Specifically, let $P$ be the true joint distribution of $(Z_1, \ldots, Z_n, Z_{n+1})$ and let $P_{\text{exch}}$ be the closest exchangeable distribution (in total variation). Then:</p>
+
+          $$\left| P(Y_{n+1} \in \hat{C}_\alpha(X_{n+1})) - (1-\alpha) \right| \leq 2 \, d_{\text{TV}}(P, P_{\text{exch}})$$
+
+          <p>This gives a quantitative version of the informal statement that "approximate exchangeability gives approximate coverage." If the data are nearly exchangeable (small $d_{\text{TV}}$), coverage is nearly valid. If the data are far from exchangeable (large $d_{\text{TV}}$), the coverage guarantee degrades proportionally. The factor of 2 is tight.</p>
+
+          <p>The power of this result is its generality: it applies to <em>any</em> departure from exchangeability, not just covariate shift. It also has a sobering implication: <strong>without any assumption</strong> on the relationship between calibration and test data (not even approximate exchangeability), no distribution-free coverage guarantee is possible. You must assume <em>something</em> about the connection between past and future. The question is not whether to make assumptions, but which assumptions are both plausible and sufficient.</p>
+
+          <h3>The Long-Run Coverage Property of ACI</h3>
+
+          <p>The ACI guarantee is proved via a <strong>supermartingale argument</strong>. Define the regret process:</p>
+
+          $$R_T = \sum_{t=1}^{T} \left(\text{err}_t - \alpha\right)$$
+
+          <p>This measures the cumulative excess miscoverage. If $R_T$ grows without bound, the method is consistently undercovering. If $R_T$ is bounded, the average miscoverage converges to $\alpha$.</p>
+
+          <p>Consider the potential function $\Phi_t = (\alpha_t - \alpha)^2$. Using the ACI update rule $\alpha_{t+1} = \alpha_t + \gamma(\alpha - \text{err}_t)$, we can compute:</p>
+
+          $$\Phi_{t+1} - \Phi_t = (\alpha_{t+1} - \alpha)^2 - (\alpha_t - \alpha)^2$$
+
+          $$= \left((\alpha_t - \alpha) - \gamma(\text{err}_t - \alpha)\right)^2 - (\alpha_t - \alpha)^2$$
+
+          $$= -2\gamma (\alpha_t - \alpha)(\text{err}_t - \alpha) + \gamma^2 (\text{err}_t - \alpha)^2$$
+
+          <p>Since $\text{err}_t \in \{0, 1\}$, we have $(\text{err}_t - \alpha)^2 \leq 1$. The term $-2\gamma(\alpha_t - \alpha)(\text{err}_t - \alpha)$ is negative on average when $\alpha_t$ is on the same side as $\text{err}_t$ relative to $\alpha$ &mdash; which is exactly what happens under the feedback mechanism. Telescoping the sum and using $\Phi_t \geq 0$:</p>
+
+          $$\sum_{t=1}^{T} 2\gamma (\alpha_t - \alpha)(\text{err}_t - \alpha) \leq \Phi_1 + T \gamma^2$$
+
+          <p>This implies that the cumulative deviation is bounded by $O(\Phi_1/\gamma + T\gamma)$. Dividing by $T$, the average excess miscoverage satisfies:</p>
+
+          $$\left|\frac{1}{T}\sum_{t=1}^{T} \text{err}_t - \alpha\right| \leq O\left(\frac{1}{T\gamma} + \gamma\right)$$
+
+          <p>Choosing $\gamma = T^{-1/2}$ gives a rate of $O(T^{-1/2})$, and the average miscoverage converges to $\alpha$ at the $\sqrt{T}$ rate. This holds <em>for any sequence of distributions</em> &mdash; no stochastic assumptions are needed on the data-generating process. The guarantee is entirely deterministic, which is what makes it so powerful. The argument is essentially the same as the regret bound in online convex optimization, and ACI can be viewed as online gradient descent on the pinball loss.</p>
+
+          <div class="mermaid">
+flowchart TD
+    A["Joint distribution P\nof (Z_1, ..., Z_n, Z_{n+1})"]
+    A --> B{"Is P\nexchangeable?"}
+    B -->|"Yes"| C["Standard CP\nExact coverage: 1 - alpha"]
+    B -->|"No"| D{"Is the departure\ncharacterizable?"}
+    D -->|"Known covariate shift"| E["Weighted CP\nExact coverage under Q"]
+    D -->|"Bounded TV distance"| F["Approximate coverage\n|coverage - (1-alpha)| ≤ 2 d_TV"]
+    D -->|"Sequential / arbitrary"| G["ACI\nLong-run average coverage"]
+    D -->|"No structure at all"| H["No distribution-free\nguarantee possible"]
+    style C fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style E fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style F fill:#fff3e0,stroke:#e65100,color:#1c1917
+    style G fill:#fff3e0,stroke:#e65100,color:#1c1917
+    style H fill:#fce4ec,stroke:#c62828,color:#1c1917
+          </div>
+          <p class="diagram-caption">A decision tree for conformal prediction under different departures from exchangeability. The strength of the guarantee decreases as the assumptions weaken, culminating in impossibility when no structure is assumed at all.</p>
+
+          <h3>Recent Developments and Open Frontiers</h3>
+
+          <p><strong>Conformal prediction for time series.</strong> Xu and Xie (2021) developed conformal prediction methods specifically for time series data by using a rolling calibration window that adapts to recent data, effectively assuming local stationarity. Zaffran et al. (2022) extended ACI to time series with theory for how the step size $\gamma_t$ should be chosen adaptively, rather than fixed, to achieve minimax-optimal regret. Their EnbPI (Ensemble Batch Prediction Intervals) method uses ensembles of models trained on different time windows to capture temporal heterogeneity in the scores.</p>
+
+          <p><strong>Sequential conformal prediction.</strong> The sequential setting, where data arrives one point at a time and predictions must be made before the outcome is revealed, is where ACI is most natural. Recent work has connected this to the broader theory of online learning and game-theoretic probability. The conformal prediction interval can be viewed as a betting strategy: at each round, you "bet" that the outcome will fall inside your interval, and the ACI update adjusts your betting strategy based on past performance. The long-run coverage guarantee is then a consequence of the fundamental theorem of online learning.</p>
+
+          <p><strong>The fundamental tension.</strong> All of these methods navigate the same fundamental tension: stronger assumptions yield stronger guarantees, but are less likely to hold in practice. Standard conformal prediction assumes full exchangeability and gives exact finite-sample coverage &mdash; but exchangeability fails in most real applications. Weighted CP relaxes to covariate shift and gives exact coverage under the shifted distribution &mdash; but requires knowing the density ratio. ACI makes no distributional assumptions and gives long-run average coverage &mdash; but the guarantee is asymptotic and the short-run behavior can be poor. The Barber et al. (2023) framework quantifies this tradeoff: the coverage guarantee degrades continuously as a function of the distance from exchangeability, and this degradation is information-theoretically unavoidable.</p>
+
+          <p>The practitioner's task is to identify which regime they are in and choose the appropriate tool. In batch settings with identifiable covariate shift, weighted CP is the right choice. In streaming settings with unknown drift, ACI is the right choice. In settings where the departure from exchangeability is mild and hard to characterize, standard conformal prediction may be "good enough" &mdash; and the Barber et al. bound makes "good enough" precise. In settings where the departure is severe and unstructured, no conformal method will save you, and the honest answer is to collect new calibration data.</p>
+
+          <div class="callout">
+            <div class="callout-label">The Bottom Line</div>
+            <p>Exchangeability is not a technicality &mdash; it is the foundation. When it breaks, the conformal guarantee breaks with it. The theory of weighted exchangeability, adaptive conformal inference, and conformal prediction beyond exchangeability provides a rich toolkit for navigating this reality. But no method can conjure coverage from nothing. The deepest lesson is an impossibility result: without <em>some</em> assumption connecting calibration data to test data, distribution-free prediction intervals with non-trivial coverage are impossible. The art is in choosing assumptions that are both defensible and sufficient &mdash; and in monitoring your deployed system to know when even those assumptions have failed.</p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Tibshirani, R. J., Barber, R. F., Cand&egrave;s, E. J., &amp; Ramdas, A. (2019). Conformal prediction under covariate shift. <em>NeurIPS</em>.</li>
+        <li>Gibbs, I. &amp; Cand&egrave;s, E. J. (2021). Adaptive conformal inference under distribution shift. <em>NeurIPS</em>.</li>
+        <li>Barber, R. F., Cand&egrave;s, E. J., Ramdas, A., &amp; Tibshirani, R. J. (2023). Conformal prediction beyond exchangeability. <em>Annals of Statistics</em>.</li>
+        <li>Zaffran, M., F&eacute;ron, O., Goude, Y., Josse, J., &amp; Dieuleveut, A. (2022). Adaptive conformal predictions for time series. <em>ICML</em>.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post12.html" class="prev">Beyond the Split</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <span><a href="/blog/">Notes</a></span>
+</footer>
+
+<script src="../js/lightbox.js"></script>
+</body>
+</html>

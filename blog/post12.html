@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Beyond the Split: Full Conformal, Jackknife+, and Cross-Conformal &mdash; Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Notes</a>
+      <a href="/links.html">Links</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <article class="post">
+    <div class="post-header">
+      <h1>Beyond the Split: Full Conformal, Jackknife+, and Cross-Conformal</h1>
+      <p class="post-subtitle">Part 12 of a series on prediction intervals, conformal prediction, and leverage scores.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/">From Predictions to Prediction Intervals</a>.
+    </div>
+
+    <div class="post-body">
+
+      <p>Split conformal prediction (Part 2) is clean and practical, but it has a cost: you must sacrifice some data to the calibration set, which means the model sees less training data. This is the "splitting tax." For small datasets, giving up 20&ndash;30% of your data can materially degrade prediction quality, leading to wider intervals than necessary &mdash; not because the method fails, but because the model is worse. A model trained on 700 observations is simply less accurate than one trained on 1000, and the resulting prediction intervals reflect that degradation.</p>
+
+      <p>This post covers three alternatives that avoid or reduce the splitting tax: full conformal prediction, the jackknife+, and cross-conformal prediction (also called CV+). Each makes a different tradeoff between computation, data efficiency, and the strength of the coverage guarantee. Full conformal uses all data but requires refitting the model for every candidate prediction value. The jackknife+ trains $n$ leave-one-out models but weakens the coverage guarantee from $1-\alpha$ to $1-2\alpha$. Cross-conformal strikes a middle ground using $K$-fold cross-validation, achieving the same $1-2\alpha$ guarantee at $K$ times the cost of a single fit.</p>
+
+      <p>Understanding these alternatives is important for two reasons. First, they are practical: in small-data regimes (clinical trials, materials science, rare-event prediction), the splitting tax is severe, and these methods can substantially tighten intervals. Second, they illuminate the theoretical structure of conformal prediction &mdash; specifically, what the exchangeability assumption is really doing, and what happens when it is weakened.</p>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 1: INTUITIVE                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>The Cost of Splitting and Three Ways Around It</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>The Splitting Tax</h3>
+
+          <p>Recall how split conformal prediction works: you divide your data in two, train a model on one half, and use the other half to calibrate your prediction intervals. The calibration step is what gives you the coverage guarantee &mdash; the promise that 90% of future observations will fall inside your 90% interval. The problem is the division itself. The model only sees half the data. In large-data settings (tens of thousands of samples or more), this barely matters. But in small-data settings (a few hundred samples), the tax is punishing.</p>
+
+          <p>Here is an analogy. Imagine you are studying for an exam using a textbook with 200 practice problems. Split conformal is like studying from only 140 of those problems (70%) and then grading yourself on the remaining 60 (30%). You learn less from 140 problems than you would from all 200. But you need the held-out 60 to honestly assess your performance. The grade you assign yourself is reliable, but it reflects the performance of someone who only studied 70% of the material. If you could somehow study all 200 problems <em>and</em> honestly grade yourself, you would know more and your performance would be better. That is the aspiration behind the three methods in this post.</p>
+
+          <h3>Full Conformal: Use Everything, Pay Dearly</h3>
+
+          <p>Full conformal prediction, introduced by Vovk, Gammerman, and Shafer (2005), takes the most aggressive approach. The idea is: for each candidate value $y$ that the new observation might take, temporarily add the pair $(x_{\text{new}}, y)$ to the training set, refit the model on all $n+1$ points, and compute everyone's residual. If the candidate $y$ is "consistent" with the existing data &mdash; meaning its residual does not stand out as unusually large &mdash; include it in the prediction set. The collection of all consistent $y$ values forms the prediction interval.</p>
+
+          <p>This is extraordinarily powerful: every data point is used for both training and calibration, so there is no splitting tax at all. The coverage guarantee is the full $1-\alpha$, with no degradation. But the computational cost is devastating. For regression, you must search over a continuum of candidate $y$ values. Each candidate requires refitting the model from scratch. Even if you discretize the search into 1000 candidate values, that is 1000 model fits per test point. For a linear model, some tricks (rank-one updates) can reduce this cost. For a random forest or neural network, it is essentially infeasible. Full conformal is the gold standard in theory and a cautionary tale in practice.</p>
+
+          <h3>Jackknife+: Leave One Out, Lose a Factor of Two</h3>
+
+          <p>The jackknife+ (Barber, Cand&egrave;s, Ramdas, and Tibshirani, 2021) takes a different approach. Instead of refitting for every candidate $y$, it refits once for every training point. For each $i = 1, \ldots, n$, train a model $\hat{f}_{-i}$ that leaves out the $i$-th observation. Then compute the leave-one-out residual $R_i = |Y_i - \hat{f}_{-i}(X_i)|$. These residuals are honest calibration scores: each one measures how wrong the model is on a point it never saw, using almost all the data for training.</p>
+
+          <p>The prediction interval at a new point $x$ is built from these $n$ leave-one-out residuals. The key subtlety is that the LOO residuals are <em>not</em> exchangeable with the test residual. Each LOO model $\hat{f}_{-i}$ is slightly different, trained on a different subset. This breaks the clean rank argument that powers split conformal. Barber et al. showed that you can still get a coverage guarantee, but at a cost: the guarantee degrades from $1-\alpha$ to $1-2\alpha$. If you want 90% coverage, you need to target $\alpha = 0.05$, and you are guaranteed at least $1 - 2(0.05) = 90\%$. In practice, the actual coverage is often much better than this worst case, especially for stable models.</p>
+
+          <p>The computational cost is $n$ model fits &mdash; expensive, but not catastrophic. For linear models, all $n$ LOO fits can be computed from a single fit using the Sherman-Morrison formula, so the cost is essentially one model fit. For non-linear models, the cost scales linearly with $n$.</p>
+
+          <h3>Cross-Conformal (CV+): The Practical Middle Ground</h3>
+
+          <p>Cross-conformal prediction, also called CV+ (Vovk, 2015; Barber et al., 2021), is the practical version of jackknife+. Instead of leaving out one point at a time, you leave out one fold at a time, just like $K$-fold cross-validation. Split the data into $K$ folds (typically $K = 5$ or $K = 10$). For each fold $k$, train a model $\hat{f}_{-k}$ on the other $K-1$ folds, and compute the residuals for the held-out points in fold $k$. You end up with $n$ residuals total, each computed from a model that never saw that data point. The coverage guarantee is the same as jackknife+: $1-2\alpha$.</p>
+
+          <p>The advantage over jackknife+ is computational: you train $K$ models instead of $n$. For $K=5$, that is 5 model fits, which is affordable for almost any model class. The advantage over split conformal is data efficiency: every point is used for training (in $K-1$ folds) and for calibration (in 1 fold). The disadvantage relative to split conformal is the weaker guarantee ($1-2\alpha$ vs. $1-\alpha$) and the $K$-fold overhead.</p>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph Split["Split Conformal"]
+      direction TB
+      S1["Train: 1 model\non D_train"]
+      S2["Calibrate: residuals\non D_cal"]
+      S3["Coverage: 1 - alpha"]
+      S4["Cost: 1 model fit"]
+      S1 --> S2 --> S3 --> S4
+    end
+    subgraph Full["Full Conformal"]
+      direction TB
+      F1["Train: refit for\nevery candidate y"]
+      F2["Calibrate: all n+1\nresiduals per y"]
+      F3["Coverage: 1 - alpha"]
+      F4["Cost: |Y| model fits\nper test point"]
+      F1 --> F2 --> F3 --> F4
+    end
+    subgraph Jack["Jackknife+"]
+      direction TB
+      J1["Train: n LOO models"]
+      J2["Calibrate: n LOO\nresiduals"]
+      J3["Coverage: 1 - 2alpha"]
+      J4["Cost: n model fits"]
+      J1 --> J2 --> J3 --> J4
+    end
+    subgraph CV["CV+ / Cross-Conformal"]
+      direction TB
+      C1["Train: K fold models"]
+      C2["Calibrate: n cross-val\nresiduals"]
+      C3["Coverage: 1 - 2alpha"]
+      C4["Cost: K model fits"]
+      C1 --> C2 --> C3 --> C4
+    end
+    style S3 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style F3 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style J3 fill:#fff3e0,stroke:#e65100,color:#1c1917
+    style C3 fill:#fff3e0,stroke:#e65100,color:#1c1917
+    style F4 fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style J4 fill:#fff3e0,stroke:#e65100,color:#1c1917
+    style S4 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style C4 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">The four conformal prediction variants at a glance. Green cells indicate strengths; orange cells indicate moderate costs; red indicates a major limitation.</p>
+
+          <h3>When to Use Which</h3>
+
+          <p><strong>Large data (thousands of samples or more).</strong> Use split conformal. You have plenty of data for both training and calibration. The splitting tax is negligible, the guarantee is the strongest ($1-\alpha$), and the computational cost is the lowest (one model fit). There is no reason to pay more.</p>
+
+          <p><strong>Small data (dozens to a few hundred samples).</strong> Use CV+ or jackknife+. The splitting tax is severe here &mdash; losing 30% of a 200-sample dataset means training on only 140 points, which can meaningfully degrade the model. CV+ with $K = 10$ lets every point participate in training (in 9 of 10 folds) while still providing honest calibration residuals. The $1-2\alpha$ guarantee is weaker on paper but is typically conservative in practice.</p>
+
+          <p><strong>Theoretical purity or research settings.</strong> Use full conformal if you can afford it. It provides the cleanest guarantee ($1-\alpha$) with no splitting tax. For linear models, efficient implementations exist. For research comparing methods, full conformal is the gold standard baseline.</p>
+
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p>The four methods are like four approaches to a cooking competition. Split conformal is cooking with half your ingredients and having the other half judged by a food critic &mdash; reliable ratings, but you cannot use your best ingredients. Full conformal is cooking with all your ingredients but requiring the critic to taste a version of the dish for every possible seasoning combination &mdash; perfect evaluation, impossibly expensive. Jackknife+ is cooking $n$ nearly identical meals, each missing one ingredient, and averaging the critiques &mdash; thorough but tedious. CV+ is cooking five versions, each missing a different group of ingredients &mdash; a sensible compromise that most professional kitchens would choose.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 2: TECHNICAL                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge technical">Technical</span>
+          <h2>The Algorithms, Formally</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Setup and Notation</h3>
+
+          <p>We have training data $\{(X_i, Y_i)\}_{i=1}^n$ drawn exchangeably from some joint distribution $P_{XY}$. We want to construct a prediction set $\hat{C}(X_{n+1})$ for a new point $X_{n+1}$ such that $P(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - \alpha$. We have a regression algorithm $\mathcal{A}$ that takes a dataset and produces a fitted function $\hat{f}$. The methods below differ in how they use the $n$ training points to calibrate the prediction interval.</p>
+
+          <h3>Full Conformal Prediction</h3>
+
+          <p>For each candidate value $y \in \mathbb{R}$, define the augmented dataset $D^y = \{(X_1, Y_1), \ldots, (X_n, Y_n), (X_{n+1}, y)\}$ and fit the model $\hat{f}^y = \mathcal{A}(D^y)$. Compute the nonconformity scores:</p>
+
+          $$S_i(y) = |Y_i - \hat{f}^y(X_i)|, \quad i = 1, \ldots, n$$
+          $$S_{n+1}(y) = |y - \hat{f}^y(X_{n+1})|$$
+
+          <p>The prediction set is the collection of all $y$ for which $S_{n+1}(y)$ does not rank among the top $\alpha$ fraction of scores:</p>
+
+          $$\hat{C}(X_{n+1}) = \left\{y \in \mathbb{R} : S_{n+1}(y) \leq S_{(\lceil(1-\alpha)(n+1)\rceil)}(y)\right\}$$
+
+          <p>where $S_{(k)}(y)$ denotes the $k$-th smallest value among $\{S_1(y), \ldots, S_{n+1}(y)\}$.</p>
+
+          <p><strong>Coverage guarantee.</strong> Since the augmented dataset $D^y$ treats all $n+1$ points symmetrically when $y = Y_{n+1}$ (i.e., when the candidate equals the true value), exchangeability implies that the rank of $S_{n+1}(Y_{n+1})$ is uniformly distributed on $\{1, \ldots, n+1\}$. Therefore:</p>
+
+          $$P(Y_{n+1} \in \hat{C}(X_{n+1})) = P\left(S_{n+1}(Y_{n+1}) \leq S_{(\lceil(1-\alpha)(n+1)\rceil)}(Y_{n+1})\right) \geq \frac{\lceil(1-\alpha)(n+1)\rceil}{n+1} \geq 1 - \alpha$$
+
+          <p>This guarantee is exact and finite-sample. No data is wasted on a separate calibration set.</p>
+
+          <h3>Jackknife+</h3>
+
+          <p>For each $i = 1, \ldots, n$, define the leave-one-out (LOO) model $\hat{f}_{-i} = \mathcal{A}(\{(X_j, Y_j)\}_{j \neq i})$. Also fit the full model $\hat{f} = \mathcal{A}(\{(X_j, Y_j)\}_{j=1}^n)$. Compute the LOO residuals:</p>
+
+          $$R_i = |Y_i - \hat{f}_{-i}(X_i)|, \quad i = 1, \ldots, n$$
+
+          <p>The jackknife+ prediction interval is:</p>
+
+          $$\hat{C}(x) = \left[q_\alpha^{-}(x), \; q_\alpha^{+}(x)\right]$$
+
+          <p>where</p>
+
+          $$q_\alpha^{-}(x) = -\text{Quantile}_{1-\alpha}\left(\{-\hat{f}_{-i}(x) + R_i\}_{i=1}^n \cup \{+\infty\}\right)$$
+          $$q_\alpha^{+}(x) = \text{Quantile}_{1-\alpha}\left(\{\hat{f}_{-i}(x) + R_i\}_{i=1}^n \cup \{+\infty\}\right)$$
+
+          <p>Equivalently, $y \in \hat{C}(x)$ if and only if:</p>
+
+          $$\frac{1}{n+1}\left(1 + \sum_{i=1}^{n} \mathbf{1}\{Y_i - \hat{f}_{-i}(X_i) \leq y - \hat{f}_{-i}(x)\}\right) > \alpha$$
+          <p>and</p>
+          $$\frac{1}{n+1}\left(1 + \sum_{i=1}^{n} \mathbf{1}\{\hat{f}_{-i}(X_i) - Y_i \leq \hat{f}_{-i}(x) - y\}\right) > \alpha$$
+
+          <p><strong>Coverage guarantee.</strong> The key difficulty is that $R_i$ depends on $\hat{f}_{-i}$, which in turn depends on all training points <em>except</em> point $i$. Different LOO models are trained on overlapping but distinct subsets. The scores $\{R_1, \ldots, R_n\}$ are therefore <em>not exchangeable</em> with the test residual $R_{n+1} = |Y_{n+1} - \hat{f}(X_{n+1})|$. (Note that $\hat{f}$ leaves out point $n+1$, which was never in the training set, so $\hat{f} = \hat{f}_{-(n+1)}$ in a sense.) Despite this, Barber et al. (2021) proved:</p>
+
+          $$P(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - 2\alpha$$
+
+          <p>The factor of 2 is the price of non-exchangeability. We will explain the argument in Level 3.</p>
+
+          <h3>Cross-Conformal Prediction (CV+)</h3>
+
+          <p>Partition $\{1, \ldots, n\}$ into $K$ disjoint folds $I_1, \ldots, I_K$ of approximately equal size. For each fold $k = 1, \ldots, K$, train $\hat{f}_{-k} = \mathcal{A}(\{(X_i, Y_i)\}_{i \notin I_k})$. For each $i \in I_k$, compute the cross-validation residual:</p>
+
+          $$R_i = |Y_i - \hat{f}_{-k(i)}(X_i)|$$
+
+          <p>where $k(i)$ denotes the fold containing observation $i$. The CV+ prediction interval is defined analogously to jackknife+:</p>
+
+          $$\hat{C}(x) = \left[q_\alpha^{-}(x), \; q_\alpha^{+}(x)\right]$$
+
+          <p>where</p>
+
+          $$q_\alpha^{-}(x) = -\text{Quantile}_{1-\alpha}\left(\{-\hat{f}_{-k(i)}(x) + R_i\}_{i=1}^n \cup \{+\infty\}\right)$$
+          $$q_\alpha^{+}(x) = \text{Quantile}_{1-\alpha}\left(\{\hat{f}_{-k(i)}(x) + R_i\}_{i=1}^n \cup \{+\infty\}\right)$$
+
+          <p><strong>Coverage guarantee.</strong> The same argument as jackknife+ applies, with the same $1-2\alpha$ guarantee. The essential structure is identical: each residual $R_i$ is computed from a model that did not see point $i$, but the different fold-models are not identical, breaking exchangeability.</p>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph Data["Full Dataset: n observations"]
+      D["(X₁,Y₁), (X₂,Y₂), ..., (Xₙ,Yₙ)"]
+    end
+    subgraph Folds["Partition into K = 5 folds"]
+      F1["Fold 1:\ni = 1,...,n/5"]
+      F2["Fold 2:\ni = n/5+1,...,2n/5"]
+      F3["Fold 3:\ni = 2n/5+1,...,3n/5"]
+      F4["Fold 4:\ni = 3n/5+1,...,4n/5"]
+      F5["Fold 5:\ni = 4n/5+1,...,n"]
+    end
+    subgraph Models["Train K models"]
+      M1["f-1: train on\nFolds 2,3,4,5"]
+      M2["f-2: train on\nFolds 1,3,4,5"]
+      M3["f-3: train on\nFolds 1,2,4,5"]
+      M4["f-4: train on\nFolds 1,2,3,5"]
+      M5["f-5: train on\nFolds 1,2,3,4"]
+    end
+    subgraph Residuals["Compute residuals"]
+      R1["R for Fold 1:\nusing f-1"]
+      R2["R for Fold 2:\nusing f-2"]
+      R3["R for Fold 3:\nusing f-3"]
+      R4["R for Fold 4:\nusing f-4"]
+      R5["R for Fold 5:\nusing f-5"]
+    end
+    subgraph Combine["Aggregate"]
+      A["n cross-validated residuals\nR₁, R₂, ..., Rₙ"]
+      Q["Quantile → Prediction interval\nCoverage ≥ 1 - 2alpha"]
+    end
+    D --> Folds
+    F1 --> M1 --> R1
+    F2 --> M2 --> R2
+    F3 --> M3 --> R3
+    F4 --> M4 --> R4
+    F5 --> M5 --> R5
+    R1 --> A
+    R2 --> A
+    R3 --> A
+    R4 --> A
+    R5 --> A
+    A --> Q
+    style Q fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">The CV+ pipeline with $K=5$ folds. Each fold is held out exactly once, and each model is trained on 80% of the data. All $n$ residuals are aggregated to form the prediction interval.</p>
+
+          <h3>Comparison Table</h3>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>Models Trained</th>
+                <th>Coverage Guarantee</th>
+                <th>Computational Cost</th>
+                <th>Data Efficiency</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Split Conformal</td>
+                <td>1</td>
+                <td>$\geq 1 - \alpha$</td>
+                <td>$O(\text{fit})$</td>
+                <td>Uses ~50&ndash;70% for training</td>
+              </tr>
+              <tr>
+                <td>Full Conformal</td>
+                <td>$|\mathcal{Y}| \cdot n_{\text{test}}$</td>
+                <td>$\geq 1 - \alpha$</td>
+                <td>$O(|\mathcal{Y}| \cdot \text{fit})$ per test point</td>
+                <td>Uses 100%</td>
+              </tr>
+              <tr>
+                <td>Jackknife+</td>
+                <td>$n + 1$</td>
+                <td>$\geq 1 - 2\alpha$</td>
+                <td>$O(n \cdot \text{fit})$</td>
+                <td>Uses ~100% (each LOO uses $n-1$)</td>
+              </tr>
+              <tr>
+                <td>CV+</td>
+                <td>$K$</td>
+                <td>$\geq 1 - 2\alpha$</td>
+                <td>$O(K \cdot \text{fit})$</td>
+                <td>Uses ~80&ndash;90% per fold</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>A few points deserve emphasis. First, the "cost" column refers to model <em>training</em> cost. At prediction time, all methods except full conformal require evaluating only one or a few fitted models, which is fast. Full conformal requires refitting for each candidate $y$, which makes even prediction-time expensive. Second, the $1-2\alpha$ guarantee for jackknife+ and CV+ is a worst case. Empirically, coverage is often much closer to $1-\alpha$, especially when the learning algorithm $\mathcal{A}$ is stable (meaning small perturbations to the training set produce small changes in $\hat{f}$). Third, for linear models, the Sherman-Morrison formula computes all $n$ LOO fits from a single matrix inversion, reducing jackknife+ to essentially the same cost as split conformal.</p>
+
+          <div class="callout">
+            <div class="callout-label">Practical Recommendation</div>
+            <p>For most practitioners, the choice is between split conformal and CV+. If you have more than a few thousand calibration points, split conformal is hard to beat: the guarantee is stronger, the cost is lower, and the data loss is negligible. If you have fewer than a few hundred points and cannot afford the splitting tax, CV+ with $K = 10$ is the standard choice. Jackknife+ is mainly of theoretical interest, since CV+ achieves the same guarantee at lower cost. Full conformal is primarily a theoretical benchmark.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 3: ADVANCED                                           -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>Why 1&minus;2&alpha;? The Barber et al. Argument</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>The Exchangeability Problem</h3>
+
+          <p>In split conformal prediction, the coverage proof hinges on a clean exchangeability argument. The calibration scores $S_1, \ldots, S_{n_2}$ and the test score $S_{n+1}$ are computed using the <em>same</em> fitted model $\hat{f}$, which is fixed conditional on the training set. This means the scores are functions of exchangeable random variables applied through a common, fixed mapping. Exchangeability of the inputs directly implies exchangeability of the scores.</p>
+
+          <p>In the jackknife+ and CV+ settings, this argument breaks down. Consider jackknife+. The score for training point $i$ is $R_i = |Y_i - \hat{f}_{-i}(X_i)|$, computed using a model $\hat{f}_{-i}$ that was trained without point $i$. The score for the test point is $R_{n+1} = |Y_{n+1} - \hat{f}(X_{n+1})|$, where $\hat{f} = \hat{f}_{-(n+1)}$ was trained on all $n$ points (none of which is the test point). Crucially, the models $\hat{f}_{-1}, \hat{f}_{-2}, \ldots, \hat{f}_{-n}, \hat{f}$ are all <em>different</em>. Each LOO model is trained on a different subset of size $n-1$, and the full model is trained on a subset of size $n$. The scores $R_1, \ldots, R_n, R_{n+1}$ are therefore <em>not exchangeable</em>, because each score is computed using a different function of the data.</p>
+
+          <p>This is not a technicality &mdash; it is fundamental. The clean rank argument ("the test score's rank is uniform") requires exchangeability, and here we do not have it. Any coverage guarantee must find a way around this obstacle.</p>
+
+          <h3>The Barber et al. Proof Strategy</h3>
+
+          <p>Barber, Cand&egrave;s, Ramdas, and Tibshirani (2021) developed an elegant combinatorial argument that yields a coverage guarantee despite the non-exchangeability. The key idea is to relate the jackknife+ interval to a hypothetical full conformal interval, and then bound the deviation between them.</p>
+
+          <p>The argument proceeds in two steps. First, consider the hypothetical scenario where we observe all $n+1$ points (including the test label $Y_{n+1}$) and compute the "ideal" LOO residuals $R_j^* = |Y_j - \hat{f}_{-j}^*(X_j)|$ for each $j \in \{1, \ldots, n+1\}$, where $\hat{f}_{-j}^*$ is trained on all $n+1$ points except the $j$-th. These ideal residuals <em>are</em> exchangeable, because the algorithm $\mathcal{A}$ treats training points symmetrically. Second, observe that we do not actually have $\hat{f}_{-(n+1)}^*$ (we cannot train on data that includes the unobserved $Y_{n+1}$). We have instead $\hat{f}$, trained on only the $n$ training points. Barber et al. bound the discrepancy between these actual scores and the ideal exchangeable scores, and this bound costs a factor of 2 in $\alpha$.</p>
+
+          <p>The formal result is:</p>
+
+          <div class="callout">
+            <div class="callout-label">Theorem (Barber et al., 2021)</div>
+            <p>Let $(X_1, Y_1), \ldots, (X_n, Y_n), (X_{n+1}, Y_{n+1})$ be exchangeable. Let $\hat{f}_{-i}$ be the model trained on all points except point $i$, for $i = 1, \ldots, n$, and let $\hat{f} = \hat{f}_{-(n+1)}$ be the model trained on the first $n$ points. Define the jackknife+ prediction interval $\hat{C}(X_{n+1})$ as above. Then:</p>
+            <p>$$P(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - 2\alpha$$</p>
+          </div>
+
+          <p>The proof uses a double-counting argument. Upper miscoverage ($Y_{n+1} > q_\alpha^+$) implies that $Y_{n+1} - \hat{f}_{-i}(X_{n+1}) > R_i$ for more than $(1-\alpha)(n+1)-1$ indices $i$. By exchangeability of the data, each such event has bounded probability. Summing upper and lower miscoverage probabilities gives at most $2\alpha$.</p>
+
+          <h3>Can We Do Better Than 1&minus;2&alpha;?</h3>
+
+          <p>The factor of 2 in the guarantee raises a natural question: is it tight, or is it an artifact of the proof? The answer depends on the stability of the learning algorithm.</p>
+
+          <p><strong>The worst case is tight.</strong> Barber et al. constructed explicit examples where the jackknife+ coverage is exactly $1 - 2\alpha + o(1)$, showing that the factor of 2 cannot be removed in general. The adversarial construction uses a maximally unstable algorithm where leaving out one point can dramatically change the fitted model. In such cases, the LOO residuals carry very different information from the test residual, and the factor of 2 is the genuine cost of non-exchangeability.</p>
+
+          <p><strong>Stability recovers $1-\alpha$.</strong> Under algorithmic stability &mdash; meaning $\|\hat{f}_{-i} - \hat{f}\|_\infty \leq \beta_n$ for some $\beta_n \to 0$ &mdash; the gap closes. If the LOO models are nearly identical, the scores are nearly exchangeable. For ridge regression, $\beta_n = O(1/(\lambda n))$, which vanishes with $n$. For stable algorithms (ridge, lasso, bagged ensembles), jackknife+ coverage is typically close to $1-\alpha$.</p>
+
+          <p>Formally, if $|\hat{f}_{-i}(x) - \hat{f}(x)| \leq \beta_n$ for all $i$ and all $x$ in the support, then the jackknife+ coverage satisfies:</p>
+
+          $$P(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - \alpha - O(\beta_n)$$
+
+          <p>As $\beta_n \to 0$, we recover the split conformal guarantee of $1-\alpha$. The rate at which $\beta_n$ vanishes depends on the algorithm and the regularization: for ridge regression, $\beta_n = O(p/(n\lambda))$; for bagged methods, $\beta_n$ decreases with the number of bootstrap replicates.</p>
+
+          <h3>Extensions and Refinements</h3>
+
+          <p><strong>Jackknife+-after-bootstrap (Kim, Xu, and Barber, 2020).</strong> For bagged methods (random forests, gradient boosting with bagging), LOO predictions are available for free: each training point is left out of roughly 37% of the bootstrap samples, so the out-of-bag prediction serves as the LOO prediction. This gives jackknife+ intervals at <em>no additional cost</em> beyond training the ensemble, with the same $1-2\alpha$ guarantee.</p>
+
+          <p><strong>Nested conformal prediction (Gupta, Kuchibhotla, and Ramdas, 2022).</strong> The nested approach uses a two-level procedure: an inner level that produces a candidate interval via CV+ or jackknife+, and an outer level that calibrates the coverage using a small held-out set. By splitting $\alpha = \alpha_1 + \alpha_2$ between the two levels, the combined procedure recovers the full $1-\alpha$ guarantee while using most data for cross-validation.</p>
+
+          <p><strong>Aggregated conformal predictors (Carlsson et al., 2014).</strong> These methods run conformal prediction within each bootstrap replicate and aggregate the resulting $p$-values, improving efficiency at the cost of requiring additional assumptions beyond exchangeability.</p>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph Core["Core Methods"]
+      FC["Full Conformal\n(Vovk et al., 2005)\nCoverage: 1-alpha\nCost: |Y| refits"]
+      SC["Split Conformal\n(Papadopoulos et al., 2002)\nCoverage: 1-alpha\nCost: 1 fit"]
+    end
+    subgraph LOO["Leave-One-Out Family"]
+      JP["Jackknife+\n(Barber et al., 2021)\nCoverage: 1-2alpha\nCost: n fits"]
+      JB["J+-after-Bootstrap\n(Kim et al., 2020)\nCoverage: 1-2alpha\nCost: FREE for bagging"]
+    end
+    subgraph CV["Cross-Validation Family"]
+      CVP["CV+\n(Vovk 2015, Barber et al. 2021)\nCoverage: 1-2alpha\nCost: K fits"]
+      ACP["Aggregated CP\n(Carlsson et al., 2014)\nCoverage: approx\nCost: B fits"]
+    end
+    subgraph Nest["Nested / Hybrid"]
+      NCP["Nested Conformal\n(Gupta et al., 2022)\nCoverage: 1-alpha\nCost: K fits + small holdout"]
+    end
+    FC -->|"reduce cost"| SC
+    FC -->|"LOO approximation"| JP
+    JP -->|"free for ensembles"| JB
+    FC -->|"K-fold approximation"| CVP
+    CVP -->|"aggregate p-values"| ACP
+    JP -->|"nested calibration"| NCP
+    CVP -->|"nested calibration"| NCP
+    style FC fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+    style SC fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style JP fill:#fff3e0,stroke:#e65100,color:#1c1917
+    style JB fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style CVP fill:#fff3e0,stroke:#e65100,color:#1c1917
+    style NCP fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">The family tree of conformal prediction methods beyond the split. Arrows indicate the conceptual progression from full conformal to practical approximations and refinements.</p>
+
+          <h3>Open Questions</h3>
+
+          <p>Several important questions remain open. Can the $1-2\alpha$ guarantee for CV+ be tightened under specific distributional assumptions (e.g., sub-Gaussian errors, well-specified linear model) to $1 - \alpha - O(1/n)$ without requiring full algorithmic stability? Is there a principled way to choose $K$ in CV+ that balances data efficiency against fold-model stability to minimize expected interval width? Can the nested conformal idea be extended to eliminate the factor of 2 without any held-out data, perhaps via a data-driven estimate of $\beta_n$? And how do these methods interact with adaptive score functions &mdash; CQR, studentized scores &mdash; where the coverage guarantees extend straightforwardly but the efficiency gains may interact with the cross-validation structure in non-obvious ways?</p>
+
+          <div class="callout">
+            <div class="callout-label">The Takeaway</div>
+            <p>The factor of 2 in the jackknife+ and CV+ coverage guarantees is the price of a fundamental trade: you gain data efficiency (using all $n$ points for both training and calibration) but lose the clean exchangeability of scores that powers split conformal. For stable algorithms, this price is negligible in practice. For unstable algorithms, it is real. Understanding this tradeoff &mdash; and the stability properties of your specific model &mdash; is the key to choosing among the conformal prediction variants.</p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Barber, R. F., Cand&egrave;s, E. J., Ramdas, A., &amp; Tibshirani, R. J. (2021). Predictive inference with the jackknife+. <em>Annals of Statistics</em>, 49(1), 486&ndash;507.</li>
+        <li>Vovk, V. (2015). Cross-conformal predictors. <em>Annals of Mathematics and Artificial Intelligence</em>, 74(1&ndash;2), 9&ndash;28.</li>
+        <li>Vovk, V., Gammerman, A., &amp; Shafer, G. (2005). <em>Algorithmic Learning in a Random World.</em> Springer.</li>
+        <li>Kim, B., Xu, C., &amp; Barber, R. F. (2020). Predictive inference is free with the jackknife+-after-bootstrap. <em>NeurIPS</em>, 33.</li>
+        <li>Gupta, C., Kuchibhotla, A. K., &amp; Ramdas, A. (2022). Nested conformal prediction and quantile out-of-bag ensemble methods. <em>Pattern Recognition</em>, 127, 108496.</li>
+        <li>Carlsson, L., Eklund, M., &amp; Norinder, U. (2014). Aggregated conformal prediction. <em>AIAI 2014 Workshops, IFIP AICT</em>, 437, 231&ndash;240.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post11.html" class="prev">The Origins of Conformal Prediction</a>
+      <a href="post13.html" class="next">When Exchangeability Breaks</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <span><a href="/blog/">Notes</a></span>
+</footer>
+
+<script src="../js/lightbox.js"></script>
+</body>
+</html>

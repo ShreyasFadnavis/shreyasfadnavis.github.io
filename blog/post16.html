@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leverage in High Dimensions: Ridge, Kernel, and Neural Network Leverage &mdash; Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Notes</a>
+      <a href="/links.html">Links</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <article class="post">
+    <div class="post-header">
+      <h1>Leverage in High Dimensions: Ridge, Kernel, and Neural Network Leverage</h1>
+      <p class="post-subtitle">Part 16 of a series on prediction intervals, conformal prediction, and leverage scores.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/">From Predictions to Prediction Intervals</a>.
+    </div>
+
+    <div class="post-body">
+
+      <p>In Parts 4&ndash;5, we defined leverage for the classical setting: $n$ observations, $p$ features, $n > p$, and a well-conditioned design matrix. The leverage of a point $x$ was $h(x) = x^T(X^TX)^{-1}x$, and it told us how much influence that point has on the fitted model. The formula was clean, the intuition was geometric, and everything worked because $X^TX$ was invertible.</p>
+
+      <p>But modern machine learning regularly operates outside this regime. We may have more features than observations ($p > n$), making $X^TX$ singular. We may use kernel methods where the effective feature space is infinite-dimensional. Or we may train neural networks where the "features" are learned representations that change during training. In each of these settings, the classical leverage formula breaks down &mdash; not because the concept of leverage loses meaning, but because the specific matrix inverse $( X^TX)^{-1}$ ceases to exist.</p>
+
+      <p>Does leverage still make sense when the classical formula fails? The answer is yes &mdash; but the definition needs to be extended. This post covers three such extensions: <strong>ridge leverage</strong>, which regularizes the matrix to make it invertible; <strong>kernel leverage</strong>, which operates in a reproducing kernel Hilbert space; and <strong>neural network leverage</strong>, which uses learned representations from the last hidden layer. These three extensions turn out to be special cases of a single abstract formula, differing only in their choice of feature map and regularization strength.</p>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 1: INTUITIVE                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>When the Classical Formula Breaks</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>The Problem with $p > n$</h3>
+
+          <p>Recall the classical leverage formula: $h(x) = x^T(X^TX)^{-1}x$. This requires inverting the $p \times p$ matrix $X^TX$. For that inverse to exist, $X^TX$ must have full rank, which means the design matrix $X$ must have at least $p$ linearly independent rows. When $n < p$ &mdash; fewer observations than features &mdash; the matrix $X^TX$ is singular, and the formula is undefined.</p>
+
+          <p>This is not an obscure edge case. In genomics, $p$ might be 20,000 genes and $n$ might be 200 patients. In natural language processing, a bag-of-words representation can easily have $p = 50{,}000$ features with $n = 5{,}000$ documents. In brain imaging, a single fMRI volume has hundreds of thousands of voxels. Whenever $p > n$, the classical leverage formula simply does not work.</p>
+
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p>Think of triangulation. To determine your position on Earth's surface (a 2D problem), you need signals from at least 3 satellites. To determine your position in 3D space, you need at least 4. If you have only 2 satellites in 3D, the system is underdetermined &mdash; your position could be anywhere along a curve. The classical leverage formula is like a GPS algorithm that assumes you always have enough satellites. When $p > n$, you do not have enough "satellites" (data points) to resolve the "position" (feature-space geometry), and the algorithm fails. Regularization is the fix: it adds prior information (like assuming you are on Earth's surface) to make the problem well-determined again.</p>
+          </div>
+
+          <h3>Three Extensions, One Idea</h3>
+
+          <p>The three extensions we will cover all address this problem in different ways, but they share a common structure. Each one defines a feature map $\phi(x)$ and a regularization parameter $\lambda \geq 0$, and computes leverage via the formula:</p>
+
+          $$h(x) = \phi(x)^T(\Phi^T\Phi + \lambda I)^{-1}\phi(x)$$
+
+          <p>where $\Phi$ is the matrix whose rows are the feature representations of the training points. The term $\lambda I$ makes the matrix $\Phi^T\Phi + \lambda I$ invertible even when $\Phi^T\Phi$ is singular. The three extensions differ in their choice of $\phi$:</p>
+
+          <ol>
+            <li><strong>Ridge leverage:</strong> The feature map is the identity, $\phi(x) = x$. The regularization $\lambda > 0$ is the ridge penalty. This is the simplest extension &mdash; you keep the original features but add a stabilizing term. It is the natural choice in any high-dimensional linear setting: genomics, text classification, or any problem where you have many features and want to prevent overfitting.</li>
+            <li><strong>Kernel leverage:</strong> The feature map $\phi(x)$ maps to a potentially infinite-dimensional reproducing kernel Hilbert space (RKHS). You never compute $\phi(x)$ explicitly; instead, you work with the kernel function $K(x, x') = \langle \phi(x), \phi(x') \rangle$. This captures nonlinear structure in the data &mdash; a point might have low leverage in input space but high leverage in the feature space induced by the kernel.</li>
+            <li><strong>Neural network leverage:</strong> The feature map is the learned representation from the last hidden layer of a neural network: $\phi(x) = \phi_\theta(x)$, where $\theta$ are the trained network parameters. This captures the geometry the network has <em>learned</em> from the data, rather than any pre-specified geometry.</li>
+          </ol>
+
+          <div class="mermaid">
+flowchart LR
+    A["Classical OLS\np less than n\nno regularization"] --> B["Ridge\np can exceed n\nregularized by lambda"]
+    B --> C["Kernel\ninfinite-dim RKHS\nkernel trick"]
+    C --> D["Neural Net\nlearned features\nlast hidden layer"]
+    style A fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+    style B fill:#faf8f5,stroke:#a0522d,color:#1c1917
+    style C fill:#faf8f5,stroke:#a0522d,color:#1c1917
+    style D fill:#faf8f5,stroke:#a0522d,color:#1c1917
+          </div>
+          <p class="diagram-caption">The progression from classical leverage to its modern extensions. Each step generalizes the feature map while maintaining the same algebraic structure.</p>
+
+          <h3>What Regularization Does to Leverage</h3>
+
+          <p>In the classical setting ($\lambda = 0$, $p < n$), leverage scores satisfy $\sum_i h_i = p$ and each $h_i \in [0, 1]$. The sum counts the effective number of parameters, and no single point can have leverage exceeding 1.</p>
+
+          <p>When we add regularization ($\lambda > 0$), two things happen. First, all leverage scores shrink toward zero. Intuitively, regularization says "I have prior information that the coefficients should be small," which reduces the influence of any single observation. Second, the sum $\sum_i h_i^\lambda$ is no longer equal to $p$ but to a smaller quantity called the <strong>effective rank</strong> or <strong>effective dimension</strong>, denoted $p_\lambda$. This reflects the fact that regularization reduces the effective complexity of the model.</p>
+
+          <p>As $\lambda \to 0$, ridge leverage recovers the classical leverage (when $X^TX$ is invertible). As $\lambda \to \infty$, all leverage scores go to zero: infinitely strong regularization means the model ignores the data entirely, so no point has any influence. The parameter $\lambda$ controls the smooth transition between these extremes.</p>
+
+          <h3>Why These Extensions Matter</h3>
+
+          <p>Leverage scores are not just a theoretical curiosity. They appear in the variance of predictions ($\text{Var}(\hat{y}(x)) \propto 1 + h(x)$), in the construction of prediction intervals, in outlier detection, and in experimental design. When we move to high-dimensional, kernel, or neural network settings, we need leverage scores that are well-defined and computable in those settings. The three extensions in this post provide exactly that.</p>
+
+          <p>The key insight is that leverage measures <strong>how unusual a point is in the space where the model operates</strong>. In a linear model, this is the original feature space. In a kernel model, it is the RKHS. In a neural network, it is the learned representation space. The concept is the same; only the space changes.</p>
+
+          <div class="callout">
+            <div class="callout-label">The Core Principle</div>
+            <p>All three extensions &mdash; ridge, kernel, and neural network leverage &mdash; are instances of a single abstract formula: $h(x) = \phi(x)^T(\Phi^T\Phi + \lambda I)^{-1}\phi(x)$. The feature map $\phi$ determines <em>what space</em> leverage is measured in. The regularization $\lambda$ determines <em>how strongly</em> extreme leverage is dampened. Once you understand this template, you can define leverage for essentially any supervised learning method.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 2: TECHNICAL                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge technical">Technical</span>
+          <h2>The Three Extensions</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Ridge Leverage</h3>
+
+          <p>Ridge regression replaces the OLS objective $\|Y - X\beta\|^2$ with the penalized objective $\|Y - X\beta\|^2 + \lambda\|\beta\|^2$. The solution is $\hat{\beta}^\lambda = (X^TX + \lambda I)^{-1}X^TY$. Because $\lambda I$ is added to $X^TX$, the matrix $X^TX + \lambda I$ is always invertible, even when $p > n$.</p>
+
+          <p>The <strong>ridge leverage</strong> of a training point $x_i$ is:</p>
+
+          $$h_i^\lambda = x_i^T(X^TX + \lambda I)^{-1}x_i$$
+
+          <p>For a new (test) point $x$, the ridge leverage is:</p>
+
+          $$h^\lambda(x) = x^T(X^TX + \lambda I)^{-1}x$$
+
+          <p>This is well-defined for any $\lambda > 0$, regardless of the relationship between $p$ and $n$. The ridge hat matrix is $H^\lambda = X(X^TX + \lambda I)^{-1}X^T$, and the training leverage scores are its diagonal entries: $h_i^\lambda = H^\lambda_{ii}$.</p>
+
+          <p><strong>Properties of ridge leverage:</strong></p>
+          <ul>
+            <li><strong>Range:</strong> $h_i^\lambda \in [0, \|x_i\|^2 / \lambda]$. The upper bound decreases with $\lambda$, so strong regularization forces all leverages to be small.</li>
+            <li><strong>Sum (effective rank):</strong> $\sum_{i=1}^n h_i^\lambda = \sum_{j=1}^{\min(n,p)} \frac{s_j^2}{s_j^2 + \lambda} \equiv p_\lambda$, where $s_1, \ldots, s_{\min(n,p)}$ are the singular values of $X$. Each term $s_j^2/(s_j^2 + \lambda)$ lies in $[0, 1)$ and acts as a soft threshold: directions with $s_j^2 \gg \lambda$ contribute approximately 1 (they are "kept"), while directions with $s_j^2 \ll \lambda$ contribute approximately 0 (they are "discarded"). The sum $p_\lambda$ counts the effective number of directions the data uses &mdash; the <strong>effective dimension</strong>.</li>
+            <li><strong>Limiting behavior:</strong> As $\lambda \to 0^+$ (with $p < n$), $h_i^\lambda \to h_i^{\text{OLS}}$. As $\lambda \to \infty$, $h_i^\lambda \to 0$ for all $i$.</li>
+          </ul>
+
+          <p><strong>Connection to prediction variance:</strong> Under the ridge regression model with homoscedastic errors $Y = X\beta^* + \varepsilon$, $\varepsilon \sim (0, \sigma^2 I)$, the prediction variance at a new point $x$ is:</p>
+
+          $$\text{Var}(\hat{y}^\lambda(x)) = \sigma^2 h^\lambda(x)$$
+
+          <p>and the total mean-squared prediction error includes both this variance term and a bias term (ridge regression introduces bias to reduce variance). The leverage $h^\lambda(x)$ captures exactly the variance contribution.</p>
+
+          <h3>Kernel Leverage</h3>
+
+          <p>Kernel methods replace the original features $x \in \mathbb{R}^p$ with a feature map $\phi(x) \in \mathcal{H}$, where $\mathcal{H}$ is a (potentially infinite-dimensional) reproducing kernel Hilbert space. The kernel function is $K(x, x') = \langle \phi(x), \phi(x') \rangle_{\mathcal{H}}$. The kernel matrix is $K \in \mathbb{R}^{n \times n}$ with entries $K_{ij} = K(x_i, x_j)$.</p>
+
+          <p>Kernel ridge regression minimizes $\|Y - f\|^2 + \lambda \|f\|_{\mathcal{H}}^2$ over functions $f$ in the RKHS. By the representer theorem, the solution is $\hat{f}(x) = k_x^T(K + \lambda I)^{-1}Y$, where $k_x = (K(x, x_1), \ldots, K(x, x_n))^T$ is the vector of kernel evaluations between the test point and the training points.</p>
+
+          <p>The <strong>kernel leverage</strong> of a training point $x_i$ is:</p>
+
+          $$h_i^{\text{ker}} = \left(K(K + \lambda I)^{-1}\right)_{ii}$$
+
+          <p>For a new point $x$:</p>
+
+          $$h^{\text{ker}}(x) = k_x^T(K + \lambda I)^{-1} k_x$$
+
+          <p>Note the structural similarity to ridge leverage. If we define $\Phi \in \mathbb{R}^{n \times d}$ as the (possibly infinite-dimensional) feature matrix, then $K = \Phi\Phi^T$. Using the matrix identity $(A^TA + \lambda I)^{-1}A^T = A^T(AA^T + \lambda I)^{-1}$, the kernel leverage formula is algebraically equivalent to $h(x) = \phi(x)^T(\Phi^T\Phi + \lambda I)^{-1}\phi(x)$. The kernel trick allows us to compute this without ever forming $\Phi$ explicitly.</p>
+
+          <p><strong>Interpretation:</strong> Kernel leverage measures how well a point $x$ is "represented" by the training data in the RKHS. If $x$ lies in a region densely populated by training points (in the kernel geometry), $h^{\text{ker}}(x)$ is small &mdash; the point is well-represented and has low influence. If $x$ is in a sparse region, $h^{\text{ker}}(x)$ is large &mdash; the prediction at $x$ relies heavily on extrapolation.</p>
+
+          <p><strong>Computation:</strong> Exact computation requires forming and inverting $K + \lambda I$, which costs $O(n^3)$. For large $n$, two approximation strategies are standard:</p>
+          <ul>
+            <li><strong>Nystrom approximation:</strong> Select $m \ll n$ landmark points and approximate $K \approx K_{nm}K_{mm}^{-1}K_{nm}^T$, where $K_{nm}$ is the $n \times m$ kernel matrix between all points and the landmarks, and $K_{mm}$ is the $m \times m$ kernel matrix among landmarks. Cost: $O(nm^2)$.</li>
+            <li><strong>Random Fourier features (Rahimi &amp; Recht, 2007):</strong> For shift-invariant kernels like the Gaussian RBF, approximate $\phi(x)$ with a finite-dimensional random feature map $\hat{\phi}(x) \in \mathbb{R}^m$, then compute leverage using the explicit features. Cost: $O(nm^2)$.</li>
+          </ul>
+
+          <h3>Neural Network Leverage</h3>
+
+          <p>A neural network $f_\theta(x)$ can be decomposed into a feature extractor and a final linear layer. Write:</p>
+
+          $$f_\theta(x) = W^T \phi_\theta(x) + b$$
+
+          <p>where $\phi_\theta(x) \in \mathbb{R}^d$ is the output of the last hidden layer (the "learned representation"), $W \in \mathbb{R}^{d \times 1}$ is the weight matrix of the final linear layer, and $b$ is the bias. After training, $\phi_\theta$ is fixed, and the network's predictions are linear in the learned features.</p>
+
+          <p>The <strong>last-layer leverage</strong> of a training point $x_i$ is:</p>
+
+          $$h_i^{\text{NN}} = \phi_\theta(x_i)^T(\Phi^T\Phi + \lambda I)^{-1}\phi_\theta(x_i)$$
+
+          <p>where $\Phi \in \mathbb{R}^{n \times d}$ has rows $\phi_\theta(x_1)^T, \ldots, \phi_\theta(x_n)^T$. For a new point $x$:</p>
+
+          $$h^{\text{NN}}(x) = \phi_\theta(x)^T(\Phi^T\Phi + \lambda I)^{-1}\phi_\theta(x)$$
+
+          <p>The regularization $\lambda > 0$ is essential here. The hidden layer dimension $d$ may be larger than $n$ (a common case for overparameterized networks), making $\Phi^T\Phi$ singular. Even when $d < n$, numerical stability benefits from small positive $\lambda$.</p>
+
+          <div class="mermaid">
+flowchart LR
+    subgraph NN["Neural Network"]
+      direction LR
+      I["Input x"] --> H1["Hidden\nLayer 1"]
+      H1 --> H2["Hidden\nLayer 2"]
+      H2 --> H3["Last Hidden\nLayer"]
+      H3 --> O["Output\ny-hat"]
+    end
+    H3 -->|"Extract features"| PHI["Features\nphi(x)"]
+    PHI --> LEV["Leverage\nh(x) = phi(x)' M phi(x)\nwhere M = (Phi'Phi + lambda I) inv"]
+    style PHI fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+    style LEV fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">Neural network leverage uses the learned representation from the last hidden layer as the feature map. The leverage computation is a standard matrix operation on these extracted features.</p>
+
+          <p><strong>What does neural network leverage capture?</strong> Unlike input-space leverage, which treats all features equally, last-layer leverage captures the geometry the network has <em>learned</em> from the data. If the network has learned to cluster similar inputs together in its representation space, then a point far from any cluster in representation space will have high leverage &mdash; even if it looks ordinary in input space. Conversely, a point that looks unusual in input space but maps to a dense region of representation space will have low leverage.</p>
+
+          <p><strong>Connection to Laplace approximation:</strong> The Laplace approximation to Bayesian inference approximates the posterior of the last-layer weights as Gaussian with covariance proportional to $(\Phi^T\Phi + \lambda I)^{-1}$. The prediction uncertainty at $x$ is then proportional to $\phi_\theta(x)^T(\Phi^T\Phi + \lambda I)^{-1}\phi_\theta(x)$ &mdash; which is precisely the last-layer leverage. This connection has been formalized in the CLAPS framework (Fong et al., 2025), which uses last-layer leverage scores to construct prediction intervals for neural networks.</p>
+
+          <p><strong>Practical considerations:</strong></p>
+          <ul>
+            <li><strong>Which layer?</strong> The last hidden layer is the standard choice because the final linear layer makes the connection to leverage exact. Using earlier layers is possible but less well-justified theoretically.</li>
+            <li><strong>Dependence on training:</strong> The features $\phi_\theta(x)$ depend on the training run (initialization, optimization trajectory, stopping point). Different runs may produce different leverage scores. Averaging over multiple runs or using ensembles can stabilize the estimates.</li>
+            <li><strong>Scaling:</strong> Computing $\Phi^T\Phi \in \mathbb{R}^{d \times d}$ and inverting it costs $O(nd^2 + d^3)$. For large $d$, low-rank or sketching approximations may be necessary. For each new test point, computing $h^{\text{NN}}(x)$ requires a forward pass through the network (to get $\phi_\theta(x)$) plus a matrix-vector product (cost $O(d^2)$).</li>
+          </ul>
+
+          <h3>Unified View</h3>
+
+          <p>The following table summarizes the three extensions alongside the classical formula.</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>Feature map $\phi(x)$</th>
+                <th>Regularization</th>
+                <th>Cost</th>
+                <th>When to use</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Classical OLS</strong></td>
+                <td>Identity: $x$</td>
+                <td>$\lambda = 0$</td>
+                <td>$O(np^2)$</td>
+                <td>$p < n$, well-conditioned $X$</td>
+              </tr>
+              <tr>
+                <td><strong>Ridge</strong></td>
+                <td>Identity: $x$</td>
+                <td>$\lambda > 0$</td>
+                <td>$O(np^2)$ or $O(n^2p)$</td>
+                <td>$p \geq n$, or multicollinearity</td>
+              </tr>
+              <tr>
+                <td><strong>Kernel</strong></td>
+                <td>RKHS map: $\phi_K(x)$</td>
+                <td>$\lambda > 0$</td>
+                <td>$O(n^3)$ exact; $O(nm^2)$ approx</td>
+                <td>Nonlinear structure, kernel methods</td>
+              </tr>
+              <tr>
+                <td><strong>Neural Net</strong></td>
+                <td>Last layer: $\phi_\theta(x)$</td>
+                <td>$\lambda > 0$</td>
+                <td>$O(nd^2 + d^3)$</td>
+                <td>Deep learning, learned features</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="callout">
+            <div class="callout-label">Practical Guidance</div>
+            <p>If you are fitting a linear or ridge regression model, use ridge leverage with whatever $\lambda$ you used for the regression. If you are using a kernel method (Gaussian process, kernel SVM, kernel ridge regression), use kernel leverage with the same kernel and $\lambda$. If you are using a neural network, extract the last-layer features after training and compute last-layer leverage. In all cases, the leverage scores tell you where the model's predictions are most uncertain due to the geometry of the data.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 3: ADVANCED                                           -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>Spectral Properties and the NTK Connection</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Spectral Decomposition of Ridge Leverage</h3>
+
+          <p>The spectral decomposition provides the deepest view into what ridge leverage measures. Let the singular value decomposition (SVD) of the design matrix be $X = U S V^T$, where $U \in \mathbb{R}^{n \times r}$, $S = \text{diag}(s_1, \ldots, s_r)$, $V \in \mathbb{R}^{p \times r}$, and $r = \text{rank}(X)$. Then:</p>
+
+          $$X^TX = V S^2 V^T = \sum_{j=1}^r s_j^2 v_j v_j^T$$
+
+          <p>and the ridge leverage at a point $x$ decomposes as:</p>
+
+          $$h^\lambda(x) = x^T(X^TX + \lambda I)^{-1}x = \sum_{j=1}^r \frac{s_j^2}{s_j^2 + \lambda}(v_j^T x)^2 + \frac{1}{\lambda}\left(\|x\|^2 - \sum_{j=1}^r (v_j^T x)^2\right)$$
+
+          <p>The first sum runs over the $r$ directions that the data spans. Each direction $v_j$ contributes $(v_j^T x)^2$ &mdash; the squared projection of $x$ onto that direction &mdash; weighted by the "signal-to-noise ratio" $s_j^2 / (s_j^2 + \lambda)$. Directions with large singular values (strong signal) contribute nearly their full projection; directions with small singular values (weak signal) are suppressed. The second term captures the component of $x$ in the null space of $X$ (directions the training data does not span at all), weighted by $1/\lambda$.</p>
+
+          <p>When $p \leq n$ and $X$ has full column rank ($r = p$), the null-space term vanishes and we get the cleaner formula:</p>
+
+          $$h^\lambda(x) = \sum_{j=1}^p \frac{s_j^2}{s_j^2 + \lambda}(v_j^T x)^2$$
+
+          <p>This formula is revealing. It says that ridge leverage is a <strong>spectrally weighted norm</strong>: the norm of $x$ measured in a coordinate system defined by the principal components of the data, with each component scaled by how "reliable" that direction is (relative to the regularization strength $\lambda$). Points that load heavily on well-determined directions have higher leverage than points that load on poorly-determined directions, because the model can actually "see" those directions.</p>
+
+          <h3>Effective Dimension and the Bias-Variance Tradeoff</h3>
+
+          <p>The effective dimension (or effective degrees of freedom) is:</p>
+
+          $$p_\lambda = \text{tr}(H^\lambda) = \sum_{j=1}^r \frac{s_j^2}{s_j^2 + \lambda}$$
+
+          <p>This quantity has a natural interpretation. Each term $s_j^2/(s_j^2 + \lambda)$ is the "fraction of freedom" used in the $j$-th direction. When $\lambda = 0$, each fraction is 1 and $p_\lambda = r$ (the rank of $X$). When $\lambda$ is large, only the top few directions contribute substantially. The effective dimension is a smooth, continuous version of model complexity &mdash; more nuanced than counting parameters.</p>
+
+          <p>The effective dimension controls the bias-variance tradeoff in ridge regression. The integrated prediction variance scales as $\sigma^2 p_\lambda / n$: more effective parameters means more variance. The integrated squared bias scales as $\lambda^2 \sum_j (v_j^T\beta^*)^2 / (s_j^2 + \lambda)^2$: more regularization means more bias. The optimal $\lambda$ balances these two forces, and $p_\lambda$ quantifies the model complexity at that balance point.</p>
+
+          <p>A particularly elegant result connects $p_\lambda$ to generalization. Under certain random matrix assumptions (e.g., $X$ has i.i.d. sub-Gaussian rows), El Karoui (2013) and Dobriban &amp; Wager (2018) showed that the out-of-sample prediction risk of ridge regression converges (as $n, p \to \infty$ with $p/n \to \gamma$) to a quantity determined entirely by $\gamma$, $\lambda$, and the spectrum of the population covariance. The leverage scores and effective dimension are the finite-sample proxies for these asymptotic quantities.</p>
+
+          <h3>The Neural Tangent Kernel Connection</h3>
+
+          <p>The connection between neural network leverage and kernel leverage runs deeper than analogy. In the <strong>neural tangent kernel (NTK) regime</strong> (Jacot, Gabriel, &amp; Hongler, 2018), a neural network trained by gradient descent behaves as a linear model in its features &mdash; but the relevant features are not the last-layer activations; they are the gradients of the network output with respect to the parameters.</p>
+
+          <p>Specifically, consider a network $f_\theta(x)$ with parameters $\theta \in \mathbb{R}^P$ (total number of parameters). The NTK feature map at initialization $\theta_0$ is:</p>
+
+          $$\psi_{\theta_0}(x) = \nabla_\theta f_\theta(x) \big|_{\theta = \theta_0} \in \mathbb{R}^P$$
+
+          <p>The NTK is $\Theta(x, x') = \langle \psi_{\theta_0}(x), \psi_{\theta_0}(x') \rangle = \nabla_\theta f(x)^T \nabla_\theta f(x')$. In the infinite-width limit, Jacot et al. showed that the NTK converges to a deterministic kernel $\Theta^*$ that remains constant during training. In this regime, the network is exactly a kernel machine, and the leverage scores are the kernel leverage scores of $\Theta^*$.</p>
+
+          <p>This gives us two notions of leverage for neural networks:</p>
+          <ol>
+            <li><strong>Last-layer leverage:</strong> $h^{\text{NN}}(x) = \phi_\theta(x)^T(\Phi^T\Phi + \lambda I)^{-1}\phi_\theta(x)$, which treats the last-layer features as fixed after training and computes leverage in their span.</li>
+            <li><strong>NTK leverage:</strong> $h^{\text{NTK}}(x) = \psi(x)^T(\Psi^T\Psi + \lambda I)^{-1}\psi(x)$, which uses the gradient features and captures sensitivity of the output to all parameters.</li>
+          </ol>
+
+          <p>In the NTK (lazy training) regime where features barely change during training, these two quantities are related but not identical &mdash; last-layer leverage uses $d$-dimensional features, while NTK leverage uses $P$-dimensional features (where $P \gg d$ is the total parameter count). In the <strong>rich training</strong> (feature-learning) regime, features adapt significantly, and last-layer leverage captures the geometry of the learned representation rather than the initialization. Empirically, last-layer leverage tends to be more informative for practical neural networks, which operate in the rich regime.</p>
+
+          <h3>Double Descent and Leverage</h3>
+
+          <p>One of the most striking phenomena in modern machine learning is <strong>double descent</strong>: as the number of parameters $p$ increases past the interpolation threshold $p = n$, the test error first spikes and then decreases again. The spike occurs exactly at the interpolation threshold, where the model has just enough parameters to fit the training data perfectly.</p>
+
+          <p>Leverage scores are intimately connected to this phenomenon. At the interpolation threshold, the minimum-norm interpolant has $X^TX$ (or its regularized version with $\lambda \to 0$) approaching singularity. The leverage scores of many points approach 1, meaning individual training points exert maximal influence on the model. The variance of predictions explodes, because $\text{Var}(\hat{y}(x)) \propto 1 + h(x)$ and $h(x) \to 1$ for many $x$.</p>
+
+          <p>Ridge regularization smooths this transition. With $\lambda > 0$, the leverage scores at the interpolation threshold are bounded away from 1, and the variance spike is dampened. The effective dimension $p_\lambda$ grows smoothly through $p = n$ rather than exhibiting a singularity. This is one of the practical arguments for always using some regularization: it prevents the leverage-driven variance explosion at the interpolation threshold.</p>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph Underparameterized["Underparameterized: p less than n"]
+      direction TB
+      U1["X'X invertible"]
+      U2["Leverage h in 0, p/n"]
+      U3["Variance well-controlled"]
+      U1 --> U2 --> U3
+    end
+    subgraph Threshold["Interpolation Threshold: p approx n"]
+      direction TB
+      T1["X'X nearly singular"]
+      T2["Leverage h approaches 1"]
+      T3["Variance explodes"]
+      T1 --> T2 --> T3
+    end
+    subgraph Overparameterized["Overparameterized: p much greater than n"]
+      direction TB
+      O1["X'X singular, min-norm solution"]
+      O2["Leverage h = 1 for all training pts"]
+      O3["Variance decreases with more features"]
+      O1 --> O2 --> O3
+    end
+    subgraph Ridge["Ridge Regularization: lambda greater than 0"]
+      direction TB
+      R1["X'X + lambda I always invertible"]
+      R2["Leverage h less than 1/lambda"]
+      R3["Smooth transition, no spike"]
+      R1 --> R2 --> R3
+    end
+    Underparameterized --> Threshold
+    Threshold --> Overparameterized
+    Threshold -.->|"Regularize"| Ridge
+    style T3 fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style R3 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">At the interpolation threshold ($p \approx n$), leverage scores spike and prediction variance explodes. Ridge regularization smooths the transition and prevents the variance blow-up.</p>
+
+          <h3>Stability of Neural Network Leverage</h3>
+
+          <p>A natural concern with neural network leverage is <strong>stability</strong>: do different training runs produce similar leverage scores? In the NTK regime (infinite width, lazy training), the answer is yes. The NTK converges to a deterministic kernel as width tends to infinity, so leverage scores computed from the NTK features are deterministic in the limit and vary by $O(1/\sqrt{\text{width}})$ at finite width.</p>
+
+          <p>For practical finite-width networks in the rich training regime, stability is not guaranteed. The learned features $\phi_\theta(x)$ depend on the random initialization and the stochastic optimization trajectory. However, empirical evidence suggests that leverage scores are more stable than individual features. While the features themselves may rotate or permute across runs (the representation is only identified up to invertible linear transformations), the leverage $h^{\text{NN}}(x) = \phi_\theta(x)^T(\Phi^T\Phi + \lambda I)^{-1}\phi_\theta(x)$ is invariant to orthogonal rotations of the feature space and is therefore more robust to the symmetries of the representation.</p>
+
+          <p><strong>Practical recommendations:</strong></p>
+          <ul>
+            <li>Always use $\lambda > 0$. A common choice is $\lambda = 10^{-4} \cdot \text{tr}(\Phi^T\Phi) / d$, which scales the regularization to the average eigenvalue of the feature covariance.</li>
+            <li>Check the diagnostic $\hat{\eta} = \text{std}(h) / \text{mean}(h)$. If $\hat{\eta}$ is very large (say, greater than 2), a few points dominate and the leverage scores may be unstable. If $\hat{\eta}$ is near zero, all points have similar leverage and the scores carry little information.</li>
+            <li>If stability is critical, compute leverage scores from an ensemble of networks and average. The averaged scores inherit the stability of the ensemble while preserving the geometric information of the learned representation.</li>
+          </ul>
+
+          <h3>The Comparison in Full</h3>
+
+          <p>To put everything together, here is a detailed comparison of the four leverage variants discussed in this post and its predecessors.</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>Classical OLS</th>
+                <th>Ridge</th>
+                <th>Kernel</th>
+                <th>Neural Net</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Formula</strong></td>
+                <td>$x^T(X^TX)^{-1}x$</td>
+                <td>$x^T(X^TX + \lambda I)^{-1}x$</td>
+                <td>$k_x^T(K + \lambda I)^{-1}k_x$</td>
+                <td>$\phi(x)^T(\Phi^T\Phi + \lambda I)^{-1}\phi(x)$</td>
+              </tr>
+              <tr>
+                <td><strong>Requires $n > p$</strong></td>
+                <td>Yes</td>
+                <td>No</td>
+                <td>No</td>
+                <td>No</td>
+              </tr>
+              <tr>
+                <td><strong>Feature space</strong></td>
+                <td>Input $\mathbb{R}^p$</td>
+                <td>Input $\mathbb{R}^p$</td>
+                <td>RKHS $\mathcal{H}$</td>
+                <td>Learned $\mathbb{R}^d$</td>
+              </tr>
+              <tr>
+                <td><strong>Effective dim</strong></td>
+                <td>$p$ (fixed)</td>
+                <td>$p_\lambda \leq p$ (tunable)</td>
+                <td>$\sum_j s_j^2/(s_j^2+\lambda)$</td>
+                <td>$\sum_j s_j^2/(s_j^2+\lambda)$</td>
+              </tr>
+              <tr>
+                <td><strong>Captures nonlinearity</strong></td>
+                <td>No</td>
+                <td>No</td>
+                <td>Yes (via kernel)</td>
+                <td>Yes (via learned features)</td>
+              </tr>
+              <tr>
+                <td><strong>Computation</strong></td>
+                <td>$O(np^2)$</td>
+                <td>$O(np^2)$ or $O(n^2p)$</td>
+                <td>$O(n^3)$</td>
+                <td>Forward pass + $O(d^3)$</td>
+              </tr>
+              <tr>
+                <td><strong>Stability</strong></td>
+                <td>Deterministic</td>
+                <td>Deterministic</td>
+                <td>Deterministic</td>
+                <td>Depends on training run</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="callout">
+            <div class="callout-label">The Deeper Point</div>
+            <p>Leverage is not a formula; it is a concept. The concept is: how much does a single point influence the model's prediction? In a linear model, this is captured by $(X^TX)^{-1}$. In a regularized model, by $(X^TX + \lambda I)^{-1}$. In a kernel model, by the inverse of the regularized kernel matrix. In a neural network, by the inverse of the regularized Gram matrix of learned features. The matrix changes; the meaning does not. Whenever you have a model and a dataset, you can ask "how influential is this point?" and the answer will involve some version of leverage. The extensions in this post ensure that this question has a well-defined, computable answer even in settings where the classical formula breaks down.</p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Alaoui, A. &amp; Mahoney, M. W. (2015). Fast randomized kernel ridge regression with statistical guarantees. <em>Advances in Neural Information Processing Systems</em>.</li>
+        <li>Rahimi, A. &amp; Recht, B. (2007). Random features for large-scale kernel machines. <em>Advances in Neural Information Processing Systems</em>.</li>
+        <li>Jacot, A., Gabriel, F., &amp; Hongler, C. (2018). Neural tangent kernel: Convergence and generalization in neural networks. <em>Advances in Neural Information Processing Systems</em>.</li>
+        <li>Drineas, P., Magdon-Ismail, M., Mahoney, M. W., &amp; Woodruff, D. P. (2012). Fast approximation of matrix coherence and statistical leverage. <em>Journal of Machine Learning Research</em>, 13, 3475&ndash;3506.</li>
+        <li>El Karoui, N. (2013). Asymptotic behavior of unregularized and ridge-regularized high-dimensional robust regression estimators. <em>Annals of Statistics</em>.</li>
+        <li>Dobriban, E. &amp; Wager, S. (2018). High-dimensional asymptotics of prediction: Ridge regression and classification. <em>Annals of Statistics</em>, 46(1), 247&ndash;279.</li>
+        <li>Fong, E., Yao, J., Holmes, C. C., &amp; Sherlock, C. (2025). Conformal Laplace approximation for prediction sets. <em>Preprint</em>.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post15.html" class="prev">Randomized NLA</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <span><a href="/blog/">Notes</a></span>
+</footer>
+
+<script src="../js/lightbox.js"></script>
+</body>
+</html>
