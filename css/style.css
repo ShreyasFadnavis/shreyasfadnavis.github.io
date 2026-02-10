@@ -661,7 +661,7 @@ nav {
   user-select: none;
 }
 
-/* Three-column grid */
+/* Three-column notes grid */
 .notes-grid {
   padding: 0 2rem 5rem;
 }
@@ -670,65 +670,28 @@ nav {
   max-width: var(--max-w-hero);
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1fr auto 1fr auto 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 0;
 }
 
-.notes-column {
-  padding: 2rem 1.5rem;
-  scroll-margin-top: 5rem;
-}
-
-.notes-column-number {
-  font-family: var(--serif);
-  font-size: var(--text-4xl);
-  font-weight: 300;
-  color: var(--accent);
-  opacity: 0.15;
-  line-height: 1;
-  display: block;
-  margin-bottom: 0.2rem;
-}
-
-.notes-column-title {
-  font-family: var(--serif);
-  font-size: var(--text-2xl);
-  font-weight: 400;
-  letter-spacing: -0.02em;
-  color: var(--text);
-  margin: 0 0 0.4em;
-  line-height: 1.2;
-}
-
-.notes-column-title::after {
-  content: '';
-  display: block;
-  width: 2em;
-  height: 2px;
-  background: var(--accent);
-  margin-top: 0.3em;
-  border-radius: 2px;
-  opacity: 0.5;
-}
-
-.notes-column-desc {
-  font-family: var(--serif);
-  font-size: var(--text-sm);
-  font-style: italic;
-  color: var(--text-secondary);
-  line-height: 1.65;
-  margin-bottom: 2rem;
-}
-
-/* Decorative vertical divider */
+/* Hide HTML divider elements — replaced by CSS borders */
 .notes-divider {
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-  padding: 2rem 1.5rem;
+  display: none;
 }
 
-.notes-divider-line {
+.notes-column {
+  padding: 2.5rem 2rem;
+  scroll-margin-top: 5rem;
+  position: relative;
+}
+
+/* Vertical separator between columns (CSS-only) */
+.notes-column:not(:first-child)::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 3rem;
+  bottom: 3rem;
   width: 1px;
   background: linear-gradient(
     to bottom,
@@ -738,6 +701,66 @@ nav {
     var(--border) 85%,
     transparent
   );
+  opacity: 0.5;
+}
+
+/* Top accent bar per column */
+.notes-column-header {
+  position: relative;
+  padding-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.notes-column-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3rem;
+  height: 3px;
+  background: linear-gradient(to right, var(--accent), var(--clay));
+  border-radius: 2px;
+}
+
+.notes-column-number {
+  font-family: var(--serif);
+  font-size: clamp(3rem, 5vw, 4.5rem);
+  font-weight: 300;
+  color: var(--accent);
+  opacity: 0.10;
+  line-height: 1;
+  display: block;
+  margin-bottom: 0.1rem;
+  letter-spacing: -0.04em;
+}
+
+.notes-column-title {
+  font-family: var(--serif);
+  font-size: clamp(1.4rem, 2vw, 2rem);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin: 0 0 0.5em;
+  line-height: 1.2;
+}
+
+.notes-column-title::after {
+  content: '';
+  display: block;
+  width: 2em;
+  height: 2px;
+  background: linear-gradient(to right, var(--accent), transparent);
+  margin-top: 0.35em;
+  border-radius: 2px;
+}
+
+.notes-column-desc {
+  font-family: var(--serif);
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--text-secondary);
+  line-height: 1.65;
+  margin-bottom: 2rem;
 }
 
 /* Notes list within each column */
@@ -754,28 +777,26 @@ nav {
 
 .note-link {
   display: block;
-  padding: 1rem 0.8rem 1rem 2.8rem;
+  padding: 0.9rem 0.7rem 0.9rem 2.6rem;
   position: relative;
-  border-bottom: 1px solid var(--border-light);
   text-decoration: none;
-  transition: background 0.2s, transform 0.15s;
-  border-radius: 6px;
-}
-
-.notes-column-list li:first-child .note-link {
-  border-top: 1px solid var(--border-light);
+  border-radius: 8px;
+  margin-bottom: 2px;
+  border-left: 2px solid transparent;
+  transition: all 0.25s ease;
 }
 
 .note-link::before {
   content: counter(col-note);
   position: absolute;
-  left: 0.3rem;
-  top: 1.1rem;
+  left: 0.4rem;
+  top: 1rem;
   font-family: var(--serif);
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: 400;
   color: var(--accent);
-  opacity: 0.25;
+  opacity: 0.2;
+  transition: opacity 0.25s ease;
 }
 
 .note-link-title {
