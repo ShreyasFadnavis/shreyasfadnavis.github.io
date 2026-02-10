@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Writing &mdash; Shreyas Fadnavis</title>
+  <title>Notes &mdash; Shreyas Fadnavis</title>
   <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
@@ -13,7 +13,7 @@
     <a href="/" class="site-name">Shreyas Fadnavis</a>
     <div class="nav-links">
       <a href="/">About</a>
-      <a href="/blog/" class="active">Writing</a>
+      <a href="/blog/" class="active">Notes</a>
     </div>
   </div>
 </nav>
@@ -21,232 +21,78 @@
 <main>
 
   <div class="blog-header">
-    <h1>Writing</h1>
-    <p class="blog-desc">Notes on prediction, uncertainty, and the geometry of data.</p>
-    <div class="blog-framing">
-      <em>If I became a professor, this is what I would teach my PhD students.</em><br>
-      These notes build from first principles toward the frontier of prediction intervals. Start anywhere that matches your background &mdash; each post has three levels: intuitive, technical, and advanced. The two tracks (conformal prediction and leverage scores) converge in the final posts.
-    </div>
+    <h1>Notes</h1>
+    <p class="blog-desc">On prediction intervals, uncertainty quantification, and the geometry of regression.</p>
+    <p class="blog-intro">Each note has three levels of depth &mdash; <em>intuitive</em>, <em>technical</em>, and <em>advanced</em> &mdash; so you can read at whatever level matches your background.</p>
   </div>
 
-  <!-- Series progress visualization -->
-  <div style="margin-bottom: 0.3rem;">
-    <div class="series-progress">
-      <div class="progress-dot foundation" title="Post 1: Foundation"></div>
-      <div class="progress-dot conformal" title="Post 2: Conformal"></div>
-      <div class="progress-dot conformal" title="Post 3: Conformal"></div>
-      <div class="progress-dot leverage" title="Post 4: Leverage"></div>
-      <div class="progress-dot leverage" title="Post 5: Leverage"></div>
-      <div class="progress-dot convergence" title="Post 6: Convergence"></div>
-      <div class="progress-dot convergence" title="Post 7: Convergence"></div>
-      <div class="progress-dot conformal" title="Post 8: Conformal"></div>
-      <div class="progress-dot convergence" title="Post 9: Convergence"></div>
-      <div class="progress-dot capstone" title="Post 10: Capstone"></div>
-      <span class="series-progress-label">10 posts &middot; two tracks &middot; one convergence</span>
-    </div>
-  </div>
-
-  <!-- Tab Navigation -->
-  <div class="topic-tabs">
-    <button class="topic-tab active" onclick="showTab('all')">All Posts</button>
-    <button class="topic-tab" onclick="showTab('conformal')">Conformal Prediction</button>
-    <button class="topic-tab" onclick="showTab('leverage')">Leverage Scores</button>
-    <button class="topic-tab" onclick="showTab('convergence')">The Convergence</button>
+  <div class="topic-nav">
+    <a href="#conformal" class="topic-link active" onclick="smoothScroll(event, 'conformal')">Conformal Prediction</a>
+    <span class="topic-sep">&middot;</span>
+    <a href="#geometry" class="topic-link" onclick="smoothScroll(event, 'geometry')">Prediction Geometry</a>
   </div>
 
   <!-- ============================================ -->
-  <!-- TAB: ALL POSTS                               -->
+  <!-- CONFORMAL PREDICTION                         -->
   <!-- ============================================ -->
-  <div id="tab-all" class="topic-section active">
+  <section id="conformal" class="notes-section">
+    <h2 class="section-heading">Conformal Prediction</h2>
+    <p class="section-desc">Distribution-free prediction intervals with finite-sample guarantees &mdash; from the basic recipe to its fundamental limitations and existing attempts to overcome them.</p>
 
-    <div class="topic-section-header">
-      <span class="topic-icon"></span>
-      <h2>Stats &amp; Applied Math</h2>
-    </div>
-    <p class="topic-section-desc">From Predictions to Prediction Intervals &mdash; a 10-part series on conformal prediction, leverage scores, and the space between them.</p>
-
-    <ul class="blog-list">
+    <ol class="notes-list">
       <li>
-        <span class="post-number">Part 1</span>
-        <span class="track-label foundation">Foundation</span>
-        <a href="post01.html" class="post-title">Your Model Is Confident. Should You Be?</a>
-        <p class="post-summary">Why point predictions are incomplete, what prediction intervals actually are, and why constructing them correctly is harder than it looks.</p>
+        <a href="post01.html" class="note-title">Your Model Is Confident. Should You Be?</a>
+        <p class="note-summary">Why point predictions are incomplete, what prediction intervals actually are, and why constructing them correctly is harder than it looks.</p>
       </li>
-
       <li>
-        <span class="post-number">Part 2</span>
-        <span class="track-label conformal">Conformal</span>
-        <a href="post02.html" class="post-title">Conformal Prediction: The Distribution-Free Guarantee You Didn't Know Existed</a>
-        <p class="post-summary">The split conformal recipe: train, calibrate, quantile, done. A finite-sample, distribution-free coverage guarantee for any model.</p>
+        <a href="post02.html" class="note-title">Conformal Prediction</a>
+        <p class="note-summary">The split conformal recipe: train, calibrate, quantile, done. A finite-sample coverage guarantee for any model, any distribution.</p>
       </li>
-
       <li>
-        <span class="post-number">Part 3</span>
-        <span class="track-label conformal">Conformal</span>
-        <a href="post03.html" class="post-title">The Constant-Width Problem: When Your Error Bars Lie</a>
-        <p class="post-summary">Marginal versus conditional coverage, and why the impossibility of exact conditional coverage changes what we should aim for.</p>
+        <a href="post03.html" class="note-title">The Constant-Width Problem</a>
+        <p class="note-summary">Marginal versus conditional coverage, the impossibility theorem, and why constant-width intervals hide dangerous unevenness.</p>
       </li>
-
       <li>
-        <span class="post-number">Part 4</span>
-        <span class="track-label leverage">Leverage</span>
-        <a href="post04.html" class="post-title">The Hat Matrix: Linear Regression's Hidden Diagnostic</a>
-        <p class="post-summary">How the diagonal of a projection matrix tells you exactly how unusual each data point is, and why that matters.</p>
+        <a href="post07.html" class="note-title">Heteroscedasticity and Variance Stabilization</a>
+        <p class="note-summary">When prediction difficulty varies, raw residuals are not comparable. Variance-stabilizing transformations and weighted nonconformity scores.</p>
       </li>
-
       <li>
-        <span class="post-number">Part 5</span>
-        <span class="track-label leverage">Leverage</span>
-        <a href="post05.html" class="post-title">Leverage and Influence: The 50-Year-Old Tool That ML Forgot</a>
-        <p class="post-summary">Classical regression diagnostics, Cook's distance, and why randomized algorithms make leverage scalable to modern datasets.</p>
+        <a href="post08.html" class="note-title">Adaptive Conformal Methods</a>
+        <p class="note-summary">CQR, Studentized CP, and Localized CP &mdash; what each gets right, what each gets wrong, and the gap that remains.</p>
       </li>
-
-      <li>
-        <span class="post-number">Part 6</span>
-        <span class="track-label convergence">Convergence</span>
-        <a href="post06.html" class="post-title">The Sign Flip: Why Training Residuals Lie About Prediction Uncertainty</a>
-        <p class="post-summary">The conceptual core: training residuals have variance &sigma;&sup2;(1&minus;h) while prediction errors have variance &sigma;&sup2;(1+h). The sign of leverage flips.</p>
-      </li>
-
-      <li>
-        <span class="post-number">Part 7</span>
-        <span class="track-label convergence">Convergence</span>
-        <a href="post07.html" class="post-title">Heteroscedasticity and Variance Stabilization</a>
-        <p class="post-summary">When prediction difficulty varies, raw residuals are not comparable. Dividing by the right scale factor makes them comparable.</p>
-      </li>
-
-      <li>
-        <span class="post-number">Part 8</span>
-        <span class="track-label conformal">Conformal</span>
-        <a href="post08.html" class="post-title">Adaptive Conformal Methods: CQR, Studentized CP, and Their Trade-offs</a>
-        <p class="post-summary">A survey of existing adaptive methods and what they each get right and wrong, in light of the sign flip.</p>
-      </li>
-
-      <li>
-        <span class="post-number">Part 9</span>
-        <span class="track-label convergence">Convergence</span>
-        <a href="post09.html" class="post-title">Leverage as a Free Lunch</a>
-        <p class="post-summary">Leverage scores are closed-form, model-free, computationally negligible, and immune to the sign flip. A free lunch hiding in the design matrix.</p>
-      </li>
-
-      <li>
-        <span class="post-number">Part 10</span>
-        <span class="track-label capstone">Capstone</span>
-        <a href="post10.html" class="post-title">The Missing Connection: When Geometry Meets Distribution-Free Inference</a>
-        <p class="post-summary">The two tracks converge. What would happen if we used leverage scores as conformal score weights? Stay tuned.</p>
-      </li>
-    </ul>
-  </div>
+    </ol>
+  </section>
 
   <!-- ============================================ -->
-  <!-- TAB: CONFORMAL PREDICTION                    -->
+  <!-- PREDICTION GEOMETRY                          -->
   <!-- ============================================ -->
-  <div id="tab-conformal" class="topic-section">
+  <section id="geometry" class="notes-section">
+    <h2 class="section-heading">Prediction Geometry</h2>
+    <p class="section-desc">The hat matrix, leverage scores, and a geometric perspective on prediction uncertainty &mdash; a classical tool that tells you where your model is extrapolating, for free.</p>
 
-    <div class="topic-section-header">
-      <span class="topic-icon"></span>
-      <h2>Conformal Prediction</h2>
-    </div>
-    <p class="topic-section-desc">Distribution-free prediction intervals with finite-sample guarantees. From the basic recipe to its fundamental limitations and the methods people have built to overcome them.</p>
-
-    <ul class="blog-list">
+    <ol class="notes-list">
       <li>
-        <span class="post-number">Start here</span>
-        <a href="post01.html" class="post-title">Your Model Is Confident. Should You Be?</a>
-        <p class="post-summary">Why point predictions are incomplete and what prediction intervals actually are. The motivation for everything that follows.</p>
+        <a href="post04.html" class="note-title">The Hat Matrix</a>
+        <p class="note-summary">How the diagonal of a projection matrix tells you exactly how unusual each data point is, and why that matters for prediction.</p>
       </li>
-
       <li>
-        <span class="post-number">The recipe</span>
-        <a href="post02.html" class="post-title">Conformal Prediction: The Distribution-Free Guarantee You Didn't Know Existed</a>
-        <p class="post-summary">Split conformal prediction in four steps. The rank uniformity lemma. Exchangeability. A guarantee that holds for any model.</p>
+        <a href="post05.html" class="note-title">Leverage and Influence</a>
+        <p class="note-summary">Classical regression diagnostics, Cook's distance, and why randomized algorithms make leverage scalable to modern datasets.</p>
       </li>
-
       <li>
-        <span class="post-number">The problem</span>
-        <a href="post03.html" class="post-title">The Constant-Width Problem: When Your Error Bars Lie</a>
-        <p class="post-summary">Marginal vs. conditional coverage. The impossibility result. Why constant-width intervals are dangerous at the extremes.</p>
+        <a href="post06.html" class="note-title">The Sign Flip</a>
+        <p class="note-summary">Training residuals have variance &sigma;&sup2;(1&minus;h); prediction errors have variance &sigma;&sup2;(1+h). The sign of leverage flips, and most methods get this wrong.</p>
       </li>
-
       <li>
-        <span class="post-number">The attempts</span>
-        <a href="post08.html" class="post-title">Adaptive Conformal Methods: CQR, Studentized CP, and Their Trade-offs</a>
-        <p class="post-summary">Three existing approaches to adaptive intervals &mdash; what each gets right, what each gets wrong, and the gap that remains.</p>
+        <a href="post09.html" class="note-title">Leverage as a Free Lunch</a>
+        <p class="note-summary">Closed-form, model-free, computationally negligible, and immune to the sign flip. Everything you need is already in the design matrix.</p>
       </li>
-    </ul>
-  </div>
-
-  <!-- ============================================ -->
-  <!-- TAB: LEVERAGE SCORES                         -->
-  <!-- ============================================ -->
-  <div id="tab-leverage" class="topic-section">
-
-    <div class="topic-section-header">
-      <span class="topic-icon"></span>
-      <h2>Leverage Scores</h2>
-    </div>
-    <p class="topic-section-desc">The geometry of data, the hat matrix, and a 50-year-old diagnostic that tells you exactly where your model is extrapolating &mdash; for free.</p>
-
-    <ul class="blog-list">
       <li>
-        <span class="post-number">The matrix</span>
-        <a href="post04.html" class="post-title">The Hat Matrix: Linear Regression's Hidden Diagnostic</a>
-        <p class="post-summary">Projection matrices, Mahalanobis distance, SVD computation, and why the diagonal of the hat matrix measures data unusualness.</p>
+        <a href="post10.html" class="note-title">When Geometry Meets Inference</a>
+        <p class="note-summary">What happens when leverage scores become conformal prediction weights? A natural combination grounded in classical regression theory.</p>
       </li>
-
-      <li>
-        <span class="post-number">The history</span>
-        <a href="post05.html" class="post-title">Leverage and Influence: The 50-Year-Old Tool That ML Forgot</a>
-        <p class="post-summary">Cook's distance, leverage-residual plots, flagging rules, and randomized algorithms for scalability.</p>
-      </li>
-
-      <li>
-        <span class="post-number">The free lunch</span>
-        <a href="post09.html" class="post-title">Leverage as a Free Lunch</a>
-        <p class="post-summary">Four properties that make leverage unique: closed-form, model-free, computationally negligible, and immune to the sign flip.</p>
-      </li>
-    </ul>
-  </div>
-
-  <!-- ============================================ -->
-  <!-- TAB: THE CONVERGENCE                         -->
-  <!-- ============================================ -->
-  <div id="tab-convergence" class="topic-section">
-
-    <div class="topic-section-header">
-      <span class="topic-icon"></span>
-      <h2>The Convergence</h2>
-    </div>
-    <p class="topic-section-desc">Where the two tracks meet. The sign flip, variance stabilization, and the natural combination of conformal guarantees with geometric adaptation.</p>
-
-    <ul class="blog-list">
-      <li>
-        <span class="post-number">The insight</span>
-        <span class="track-label convergence">Key</span>
-        <a href="post06.html" class="post-title">The Sign Flip: Why Training Residuals Lie About Prediction Uncertainty</a>
-        <p class="post-summary">The conceptual core of the series. Training residuals are attenuated by leverage; prediction errors are amplified. The sign literally flips.</p>
-      </li>
-
-      <li>
-        <span class="post-number">The tool</span>
-        <a href="post07.html" class="post-title">Heteroscedasticity and Variance Stabilization</a>
-        <p class="post-summary">Scale families, variance-stabilizing transformations, and weighted nonconformity scores.</p>
-      </li>
-
-      <li>
-        <span class="post-number">The synthesis</span>
-        <a href="post09.html" class="post-title">Leverage as a Free Lunch</a>
-        <p class="post-summary">Everything comes together: leverage provides the adaptation, conformal prediction provides the guarantee.</p>
-      </li>
-
-      <li>
-        <span class="post-number">The finale</span>
-        <span class="track-label capstone">Capstone</span>
-        <a href="post10.html" class="post-title">The Missing Connection: When Geometry Meets Distribution-Free Inference</a>
-        <p class="post-summary">The two tracks converge. Leverage + conformal prediction. Distribution-free guarantee + geometric adaptation. Stay tuned.</p>
-      </li>
-    </ul>
-  </div>
+    </ol>
+  </section>
 
 </main>
 
@@ -256,16 +102,27 @@
 </footer>
 
 <script>
-function showTab(tab) {
-  // Hide all sections
-  document.querySelectorAll('.topic-section').forEach(s => s.classList.remove('active'));
-  // Deactivate all tabs
-  document.querySelectorAll('.topic-tab').forEach(t => t.classList.remove('active'));
-  // Show selected section
-  document.getElementById('tab-' + tab).classList.add('active');
-  // Activate selected tab
-  event.target.classList.add('active');
+function smoothScroll(e, id) {
+  e.preventDefault();
+  document.getElementById(id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Update active state
+  document.querySelectorAll('.topic-link').forEach(l => l.classList.remove('active'));
+  e.target.classList.add('active');
+  history.pushState(null, '', '#' + id);
 }
+
+// Highlight active topic on scroll
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      document.querySelectorAll('.topic-link').forEach(l => l.classList.remove('active'));
+      const link = document.querySelector('.topic-link[href="#' + entry.target.id + '"]');
+      if (link) link.classList.add('active');
+    }
+  });
+}, { threshold: 0.3 });
+
+document.querySelectorAll('.notes-section').forEach(s => observer.observe(s));
 </script>
 
 </body>
