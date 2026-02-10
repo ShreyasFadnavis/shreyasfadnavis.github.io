@@ -66,18 +66,18 @@
 
           <h3>The House Price Example</h3>
 
-          <p>Suppose you train a model to predict house prices. Your training data contains thousands of suburban homes in the $250K&ndash;$400K range and a handful of remote luxury estates worth $2M+. The model learns the suburban pattern well (it has seen thousands of similar houses) but is essentially guessing for the luxury estates (it has almost no comparable data).</p>
+          <p>Suppose you train a model to predict house prices. Your training data contains thousands of suburban homes in the &#36;250K&ndash;&#36;400K range and a handful of remote luxury estates worth &#36;2M+. The model learns the suburban pattern well (it has seen thousands of similar houses) but is essentially guessing for the luxury estates (it has almost no comparable data).</p>
 
-          <p>Now conformal prediction hands you a single number &mdash; say $\hat{q} = \$50{,}000$ &mdash; and tells you to use it everywhere. A suburban house predicted at $350K gets the interval [$300K, $400K]. A remote estate predicted at $2.5M gets the interval [$2.45M, $2.55M].</p>
+          <p>Now conformal prediction hands you a single number &mdash; say $\hat{q} = \$50{,}000$ &mdash; and tells you to use it everywhere. A suburban house predicted at &#36;350K gets the interval [&#36;300K, &#36;400K]. A remote estate predicted at &#36;2.5M gets the interval [&#36;2.45M, &#36;2.55M].</p>
 
           <ul>
-            <li>The <strong>suburban interval is too wide</strong>. The model rarely misses by more than $20K here. That extra $30K of width on each side is wasted precision &mdash; it makes the interval less informative than it could be.</li>
-            <li>The <strong>estate interval is too narrow</strong>. The model routinely misses by $200K+ on these unusual properties. The $50K half-width is nowhere near enough. These intervals will fail to cover the true price far more than 10% of the time.</li>
+            <li>The <strong>suburban interval is too wide</strong>. The model rarely misses by more than &#36;20K here. That extra &#36;30K of width on each side is wasted precision &mdash; it makes the interval less informative than it could be.</li>
+            <li>The <strong>estate interval is too narrow</strong>. The model routinely misses by &#36;200K+ on these unusual properties. The &#36;50K half-width is nowhere near enough. These intervals will fail to cover the true price far more than 10% of the time.</li>
           </ul>
 
           <div class="mermaid">
             flowchart TD
-              Q["Single conformal quantile q&#770; = $50K"]
+              Q["Single conformal quantile q&#770; = &#36;50K"]
               Q --> E["Easy Region: Suburban homes"]
               Q --> H["Hard Region: Luxury estates"]
               E --> EO["Interval too WIDE<br/>Wasting precision<br/>Coverage: ~99%"]

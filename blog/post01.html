@@ -38,7 +38,7 @@
 
     <div class="post-body">
 
-      <p>A neural network predicts that a patient needs 150mg of a drug. A gradient-boosted tree estimates a house will sell for $420,000. A linear model forecasts next quarter's revenue at $2.3M. These numbers are precise. They are also incomplete. What is missing is <em>uncertainty</em>&mdash;and that omission can be dangerous.</p>
+      <p>A neural network predicts that a patient needs 150mg of a drug. A gradient-boosted tree estimates a house will sell for &#36;420,000. A linear model forecasts next quarter's revenue at &#36;2.3M. These numbers are precise. They are also incomplete. What is missing is <em>uncertainty</em>&mdash;and that omission can be dangerous.</p>
 
       <p>This post is about why point predictions are not enough, what prediction intervals actually are, and why building them correctly is harder than it looks. We present the ideas at three levels of depth. Read just the first for the core intuition, or go all the way through for the full mathematical story.</p>
 
@@ -68,10 +68,10 @@
 
           <div class="mermaid">
 flowchart LR
-    A["Model"] --> B["Point Prediction\n$420,000"]
+    A["Model"] --> B["Point Prediction\n&#36;420,000"]
     B --> C{"What is missing?"}
     C --> D["How confident\nis the model?"]
-    D --> E["Prediction Interval\n$370K &ndash; $470K"]
+    D --> E["Prediction Interval\n&#36;370K &ndash; &#36;470K"]
           </div>
           <p class="diagram-caption">A point prediction alone leaves you guessing. A prediction interval tells you the range of plausible outcomes.</p>
 
