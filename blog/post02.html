@@ -9,6 +9,8 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
     onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
 </head>
 <body>
 
@@ -41,98 +43,340 @@
 
       <p>This sounds like a tall order. It turns out there is an elegant, surprisingly simple method that delivers exactly this. It is called <em>conformal prediction</em>, and it has been around since 2005, though it has only recently gained widespread attention in the machine learning community.</p>
 
-      <h2>The Core Idea</h2>
+      <p>This post walks through conformal prediction at three levels of depth. Start wherever feels comfortable and go as deep as you like.</p>
 
-      <p>The central insight of conformal prediction is this: <strong>if you know how to rank a new observation among past observations, you can construct a valid prediction interval</strong>.</p>
+      <!-- ====================================================== -->
+      <!-- LEVEL 1: INTUITIVE                                      -->
+      <!-- ====================================================== -->
+      <div class="level">
+        <div class="level-header" role="button" aria-expanded="true" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>The Big Idea, No Math Required</h2>
+          <span class="level-toggle">&#9660;</span>
+        </div>
+        <div class="level-content">
 
-      <p>Think of it this way. Suppose you have a trained model and a set of held-out data points (the <em>calibration set</em>) that the model has never seen. For each calibration point, you compute the absolute residual: how far off was the model's prediction? This gives you a collection of "error magnitudes."</p>
+          <h3>A Restaurant Analogy</h3>
 
-      <p>Now a new test point arrives. You do not know its true response Y, but you do know that — if the data are exchangeable — the new point's residual has no reason to be systematically larger or smaller than the calibration residuals. It is, in a statistical sense, "just another one of them."</p>
+          <p>Imagine you go to a restaurant with nine friends. Everyone orders, and eventually all ten meals arrive. You have no idea what anyone ordered or what anything costs. But here is something you <em>can</em> say: the meals arrive in a random order, and each person's meal is equally likely to be the most expensive, the second most expensive, and so on.</p>
 
-      <p>So if you want a 90% prediction interval, you find the 90th percentile of the calibration residuals and use that as the interval half-width. The new point's residual will fall below this threshold at least 90% of the time, simply because its rank among all the residuals is uniformly distributed.</p>
+          <p>Now suppose you want to know: "Will my meal cost less than the 9th most expensive meal out of all ten?" Since your meal's <em>rank</em> among all ten is random, the probability that your meal ranks 9th or lower is 9 out of 10, which is 90%. You did not need to know the prices, the menu, or the cuisine. You just needed to know that the ordering was random.</p>
 
-      <p>That is conformal prediction in one paragraph. Let us make it precise.</p>
+          <p>That is the core of conformal prediction. Replace "meals" with "prediction errors," and "cost" with "how wrong the model was," and you have the whole idea.</p>
 
-      <h2>The Split Conformal Prediction Recipe</h2>
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p>Conformal prediction is like grading on a curve. You do not need to know how hard the exam was. You just need to know where you rank among everyone else. If your score's rank is random, you can make reliable probability statements about where it will fall.</p>
+          </div>
 
-      <p><strong>Inputs:</strong> A dataset of n examples, a desired coverage level 1-$\alpha$ (e.g., 90%), and any prediction model.</p>
+          <h3>The Recipe in Plain English</h3>
 
-      <p><strong>Step 1: Split.</strong> Divide the data into a <em>training set</em> $D_1$ ($n_1$ points) and a <em>calibration set</em> $D_2$ ($n_2$ points). These must be disjoint.</p>
+          <p>Here is the conformal prediction recipe, with no equations:</p>
 
-      <p><strong>Step 2: Train.</strong> Fit your prediction model $\hat{f}$ on $D_1$. This can be anything: OLS, a random forest, a neural network, an ensemble. The method does not care.</p>
+          <ol>
+            <li><strong>Train any model.</strong> Linear regression, random forest, neural network, anything. It does not matter.</li>
+            <li><strong>Set aside some data the model never saw.</strong> Call this the "calibration set." The model was not trained on it.</li>
+            <li><strong>Check how wrong the model is on each calibration point.</strong> For each held-out data point, compute the size of the error: how far off was the prediction?</li>
+            <li><strong>Sort those errors and pick the 90th percentile.</strong> This becomes your "margin of error."</li>
+            <li><strong>For any new prediction, add and subtract that margin.</strong> That is your 90% prediction interval.</li>
+          </ol>
 
-      <p><strong>Step 3: Calibrate.</strong> For each calibration point $(X_i, Y_i)$ in $D_2$, compute the <em>nonconformity score</em>:</p>
+          <div class="mermaid">
+graph LR
+    A["All Data"] --> B["Training Set"]
+    A --> C["Calibration Set"]
+    B --> D["Train Any Model"]
+    D --> E["Predict on<br/>Calibration Set"]
+    C --> E
+    E --> F["Compute Errors:<br/>|actual - predicted|"]
+    F --> G["Sort Errors &<br/>Pick 90th Percentile"]
+    G --> H["Use as Margin<br/>for New Predictions"]
+          </div>
+          <p class="diagram-caption">The split conformal prediction pipeline in five steps.</p>
 
-      $$S_i = |Y_i - \hat{f}(X_i)|$$
+          <h3>Why Does This Work?</h3>
 
-      <p>This is just the absolute residual. Sort these scores. Let $\hat{q}$ be the $\lceil(1-\alpha)(n_2+1)\rceil$-th smallest score. This is the <em>conformal quantile</em>.</p>
+          <p>The key insight is that a new test point is "just another data point." If the data are all drawn from the same process and no point is special, then the new point's error has no reason to be systematically bigger or smaller than the calibration errors. Its rank among all the errors is random, just like your meal's rank among the restaurant bills.</p>
 
-      <p><strong>Step 4: Predict.</strong> For a new test point x, the prediction interval is:</p>
+          <p>So if you set the threshold at the 90th percentile, the new point's error will fall below that threshold at least 90% of the time.</p>
 
-      $$\hat{C}(x) = [\hat{f}(x) - \hat{q}, \;\; \hat{f}(x) + \hat{q}]$$
+          <h3>What the Calibration Errors Look Like</h3>
 
-      <p>That's it. Four steps. No distributional assumptions. No retraining.</p>
+          <div class="mermaid">
+graph TD
+    subgraph errors["Calibration Errors (sorted, smallest to largest)"]
+        direction LR
+        E1["0.3"] --- E2["0.5"] --- E3["0.8"] --- E4["1.1"] --- E5["1.4"]
+        E5 --- E6["1.7"] --- E7["2.0"] --- E8["2.3"] --- E9["2.8"] --- E10["3.5"]
+    end
+    E9 -. "90th percentile<br/>threshold = 2.8" .-> T["Use 2.8 as margin<br/>of error for new predictions"]
+    style E9 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style T fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+          </div>
+          <p class="diagram-caption">Ten calibration errors sorted in order. The 90th percentile (2.8) becomes the interval half-width.</p>
 
-      <h2>The Coverage Guarantee</h2>
+          <p>The model predicts, say, 50 for a new data point. Your 90% prediction interval is [50 - 2.8, 50 + 2.8] = [47.2, 52.8].</p>
 
-      <p>The remarkable property of this procedure is:</p>
+          <h3>The One Assumption</h3>
 
-      $$P(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - \alpha$$
+          <div class="callout">
+            <div class="callout-label">Key Assumption</div>
+            <p>The only assumption conformal prediction makes is that the data are <strong>exchangeable</strong>: roughly, any reordering of the data points is equally likely. This is weaker than "independent and identically distributed." It means no data point is special by virtue of when it was observed.</p>
+          </div>
 
-      <p>This holds in <em>finite samples</em> — not just asymptotically. The only requirement is <strong>exchangeability</strong>: the data points $(X_1,Y_1), \ldots, (X_n,Y_n), (X_{n+1},Y_{n+1})$ are exchangeable, meaning their joint distribution is invariant to permutation. This is weaker than the iid assumption: iid implies exchangeability, but exchangeability allows some forms of dependence.</p>
+          <p>If you have a standard supervised learning setup where you collect data, shuffle it, and split it into training and test sets, exchangeability holds automatically. It can fail for time series (where order matters) or when the data distribution shifts over time.</p>
 
-      <p>Where does the guarantee come from? The key is a <em>rank argument</em>. Conditional on the training set $D_1$ (which determines the model $\hat{f}$), the calibration scores $S_1, \ldots, S_{n_2}$ and the test score $S_{n+1}$ are all computed the same way from exchangeable data. By symmetry, the rank of $S_{n+1}$ among all $n_2+1$ scores is uniformly distributed over $\{1, 2, \ldots, n_2+1\}$. So the probability that $S_{n+1}$ falls at or below the $\lceil(1-\alpha)(n_2+1)\rceil$-th score is at least $(1-\alpha)$.</p>
+          <h3>Why This Is Remarkable</h3>
 
-      <p>This is the <em>rank uniformity lemma</em> from Vovk et al. (2005), and it is the backbone of all conformal prediction guarantees. The proof is roughly five lines of algebra, yet it delivers a finite-sample, distribution-free coverage guarantee for any model.</p>
+          <p>Conformal prediction gives you a guaranteed prediction interval that works with <em>any</em> model. You do not need to know the error distribution, you do not need Gaussian assumptions, and you do not need the model to be linear. You just need the calibration data, a sorting algorithm, and the exchangeability assumption. That is it.</p>
 
-      <h2>What Exchangeability Means (and Doesn't Mean)</h2>
+        </div>
+      </div>
 
-      <p>Exchangeability deserves a moment of attention, because it is the <em>only</em> assumption conformal prediction makes, and understanding it is critical to understanding when CP works.</p>
+      <!-- ====================================================== -->
+      <!-- LEVEL 2: TECHNICAL                                      -->
+      <!-- ====================================================== -->
+      <div class="level">
+        <div class="level-header" role="button" aria-expanded="true" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');">
+          <span class="level-badge technical">Technical</span>
+          <h2>The Split Conformal Recipe, Formally</h2>
+          <span class="level-toggle">&#9660;</span>
+        </div>
+        <div class="level-content">
 
-      <p>A sequence of random variables $Z_1, Z_2, \ldots, Z_n$ is <strong>exchangeable</strong> if for any permutation $\pi$:</p>
+          <h3>Setup</h3>
 
-      $$(Z_1, Z_2, \ldots, Z_n) \stackrel{d}{=} (Z_{\pi(1)}, Z_{\pi(2)}, \ldots, Z_{\pi(n)})$$
+          <p>We have $n$ data points $(X_i, Y_i)$ drawn exchangeably. We choose a desired coverage level $1 - \alpha$ (e.g., $1 - \alpha = 0.9$ for 90% coverage). We have access to any prediction model.</p>
 
-      <p>In words: the joint distribution does not change if you reorder the data. This is automatically satisfied if the data are iid (sampled independently from the same distribution), which covers most supervised learning settings.</p>
+          <h3>Step 1: Split</h3>
 
-      <p>Exchangeability <em>fails</em> when:</p>
+          <p>Divide the data into a <strong>training set</strong> $D_1$ of size $n_1$ and a <strong>calibration set</strong> $D_2$ of size $n_2$. These must be disjoint. The split can be done at random.</p>
 
-      <ul>
-        <li>Data arrive in a non-stationary order (e.g., time series with a trend).</li>
-        <li>There is distribution shift between training and deployment.</li>
-        <li>The sampling mechanism depends on the order (e.g., active learning).</li>
-      </ul>
+          <h3>Step 2: Train</h3>
 
-      <p>When exchangeability holds, the conformal guarantee is exact. When it is violated, the guarantee degrades — but there are extensions of conformal prediction that handle some forms of non-exchangeability (adaptive conformal inference, weighted conformal prediction). We will not cover these here, but they exist.</p>
+          <p>Fit a prediction model $\hat{f}$ on $D_1$. This can be OLS, a random forest, a neural network, an ensemble, or anything else. The method imposes no constraint on the model class.</p>
 
-      <h2>The Quantile Computation</h2>
+          <h3>Step 3: Calibrate</h3>
 
-      <p>The specific quantile used in Step 3 deserves unpacking. We compute $\hat{q}$ as the $\lceil(1-\alpha)(n_2+1)\rceil$-th smallest calibration score. Why $n_2+1$ and not $n_2$?</p>
+          <p>For each calibration point $(X_i, Y_i) \in D_2$, compute the <em>nonconformity score</em> (here, just the absolute residual):</p>
 
-      <p>The "+1" accounts for the test point. There are $n_2$ calibration scores and 1 test score, for a total of $n_2+1$. We want the test score to fall at or below the threshold with probability at least $1-\alpha$. Since the test score's rank is uniform over $\{1, \ldots, n_2+1\}$, the probability that it falls at or below rank $k$ is $k/(n_2+1)$. Setting $k = \lceil(1-\alpha)(n_2+1)\rceil$ ensures this probability is at least $1-\alpha$.</p>
+          $$S_i = |Y_i - \hat{f}(X_i)|, \quad i = 1, \ldots, n_2$$
 
-      <p>For concrete numbers: if $\alpha = 0.1$ and $n_2 = 500$, then $k = \lceil 0.9 \times 501 \rceil = \lceil 450.9 \rceil = 451$. So $\hat{q}$ is the 451st smallest residual out of 500. The coverage is exactly $451/501 \approx 0.9002$, slightly above the nominal 90%.</p>
+          <p>Sort these scores. Define the <em>conformal quantile</em>:</p>
 
-      <p>As $n_2$ grows, the coverage approaches $1-\alpha$ from above, and the "+1" correction becomes negligible.</p>
+          $$\hat{q} = S_{(\lceil(1-\alpha)(n_2+1)\rceil)}$$
 
-      <h2>What the Guarantee Gives You</h2>
+          <p>where $S_{(k)}$ denotes the $k$-th smallest score.</p>
 
-      <p>Split conformal prediction gives you a <strong>marginal coverage guarantee</strong>: averaging over the randomness in both the test point and the calibration set, the interval covers the true response at least $1-\alpha$ of the time.</p>
+          <h3>Step 4: Predict</h3>
 
-      <p>This is:</p>
+          <p>For a new test point $x$, the prediction interval is:</p>
 
-      <ul>
-        <li><strong>Finite-sample:</strong> Not asymptotic. Holds for any $n_2$.</li>
-        <li><strong>Distribution-free:</strong> No parametric assumptions on the data distribution.</li>
-        <li><strong>Model-agnostic:</strong> Works with any prediction model.</li>
-        <li><strong>Computationally trivial:</strong> After training the model, the only additional cost is sorting $n_2$ residuals.</li>
-      </ul>
+          $$\hat{C}(x) = \left[\hat{f}(x) - \hat{q}, \;\; \hat{f}(x) + \hat{q}\right]$$
 
-      <p>These are strong properties. But there is something this guarantee does <em>not</em> give you, and it is a fundamental limitation that will drive the rest of this series.</p>
+          <div class="mermaid">
+graph TB
+    A["Data: (X_1,Y_1), ..., (X_n,Y_n)"]
+    A -->|"Random split"| B["D1: Training Set<br/>(n1 points)"]
+    A -->|"Random split"| C["D2: Calibration Set<br/>(n2 points)"]
+    B --> D["Train model f-hat on D1"]
+    D --> E["Compute scores on D2:<br/>Si = |Yi - f-hat(Xi)|"]
+    C --> E
+    E --> F["Sort scores, take<br/>k = ceil((1-alpha)(n2+1))-th smallest"]
+    F --> G["q-hat = S_(k)"]
+    G --> H["Interval for new x:<br/>[f-hat(x) - q-hat, f-hat(x) + q-hat]"]
+    style H fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+          </div>
+          <p class="diagram-caption">The full split conformal pipeline with formulas at each step.</p>
 
-      <p>The guarantee is <em>marginal</em>: it averages over all possible test points. It says nothing about coverage at any <em>specific</em> test point. If the model is very accurate in one region of feature space and very inaccurate in another, the interval will overcover in the easy region and undercover in the hard region. The average will be correct, but the per-point coverage will vary.</p>
+          <h3>The Coverage Guarantee</h3>
 
-      <p>This is the constant-width problem, and it is the subject of the next post.</p>
+          <p>The remarkable property of this procedure is a finite-sample coverage guarantee:</p>
+
+          $$P\!\left(Y_{n+1} \in \hat{C}(X_{n+1})\right) \geq 1 - \alpha$$
+
+          <p>This holds for any sample size $n_2$, any model $\hat{f}$, and any data distribution. The only requirement is that the calibration points and the test point are exchangeable.</p>
+
+          <h3>What Is Exchangeability?</h3>
+
+          <p>A sequence of random variables $Z_1, \ldots, Z_n$ is <strong>exchangeable</strong> if for every permutation $\pi$:</p>
+
+          $$(Z_1, \ldots, Z_n) \stackrel{d}{=} (Z_{\pi(1)}, \ldots, Z_{\pi(n)})$$
+
+          <p>In words: the joint distribution does not change if you reorder the data. Any iid sample is automatically exchangeable, but exchangeability is strictly weaker: it allows some forms of dependence (for example, drawing from a random distribution, then sampling iid from it).</p>
+
+          <div class="mermaid">
+graph TD
+    subgraph perm1["Ordering 1"]
+        P1["Z1, Z2, Z3"]
+    end
+    subgraph perm2["Ordering 2"]
+        P2["Z3, Z1, Z2"]
+    end
+    subgraph perm3["Ordering 3"]
+        P3["Z2, Z3, Z1"]
+    end
+    perm1 -.- EQ["All have the<br/>SAME joint distribution"]
+    perm2 -.- EQ
+    perm3 -.- EQ
+    style EQ fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+          </div>
+          <p class="diagram-caption">Exchangeability: every permutation of the data has the same joint distribution.</p>
+
+          <h3>The "+1" in the Quantile</h3>
+
+          <p>Why do we compute $\lceil(1-\alpha)(n_2 + 1)\rceil$ rather than $\lceil(1-\alpha) n_2\rceil$? The "+1" accounts for the test point. There are $n_2$ calibration scores and 1 test score, for a total of $n_2 + 1$ scores. By exchangeability, the test score's rank among all $n_2 + 1$ scores is uniformly distributed. The probability that it falls at or below rank $k$ is exactly $k / (n_2 + 1)$.</p>
+
+          <p>Setting $k = \lceil(1-\alpha)(n_2+1)\rceil$ ensures this probability is at least $1-\alpha$.</p>
+
+          <p><strong>Concrete example:</strong> With $\alpha = 0.1$ and $n_2 = 500$:</p>
+
+          $$k = \lceil 0.9 \times 501 \rceil = \lceil 450.9 \rceil = 451$$
+
+          <p>So $\hat{q}$ is the 451st smallest residual out of 500. The actual coverage is $451/501 \approx 0.9002$, slightly above the nominal 90%.</p>
+
+          <h3>Summary of Properties</h3>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>What It Means</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Finite-sample</strong></td>
+                <td>Not asymptotic. Holds for any calibration set size $n_2$.</td>
+              </tr>
+              <tr>
+                <td><strong>Distribution-free</strong></td>
+                <td>No parametric assumptions on the data distribution.</td>
+              </tr>
+              <tr>
+                <td><strong>Model-agnostic</strong></td>
+                <td>Works with any prediction model: linear, tree-based, neural, anything.</td>
+              </tr>
+              <tr>
+                <td><strong>Computationally trivial</strong></td>
+                <td>After training, the only cost is sorting $n_2$ numbers.</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>What the Guarantee Does NOT Give You</h3>
+
+          <p>The coverage guarantee is <strong>marginal</strong>: it averages over all possible test points and all randomness in the calibration set. It says nothing about coverage at any <em>specific</em> test point $x$.</p>
+
+          <p>If the model is very accurate in one region of feature space and very inaccurate in another, the interval will overcover in the easy region and undercover in the hard region. The average will be correct, but the per-point coverage will vary wildly.</p>
+
+          <div class="callout">
+            <div class="callout-label">Teaser for Post 3</div>
+            <p>This is the <strong>constant-width problem</strong>. Vanilla conformal prediction produces intervals of the same width everywhere, regardless of local difficulty. The next post shows why this is a fundamental limitation and what can be done about it.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ====================================================== -->
+      <!-- LEVEL 3: ADVANCED                                       -->
+      <!-- ====================================================== -->
+      <div class="level">
+        <div class="level-header" role="button" aria-expanded="true" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>The Proof and Its Extensions</h2>
+          <span class="level-toggle">&#9660;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Formal Exchangeability</h3>
+
+          <p>A random vector $(Z_1, \ldots, Z_n)$ taking values in $\mathcal{Z}^n$ is <strong>exchangeable</strong> if for every permutation $\pi$ on $\{1, \ldots, n\}$:</p>
+
+          $$(Z_1, \ldots, Z_n) \stackrel{d}{=} (Z_{\pi(1)}, \ldots, Z_{\pi(n)})$$
+
+          <p>This is equivalent to saying the joint density (or mass function) $f(z_1, \ldots, z_n)$ is a symmetric function of its arguments. De Finetti's theorem says that an infinite exchangeable sequence is equivalent to an iid mixture: there exists a random distribution $\Theta$ such that, conditional on $\Theta$, the $Z_i$ are iid from $\Theta$.</p>
+
+          <h3>The Rank Uniformity Lemma</h3>
+
+          <p>The following result, due to Vovk, Gammerman, and Shafer (2005), is the backbone of conformal prediction.</p>
+
+          <p><strong>Lemma.</strong> Let $Z_1, \ldots, Z_{n+1}$ be exchangeable random variables. Define the rank of $Z_{n+1}$ among all $n+1$ values as:</p>
+
+          $$R_{n+1} = \sum_{i=1}^{n+1} \mathbf{1}\{Z_i \leq Z_{n+1}\}$$
+
+          <p>Then $R_{n+1}$ is uniformly distributed on $\{1, 2, \ldots, n+1\}$.</p>
+
+          <h3>Proof Sketch</h3>
+
+          <p>By exchangeability, the joint distribution of $(Z_1, \ldots, Z_{n+1})$ is invariant under permutations. Consider any fixed value $k \in \{1, \ldots, n+1\}$. The event $\{R_{n+1} = k\}$ (i.e., $Z_{n+1}$ has rank $k$) can be mapped by a permutation to the event $\{R_{j} = k\}$ for any $j$. Since the distribution is invariant under this permutation:</p>
+
+          $$P(R_{n+1} = k) = P(R_j = k) \quad \text{for all } j \in \{1, \ldots, n+1\}$$
+
+          <p>Summing over $j$:</p>
+
+          $$\sum_{j=1}^{n+1} P(R_j = k) = (n+1) \cdot P(R_{n+1} = k)$$
+
+          <p>But $\sum_{j=1}^{n+1} P(R_j = k) = 1$, because exactly one of the $n+1$ values has rank $k$ (assuming distinct values almost surely, which can be handled by randomized tie-breaking in general). Therefore:</p>
+
+          $$P(R_{n+1} = k) = \frac{1}{n+1}$$
+
+          <p>This is the rank uniformity result. It is a direct consequence of symmetry, nothing more.</p>
+
+          <div class="mermaid">
+graph TB
+    A["Exchangeability:<br/>(Z1,...,Zn+1) is permutation-invariant"]
+    A --> B["Rank of Z_{n+1} has<br/>same distribution as rank of Z_j<br/>for any j"]
+    B --> C["Exactly one Z_j has rank k<br/>=> sum of P(R_j=k) over j = 1"]
+    C --> D["(n+1) * P(R_{n+1}=k) = 1"]
+    D --> E["P(R_{n+1}=k) = 1/(n+1)<br/>Rank is uniform on {1,...,n+1}"]
+    E --> F["Setting k = ceil((1-alpha)(n+1)):<br/>P(Z_{n+1} <= Z_(k)) >= 1-alpha"]
+    style E fill:#fce4ec,stroke:#c62828,stroke-width:2px
+    style F fill:#fce4ec,stroke:#c62828,stroke-width:2px
+          </div>
+          <p class="diagram-caption">The proof flow: from exchangeability to the coverage guarantee in four steps.</p>
+
+          <h3>From Rank Uniformity to Coverage</h3>
+
+          <p>Apply the lemma with $Z_i = S_i = |Y_i - \hat{f}(X_i)|$ for the calibration points and $Z_{n_2+1} = S_{n_2+1} = |Y_{n+1} - \hat{f}(X_{n+1})|$ for the test point. Conditional on $D_1$ (which determines $\hat{f}$), the scores $S_1, \ldots, S_{n_2}, S_{n_2+1}$ are exchangeable. By the lemma, the rank of $S_{n_2+1}$ is uniform on $\{1, \ldots, n_2+1\}$.</p>
+
+          <p>The event $Y_{n+1} \in \hat{C}(X_{n+1})$ is equivalent to $S_{n_2+1} \leq \hat{q} = S_{(k)}$ where $k = \lceil(1-\alpha)(n_2+1)\rceil$. The probability of this event is:</p>
+
+          $$P(S_{n_2+1} \leq S_{(k)}) = P(R_{n_2+1} \leq k) = \frac{k}{n_2+1} \geq \frac{\lceil(1-\alpha)(n_2+1)\rceil}{n_2+1} \geq 1 - \alpha$$
+
+          <h3>Upper Bound on Coverage</h3>
+
+          <p>The coverage is also bounded above. Since $k = \lceil(1-\alpha)(n_2+1)\rceil \leq (1-\alpha)(n_2+1) + 1$:</p>
+
+          $$P(Y_{n+1} \in \hat{C}(X_{n+1})) = \frac{k}{n_2+1} \leq \frac{(1-\alpha)(n_2+1) + 1}{n_2+1} = 1 - \alpha + \frac{1}{n_2 + 1}$$
+
+          <p>So the coverage lies in the interval $[1-\alpha, \; 1-\alpha + 1/(n_2+1)]$. As $n_2 \to \infty$, the coverage converges to $1-\alpha$ exactly. For $n_2 = 500$, the overshoot is at most $1/501 \approx 0.002$, which is negligible.</p>
+
+          <h3>When Exchangeability Fails</h3>
+
+          <p>The coverage guarantee is <em>exact</em> under exchangeability. When exchangeability is violated, the guarantee degrades. The main failure modes are:</p>
+
+          <ul>
+            <li><strong>Time series:</strong> Temporal dependence means earlier observations are not interchangeable with later ones. The distribution may drift, making calibration residuals from the past unrepresentative of future errors.</li>
+            <li><strong>Distribution shift:</strong> If the test distribution differs from the calibration distribution (covariate shift, label shift, concept drift), the rank argument breaks down because the test score is no longer "just another one" from the same distribution.</li>
+            <li><strong>Active learning:</strong> If the sampling mechanism depends on previously observed labels, the resulting sample is not exchangeable.</li>
+          </ul>
+
+          <p>Extensions exist for some of these settings. Adaptive conformal inference (Gibbs and Candes, 2021) handles distribution shift by updating the quantile online. Weighted conformal prediction (Tibshirani et al., 2019) handles covariate shift by reweighting calibration scores. These are beyond our scope here, but they demonstrate that the conformal framework is extensible.</p>
+
+          <h3>Connection to Permutation Tests</h3>
+
+          <p>The rank uniformity argument underlying conformal prediction is the same argument that underlies permutation tests and rank-based nonparametric inference. In a permutation test, you compute a test statistic and ask: "Under the null hypothesis that the labels are exchangeable, what fraction of label permutations produce a test statistic at least this extreme?" The fraction gives you a p-value.</p>
+
+          <p>Conformal prediction inverts this logic. Instead of testing whether a specific value is consistent with the data, it constructs the set of <em>all</em> values that <em>would be</em> consistent. This inversion of a permutation test into a confidence set is the intellectual origin of the name "conformal": the prediction set "conforms" to the data.</p>
+
+          <div class="callout">
+            <div class="callout-label">Historical Note</div>
+            <p>The connection between prediction sets and permutation tests dates back to the work of Vovk, Gammerman, and Shafer in the early 2000s. The original "full conformal" method literally ran a permutation test for every candidate label value. Split conformal prediction, introduced by Papadopoulos et al. (2002) and analyzed by Lei et al. (2018), avoids this computational burden by using a held-out calibration set, trading a small amount of statistical efficiency for enormous computational savings.</p>
+          </div>
+
+        </div>
+      </div>
 
     </div>
 

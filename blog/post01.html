@@ -9,6 +9,8 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
     onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
 </head>
 <body>
 
@@ -36,78 +38,345 @@
 
     <div class="post-body">
 
-      <p>A neural network predicts that a patient needs 150mg of a drug. A gradient-boosted tree estimates a house will sell for $420,000. A linear model forecasts next quarter's revenue at $2.3M.</p>
+      <p>A neural network predicts that a patient needs 150mg of a drug. A gradient-boosted tree estimates a house will sell for $420,000. A linear model forecasts next quarter's revenue at $2.3M. These numbers are precise. They are also incomplete. What is missing is <em>uncertainty</em>&mdash;and that omission can be dangerous.</p>
 
-      <p>These are point predictions. They are precise. They are also incomplete.</p>
+      <p>This post is about why point predictions are not enough, what prediction intervals actually are, and why building them correctly is harder than it looks. We present the ideas at three levels of depth. Read just the first for the core intuition, or go all the way through for the full mathematical story.</p>
 
-      <p>What is missing is <em>uncertainty</em>. The drug dosage prediction might be reliable to within 5mg, or it might be off by 50mg. The house price might be tight to $10,000, or it could swing by $100,000. The revenue forecast might carry a range of $200K or $2M. The point prediction alone does not tell you which.</p>
+      <!-- =========================================================== -->
+      <!-- LEVEL 1: INTUITIVE                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>The Problem with Naked Predictions</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
 
-      <p>This post is about why that matters, what prediction intervals actually are, and why constructing them correctly is harder than it looks.</p>
+          <h3>A Weather Forecast You Can Use</h3>
 
-      <h2>Why Point Predictions Are Not Enough</h2>
+          <p>Imagine two weather forecasts for tomorrow:</p>
 
-      <p>In low-stakes settings, point predictions may suffice. If a recommendation engine suggests a movie you don't enjoy, the cost is 90 minutes. But in high-stakes applications, acting on a point prediction without knowing its reliability can be dangerous:</p>
+          <ul>
+            <li><strong>Forecast A:</strong> "It will rain tomorrow."</li>
+            <li><strong>Forecast B:</strong> "There is a 70% chance of rain tomorrow."</li>
+          </ul>
 
-      <ul>
-        <li><strong>Medical dosing.</strong> A predicted dose of 150mg means something very different if the 90% prediction interval is [145mg, 155mg] versus [100mg, 200mg]. The treatment decision depends on the uncertainty, not just the point estimate.</li>
-        <li><strong>Financial risk.</strong> A portfolio model that predicts 7% annual return is useless without a range. The difference between [5%, 9%] and [-10%, 24%] is the difference between a conservative allocation and a gamble.</li>
-        <li><strong>Autonomous systems.</strong> A self-driving car that predicts a pedestrian will be at position (x, y) needs to know whether that prediction is reliable to within 10cm or 2m. The braking decision depends on the uncertainty envelope, not the point estimate.</li>
-      </ul>
+          <p>Forecast A is a <em>point prediction</em>&mdash;a single, definitive statement. Forecast B is far more useful because it tells you <em>how sure</em> the forecaster is. With a 70% chance of rain, you might grab an umbrella but still plan an outdoor lunch. With a 95% chance, you move the party indoors. The uncertainty changes the decision.</p>
 
-      <p>In each case, the decision-maker needs to know not just <em>what</em> the model predicts, but <em>how much to trust</em> that prediction.</p>
+          <p>Machine learning models almost always behave like Forecast A. They give you a single number&mdash;a prediction&mdash;without any indication of how much to trust it.</p>
 
-      <h2>Prediction Intervals vs. Confidence Intervals vs. Calibration</h2>
+          <div class="mermaid">
+flowchart LR
+    A["Model"] --> B["Point Prediction\n$420,000"]
+    B --> C{"What is missing?"}
+    C --> D["How confident\nis the model?"]
+    D --> E["Prediction Interval\n$370K &ndash; $470K"]
+          </div>
+          <p class="diagram-caption">A point prediction alone leaves you guessing. A prediction interval tells you the range of plausible outcomes.</p>
 
-      <p>These three concepts are often confused. They are distinct.</p>
+          <h3>When the Stakes Are High</h3>
 
-      <p><strong>Confidence intervals</strong> quantify uncertainty about a <em>parameter</em>. If you estimate that the average height of adults in a population is 170cm with a 95% confidence interval of [168cm, 172cm], you are saying something about where the <em>true population mean</em> lies. This is useful for inference about fixed quantities.</p>
+          <p>For low-stakes predictions, a single number is fine. If a movie recommendation engine is off, you lose 90 minutes. But in high-stakes settings, acting on a prediction without knowing its reliability can be dangerous:</p>
 
-      <p><strong>Prediction intervals</strong> quantify uncertainty about a <em>future observation</em>. If you predict that the <em>next person</em> you measure will have a height in [155cm, 185cm] with 90% probability, you are saying something about where a single new data point will land. Prediction intervals are always wider than confidence intervals because they must account for both the uncertainty in the model and the intrinsic variability of the outcome.</p>
+          <ul>
+            <li><strong>Medical dosing.</strong> A model predicts a patient needs 150mg of a drug. But is the true dose likely between 145mg and 155mg, or between 100mg and 200mg? The treatment decision depends entirely on how wide that range is.</li>
+            <li><strong>Self-driving cars.</strong> An autonomous vehicle predicts that a pedestrian will be at a specific position in two seconds. Is that prediction reliable to within 10cm or 2m? The braking decision depends on the uncertainty, not just the point estimate.</li>
+            <li><strong>Financial risk.</strong> A portfolio model predicts 7% annual return. The difference between a range of 5% to 9% and a range of -10% to 24% is the difference between a safe investment and a gamble.</li>
+          </ul>
 
-      <p><strong>Calibration</strong> describes whether predicted probabilities match observed frequencies. A weather model is well-calibrated if, among all days it assigns a 70% chance of rain, it actually rains about 70% of the time. Calibration is a property of probabilistic predictions, not interval predictions.</p>
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p><strong>GPS without a confidence radius.</strong> Your phone shows a blue dot for your location. But it also shows a shaded circle around the dot&mdash;the confidence radius. The dot tells you <em>where</em> the GPS thinks you are. The circle tells you <em>how much to trust</em> that estimate. A prediction without uncertainty is like GPS with only the dot and no circle: you know the estimate, but you have no idea how far off it might be.</p>
+          </div>
 
-      <p>For this series, we care about <strong>prediction intervals</strong>: given features x, produce an interval [L(x), U(x)] such that the true response Y falls inside with high probability.</p>
+          <h3>Three Flavors of Uncertainty</h3>
 
-      <h2>The Classical Approach and Its Assumptions</h2>
+          <p>People often confuse three different ways of expressing uncertainty. Here is a non-technical way to tell them apart:</p>
 
-      <p>Statistics has produced prediction intervals for over a century. In linear regression with Gaussian errors, the textbook prediction interval at a point x is:</p>
+          <div class="mermaid">
+flowchart TD
+    Q["You have a model.\nWhat are you uncertain about?"]
+    Q --> P["A fixed quantity?\ne.g., population average height"]
+    Q --> F["A future observation?\ne.g., the NEXT person's height"]
+    Q --> C["Your probability estimates?\ne.g., does 70% rain really mean 70%?"]
+    P --> CI["Confidence Interval"]
+    F --> PI["Prediction Interval"]
+    C --> CAL["Calibration"]
+    style CI fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+    style PI fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style CAL fill:#fce4ec,stroke:#c62828,color:#1c1917
+          </div>
+          <p class="diagram-caption">Three kinds of uncertainty: about parameters, about future data, and about probabilities themselves.</p>
 
-      $$\hat{y}(x) \pm t_{1-\alpha/2, n-p} \cdot \hat{\sigma} \cdot \sqrt{1 + h(x)}$$
+          <ul>
+            <li><strong>Confidence interval</strong> &mdash; "The average height of adults in this country is between 168cm and 172cm." This is about a <em>fixed quantity</em> (the population average). You are measuring how precisely you know it.</li>
+            <li><strong>Prediction interval</strong> &mdash; "The <em>next person</em> you measure will be between 155cm and 185cm." This is about a <em>future observation</em>. It is always wider than a confidence interval because individual people vary much more than averages do.</li>
+            <li><strong>Calibration</strong> &mdash; "When the weather app says 70% chance of rain, does it actually rain about 70% of the time?" This is about whether the <em>probabilities themselves</em> are trustworthy.</li>
+          </ul>
 
-      <p>where t is a quantile of the t-distribution, n is the sample size, p is the number of features, h(x) is a quantity called the <em>leverage</em> (more on this in Part 4), and the whole expression depends on knowing both the error distribution (Gaussian) and the model form (linear).</p>
+          <p>This series is about <strong>prediction intervals</strong>: given what we know about something (its features), can we give a range that the true outcome will fall into?</p>
 
-      <p>This is elegant. It is also fragile. It requires:</p>
+          <div class="callout">
+            <div class="callout-label">Key Takeaway</div>
+            <p>A point prediction tells you the model's best guess. A prediction interval tells you how much to trust that guess. In high-stakes applications&mdash;medicine, autonomy, finance&mdash;the interval is often more important than the prediction itself.</p>
+          </div>
 
-      <ol>
-        <li>The true relationship between features and response is linear.</li>
-        <li>Errors are Gaussian.</li>
-        <li>Errors have constant variance (homoscedasticity).</li>
-        <li>Observations are independent.</li>
-      </ol>
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p><strong>Confidence interval vs. prediction interval, in everyday terms.</strong> A confidence interval is like saying, "The average commute in this city is 25 to 35 minutes." A prediction interval is like saying, "YOUR commute tomorrow will be 10 to 60 minutes." The first is about the average; the second is about what will actually happen to you. The second is always wider because individual outcomes are noisier than averages.</p>
+          </div>
 
-      <p>Violate any of these, and the coverage guarantee evaporates. In practice, models are often nonlinear (random forests, neural networks), error distributions are unknown and non-Gaussian, and variance is rarely constant across the feature space.</p>
+        </div>
+      </div>
 
-      <p>We need prediction intervals that work without these assumptions.</p>
+      <!-- =========================================================== -->
+      <!-- LEVEL 2: TECHNICAL                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge technical">Technical</span>
+          <h2>Formalizing Prediction Intervals</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
 
-      <h2>The Desiderata</h2>
+          <h3>Confidence Intervals, Prediction Intervals, and Calibration</h3>
 
-      <p>What would an ideal prediction interval method look like?</p>
+          <p>Let us define these three concepts more precisely.</p>
 
-      <ol>
-        <li><strong>Valid coverage.</strong> If we claim 90% coverage, at least 90% of future observations should fall inside the interval. This should hold as a finite-sample guarantee, not just asymptotically.</li>
-        <li><strong>Distribution-free.</strong> The guarantee should not depend on the error distribution being Gaussian, or the model being linear, or any parametric assumption.</li>
-        <li><strong>Model-agnostic.</strong> It should work with any prediction model: linear regression, random forests, neural networks, anything.</li>
-        <li><strong>Adaptive width.</strong> The interval should be wider where the model is less certain and narrower where it is more certain, rather than having the same width everywhere.</li>
-        <li><strong>Computationally efficient.</strong> It should not require retraining the model many times or running expensive simulations.</li>
-      </ol>
+          <p>A <strong>confidence interval</strong> targets a fixed but unknown parameter $\theta$ (such as a population mean). A 95% confidence interval $[L, U]$ satisfies:</p>
 
-      <p>Desiderata 1-3 and 5 are achievable with a method called <em>conformal prediction</em>, which we will cover in the next post. Desideratum 4 is where things get interesting, and where the rest of this series leads.</p>
+          $$P(\theta \in [L, U]) \geq 0.95$$
 
-      <h2>What Comes Next</h2>
+          <p>The randomness is in the interval endpoints, which depend on the sample. The parameter $\theta$ is fixed.</p>
 
-      <p>The next post introduces conformal prediction: a framework that provides distribution-free, finite-sample prediction intervals for any model. The recipe is surprisingly simple, and the coverage guarantee is surprisingly strong.</p>
+          <p>A <strong>prediction interval</strong> targets a future random observation $Y_{\text{new}}$. A 90% prediction interval $[L(x), U(x)]$ satisfies:</p>
 
-      <p>But there is a catch, and it involves the word "adaptive." We will get there.</p>
+          $$P(Y_{\text{new}} \in [L(x), U(x)]) \geq 0.90$$
+
+          <p>Here, both the interval endpoints and the future observation are random. The prediction interval must account for <em>two</em> sources of uncertainty: estimation error in the model and the intrinsic randomness of the outcome.</p>
+
+          <p><strong>Calibration</strong> is a property of probabilistic forecasts. A forecaster that assigns probability $p$ to an event is calibrated if the event occurs with empirical frequency $p$. More precisely, among all instances where the forecaster says $P(\text{rain}) = 0.7$, it should rain about 70% of the time.</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Concept</th>
+                <th>Target</th>
+                <th>What varies?</th>
+                <th>Width</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Confidence interval</td>
+                <td>Fixed parameter $\theta$</td>
+                <td>Interval endpoints (random sample)</td>
+                <td>Narrower</td>
+              </tr>
+              <tr>
+                <td>Prediction interval</td>
+                <td>Future observation $Y_{\text{new}}$</td>
+                <td>Both endpoints and target</td>
+                <td>Wider</td>
+              </tr>
+              <tr>
+                <td>Calibration</td>
+                <td>Probability estimates</td>
+                <td>Predicted probabilities vs. frequencies</td>
+                <td>N/A</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph CI["Confidence Interval"]
+      direction TB
+      C1["Target: fixed parameter &theta;"]
+      C2["Uncertainty: sampling variability"]
+      C3["Width: reflects estimation precision"]
+      C1 --- C2 --- C3
+    end
+    subgraph PI["Prediction Interval"]
+      direction TB
+      P1["Target: future observation Y"]
+      P2["Uncertainty: estimation + noise"]
+      P3["Width: always wider than CI"]
+      P1 --- P2 --- P3
+    end
+    subgraph CAL["Calibration"]
+      direction TB
+      A1["Target: probability accuracy"]
+      A2["Metric: predicted freq. vs. observed"]
+      A3["Output: reliability diagram"]
+      A1 --- A2 --- A3
+    end
+          </div>
+          <p class="diagram-caption">Structural comparison of the three uncertainty concepts.</p>
+
+          <h3>The Classical Prediction Interval</h3>
+
+          <p>In ordinary least squares regression with Gaussian errors, the textbook prediction interval at a new point $x$ is:</p>
+
+          $$\hat{y}(x) \pm t_{1-\alpha/2,\; n-p} \cdot \hat{\sigma} \cdot \sqrt{1 + h(x)}$$
+
+          <p>Each piece has a specific role:</p>
+
+          <ul>
+            <li>$\hat{y}(x) = x^\top \hat{\beta}$ &mdash; the fitted value (center of the interval).</li>
+            <li>$t_{1-\alpha/2,\; n-p}$ &mdash; the quantile of the $t$-distribution with $n - p$ degrees of freedom. This plays the role of the "how many standard deviations" factor, but accounts for the fact that we estimated $\sigma$.</li>
+            <li>$\hat{\sigma}$ &mdash; the residual standard error, estimating the noise level.</li>
+            <li>$h(x) = x^\top (X^\top X)^{-1} x$ &mdash; the <strong>leverage</strong> of the test point $x$. This measures how "unusual" or "influential" the test point is relative to the training data. Higher leverage means wider intervals.</li>
+            <li>The $\sqrt{1 + h(x)}$ factor combines two sources of variance: the irreducible noise ($\sigma^2$) and the estimation uncertainty ($\sigma^2 \cdot h(x)$).</li>
+          </ul>
+
+          <div class="mermaid">
+flowchart LR
+    subgraph Var["Prediction Variance"]
+      direction TB
+      V1["Noise variance\n&sigma;&sup2;"]
+      V2["Estimation variance\n&sigma;&sup2; &middot; h&lpar;x&rpar;"]
+      V3["Total\n&sigma;&sup2;&lpar;1 + h&lpar;x&rpar;&rpar;"]
+      V1 --> V3
+      V2 --> V3
+    end
+    V3 --> W["Interval width\n&prop; &sigma;&#x0302; &middot; &radic;&lpar;1 + h&lpar;x&rpar;&rpar;"]
+          </div>
+          <p class="diagram-caption">Two sources of uncertainty combine to determine the prediction interval width.</p>
+
+          <h3>Where Classical Intervals Break Down</h3>
+
+          <p>This formula requires four assumptions:</p>
+
+          <ol>
+            <li><strong>Linearity.</strong> The true relationship $Y = X^\top \beta^* + \varepsilon$ is linear in the features.</li>
+            <li><strong>Gaussian errors.</strong> $\varepsilon \sim N(0, \sigma^2)$.</li>
+            <li><strong>Homoscedasticity.</strong> The error variance $\sigma^2$ is constant across the feature space.</li>
+            <li><strong>Independence.</strong> Observations are independent.</li>
+          </ol>
+
+          <p>Violate any of these and the $1-\alpha$ coverage guarantee no longer holds. In modern practice, models are routinely nonlinear (random forests, neural networks, boosted trees), errors are non-Gaussian, and variance is often heteroscedastic&mdash;different in different parts of the feature space. We need methods that provide valid prediction intervals without these assumptions.</p>
+
+          <div class="callout">
+            <div class="callout-label">Looking Ahead</div>
+            <p>The next post introduces <strong>conformal prediction</strong>, which achieves valid coverage without any distributional or model assumptions. The only requirement is exchangeability of the data&mdash;a much weaker condition than independence and Gaussianity.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 3: ADVANCED                                           -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>Derivation and Desiderata</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Formal Definition</h3>
+
+          <p>Given a feature vector $X \in \mathbb{R}^p$ and a response $Y \in \mathbb{R}$, a <strong>prediction interval</strong> at level $1 - \alpha$ is a pair of measurable functions $L, U : \mathbb{R}^p \to \mathbb{R}$ (constructed from training data) such that:</p>
+
+          $$P\bigl(Y_{\text{new}} \in [L(x), U(x)] \mid X_{\text{new}} = x\bigr) \geq 1 - \alpha$$
+
+          <p>The stronger <em>marginal</em> coverage guarantee&mdash;which does not condition on $x$&mdash;requires:</p>
+
+          $$P\bigl(Y_{\text{new}} \in [L(X_{\text{new}}), U(X_{\text{new}})]\bigr) \geq 1 - \alpha$$
+
+          <p>Marginal coverage is achievable distribution-free; conditional coverage in general is not (without further assumptions). This distinction will be a recurring theme throughout the series.</p>
+
+          <h3>Derivation from First Principles</h3>
+
+          <p>Assume the linear model $Y = X^\top \beta^* + \varepsilon$ with $\varepsilon \sim N(0, \sigma^2 I_n)$ and design matrix $\mathbf{X} \in \mathbb{R}^{n \times p}$. The OLS estimator is $\hat{\beta} = (\mathbf{X}^\top \mathbf{X})^{-1} \mathbf{X}^\top Y$.</p>
+
+          <p>For a new observation $(x, Y_{\text{new}})$ with $Y_{\text{new}} = x^\top \beta^* + \varepsilon_{\text{new}}$ independent of the training data, consider the prediction residual:</p>
+
+          $$Y_{\text{new}} - \hat{Y}(x) = Y_{\text{new}} - x^\top \hat{\beta}$$
+
+          <p>Decompose this into noise and estimation error:</p>
+
+          $$Y_{\text{new}} - x^\top \hat{\beta} = \underbrace{\varepsilon_{\text{new}}}_{\text{future noise}} - \underbrace{x^\top(\hat{\beta} - \beta^*)}_{\text{estimation error}}$$
+
+          <div class="mermaid">
+flowchart TD
+    R["Prediction residual\nY_new &minus; x&apos;&beta;&#x0302;"]
+    R --> N["Future noise\n&varepsilon;_new"]
+    R --> E["Estimation error\n&minus;x&apos;&lpar;&beta;&#x0302; &minus; &beta;*&rpar;"]
+    N --> VN["Var = &sigma;&sup2;"]
+    E --> VE["Var = &sigma;&sup2; &middot; h&lpar;x&rpar;"]
+    VN --> T["Independent, so\nVar = &sigma;&sup2; + &sigma;&sup2; &middot; h&lpar;x&rpar;\n= &sigma;&sup2;&lpar;1 + h&lpar;x&rpar;&rpar;"]
+    VE --> T
+          </div>
+          <p class="diagram-caption">Decomposition of prediction residual variance into two independent components.</p>
+
+          <p>Since $\hat{\beta} - \beta^* = (\mathbf{X}^\top \mathbf{X})^{-1} \mathbf{X}^\top \varepsilon$ is independent of $\varepsilon_{\text{new}}$, the two terms are independent. Compute the variance:</p>
+
+          $$\operatorname{Var}(Y_{\text{new}} - \hat{Y}(x)) = \operatorname{Var}(\varepsilon_{\text{new}}) + \operatorname{Var}(x^\top(\hat{\beta} - \beta^*))$$
+
+          $$= \sigma^2 + x^\top \operatorname{Var}(\hat{\beta})\, x = \sigma^2 + x^\top \sigma^2 (\mathbf{X}^\top \mathbf{X})^{-1} x = \sigma^2(1 + h(x))$$
+
+          <p>where $h(x) = x^\top (\mathbf{X}^\top \mathbf{X})^{-1} x$ is the leverage of the test point. Since $\varepsilon_{\text{new}}$ and $\hat{\beta} - \beta^*$ are both Gaussian (the latter because it is a linear transformation of the Gaussian vector $\varepsilon$), the prediction residual is Gaussian:</p>
+
+          $$Y_{\text{new}} - \hat{Y}(x) \sim N\bigl(0,\; \sigma^2(1 + h(x))\bigr)$$
+
+          <p>Replacing $\sigma$ with $\hat{\sigma} = \sqrt{\frac{1}{n-p}\|\mathbf{Y} - \mathbf{X}\hat{\beta}\|^2}$ and using the fact that $\hat{\sigma}^2$ is independent of $\hat{\beta}$ (Cochran's theorem), we obtain:</p>
+
+          $$\frac{Y_{\text{new}} - \hat{Y}(x)}{\hat{\sigma}\sqrt{1 + h(x)}} \sim t_{n-p}$$
+
+          <p>This immediately yields the $1-\alpha$ prediction interval:</p>
+
+          $$\hat{Y}(x) \pm t_{1-\alpha/2,\; n-p} \cdot \hat{\sigma} \cdot \sqrt{1 + h(x)}$$
+
+          <div class="mermaid">
+flowchart LR
+    subgraph Assumptions
+      A1["Y = X&apos;&beta;* + &varepsilon;"]
+      A2["&varepsilon; ~ N&lpar;0, &sigma;&sup2;I&rpar;"]
+      A3["Independence"]
+      A4["Homoscedasticity"]
+    end
+    subgraph Derivation
+      D1["Residual decomposition"]
+      D2["Variance = &sigma;&sup2;&lpar;1 + h&lpar;x&rpar;&rpar;"]
+      D3["Studentize with &sigma;&#x0302;"]
+      D4["Pivotal t-statistic"]
+      D1 --> D2 --> D3 --> D4
+    end
+    Assumptions --> Derivation
+    D4 --> PI["Prediction Interval\ny&#x0302; &plusmn; t &middot; &sigma;&#x0302; &middot; &radic;&lpar;1+h&rpar;"]
+          </div>
+          <p class="diagram-caption">The derivation pipeline from assumptions to the classical prediction interval.</p>
+
+          <h3>The Five Desiderata</h3>
+
+          <p>What would an ideal prediction interval method look like? We articulate five desiderata:</p>
+
+          <ol>
+            <li><strong>Valid coverage.</strong> If we claim $1-\alpha$ coverage, the guarantee $P(Y_{\text{new}} \in [L(x), U(x)]) \geq 1-\alpha$ must hold as a finite-sample statement, not merely asymptotically.</li>
+            <li><strong>Distribution-free.</strong> The coverage guarantee must not depend on the distribution of $\varepsilon$ being Gaussian, or belonging to any parametric family.</li>
+            <li><strong>Model-agnostic.</strong> The method must produce valid intervals for any underlying prediction model $\hat{f}$: linear regression, random forests, neural networks, or any other.</li>
+            <li><strong>Adaptive width.</strong> The interval width $U(x) - L(x)$ should vary with $x$, being narrower where prediction is easier and wider where it is harder. A constant-width interval wastes coverage budget: it is too wide in easy regions and potentially too narrow in hard ones.</li>
+            <li><strong>Computationally efficient.</strong> The method should not require retraining the model $O(n)$ times (as the jackknife does) or running expensive bootstrap simulations.</li>
+          </ol>
+
+          <p>The classical formula satisfies desiderata 1 and 5 but fails 2 and 3 by construction, and only partially satisfies 4 (the width adapts via $h(x)$, but this is limited to the leverage structure of OLS).</p>
+
+          <div class="callout">
+            <div class="callout-label">Preview of the Series</div>
+            <p><strong>Conformal prediction</strong> (Part 2) achieves desiderata 1, 2, 3, and 5. It provides distribution-free, finite-sample, model-agnostic prediction intervals at essentially zero computational overhead beyond fitting the model once. But vanilla conformal prediction produces <em>constant-width</em> intervals, failing desideratum 4. The rest of the series is dedicated to achieving adaptivity&mdash;making the intervals intelligently wider and narrower across the feature space&mdash;while preserving the other four properties. This is where <strong>leverage scores</strong> (Part 4) and <strong>leverage-weighted conformal prediction</strong> (Parts 5&ndash;10) enter the picture.</p>
+          </div>
+
+          <h3>Why Conditional Coverage Is Hard</h3>
+
+          <p>The marginal guarantee $P(Y_{\text{new}} \in C(X_{\text{new}})) \geq 1-\alpha$ is achievable nonparametrically. The conditional guarantee $P(Y_{\text{new}} \in C(x) \mid X_{\text{new}} = x) \geq 1-\alpha$ for all $x$ is, in general, impossible without structural assumptions. Vovk (2012) and Lei and Wasserman (2014) showed that for any distribution-free method with marginal coverage, there exist distributions where conditional coverage fails badly at specific points $x$. This impossibility result motivates the search for <em>approximate</em> conditional coverage, which is a major theme in Parts 5&ndash;10.</p>
+
+        </div>
+      </div>
 
     </div>
 
@@ -115,8 +384,10 @@
       <h3>Further Reading</h3>
       <ul>
         <li>Geisser, S. (1993). <em>Predictive Inference: An Introduction.</em> Chapman &amp; Hall.</li>
-        <li>Gneiting, T. &amp; Raftery, A. E. (2007). Strictly proper scoring rules, prediction, and estimation. <em>Journal of the American Statistical Association</em>, 102(477), 359-378.</li>
+        <li>Gneiting, T. &amp; Raftery, A. E. (2007). Strictly proper scoring rules, prediction, and estimation. <em>Journal of the American Statistical Association</em>, 102(477), 359&ndash;378.</li>
         <li>Angelopoulos, A. N. &amp; Bates, S. (2023). Conformal prediction: A gentle introduction. <em>Foundations and Trends in Machine Learning</em>.</li>
+        <li>Vovk, V. (2012). Conditional validity of inductive conformal predictors. <em>Asian Conference on Machine Learning</em>.</li>
+        <li>Lei, J. &amp; Wasserman, L. (2014). Distribution-free prediction bands for nonparametric regression. <em>JRSSB</em>, 76(1), 71&ndash;96.</li>
       </ul>
     </div>
 

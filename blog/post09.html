@@ -3,12 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leverage as a Free Lunch: Geometry Already Knows Where Predictions Are Hard &mdash; Shreyas Fadnavis</title>
+  <title>Leverage as a Free Lunch: Four Superpowers You Already Paid For &mdash; Shreyas Fadnavis</title>
   <link rel="stylesheet" href="../css/style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
     onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
 </head>
 <body>
 
@@ -25,7 +27,7 @@
 <main>
   <article class="post">
     <div class="post-header">
-      <h1>Leverage as a Free Lunch: Geometry Already Knows Where Predictions Are Hard</h1>
+      <h1>Leverage as a Free Lunch: Four Superpowers You Already Paid For</h1>
       <p class="post-subtitle">Part 9 of a 10-part series on prediction intervals, conformal prediction, and leverage scores.</p>
     </div>
 
@@ -35,157 +37,536 @@
 
     <div class="post-body">
 
-      <p>We have spent eight posts building up two parallel bodies of knowledge. On one side: conformal prediction gives distribution-free prediction intervals, but they have constant width, and existing adaptive methods require training extra models. On the other side: leverage scores measure how far each point sits from the training distribution and directly control prediction variance, with a clean mathematical formula that avoids the training-test sign flip.</p>
+      <p>Over the last eight posts, we have built two separate stories. One is about conformal prediction: distribution-free prediction intervals that come with a coverage guarantee but have constant width. The other is about leverage scores: a geometric quantity, extracted from the design matrix, that controls exactly how prediction variance varies across feature space.</p>
 
-      <p>This post brings the two sides together and makes the case that leverage scores are a <em>free lunch</em> for adaptive prediction intervals &mdash; a source of adaptation that is already computed, exact, and requires no additional learning.</p>
+      <p>This post makes the case that leverage scores are a <em>free lunch</em> for adaptive uncertainty estimation. In economics, "there is no free lunch" means every benefit has a hidden cost. But leverage scores violate this dictum. They are already computed as a byproduct of fitting the model. No extra training. No extra data. No extra parameters. Just... free.</p>
 
-      <h2>What We Already Have</h2>
+      <p>We develop this argument at three progressive levels. The first builds intuition through analogies and comparisons. The second makes the claims precise with formulas. The third provides formal justifications and extensions.</p>
 
-      <p>Let us take stock. After fitting an OLS model and computing the thin SVD of the design matrix $\mathbf{X} = \mathbf{U\Sigma V}^\top$, we have:</p>
+      <!-- =========================================================== -->
+      <!-- LEVEL 1: INTUITIVE                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>The Free Lunch</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
 
-      <ol>
-        <li><strong>The model</strong> $\hat{f}(x) = x^\top \hat{\beta}$.</li>
-        <li><strong>Leverage scores</strong> $h(x) = \|\Sigma^{-1}V^\top x\|^2$ for any point $x$, computable in $O(p)$ time per point.</li>
-        <li><strong>The prediction variance formula</strong> $\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \sigma^2(1 + h(x))$, which holds exactly under OLS with homoscedastic errors.</li>
-      </ol>
+          <h3>What Makes It Free?</h3>
 
-      <p>The SVD was already computed as part of fitting the model (or can be computed in a single $O(n_1 p^2)$ pass). The leverage scores for the calibration and test sets each cost $O(n \cdot p)$ to compute. No auxiliary model is needed. No hyperparameters are introduced.</p>
+          <p>When you fit a linear regression, you compute a matrix decomposition of your design matrix (the table of features). This decomposition &mdash; the SVD &mdash; is the engine that produces the model's coefficients. But hidden inside that same decomposition, at no extra cost, is a number for each data point called its <em>leverage score</em>. This number tells you how unusual that point's features are relative to the rest of the data.</p>
 
-      <h2>The Four Properties of Leverage-Based Adaptation</h2>
+          <p>The leverage score is like a receipt stapled to the back of your model. You already paid for it when you fit the model. You just need to flip the receipt over and read it.</p>
 
-      <p>Leverage scores as a basis for adaptive prediction intervals have four properties that distinguish them from the alternatives surveyed in Part 8:</p>
+          <p>Every other method for making prediction intervals adaptive requires <em>additional</em> work beyond fitting the base model: training extra models, selecting hyperparameters, or running expensive per-point computations. Leverage asks for nothing extra.</p>
 
-      <h3>Property 1: Closed-Form</h3>
+          <h3>The Four Superpowers</h3>
 
-      <p>The weight function $w(h) = (1+h)^{-1/2}$ is a known, fixed function of the leverage score. There is nothing to estimate, fit, or tune. The formula comes directly from the variance decomposition in Part 6.</p>
+          <p>Leverage scores have four properties that, taken together, no other adaptation mechanism can match:</p>
 
-      <p>Compare this to CQR, which requires training two quantile regressors, or Studentized CP, which requires training a scale estimator. Both involve model selection, hyperparameter tuning, and potential overfitting. The leverage-based weight is the <em>exact</em> answer to a well-posed mathematical question: "what function of the features governs prediction variance in a linear model?"</p>
+          <ol>
+            <li><strong>Closed-form.</strong> There is a fixed formula for the weight function. You plug in the leverage score, and you get the answer. Nothing to tune, nothing to search over, nothing to cross-validate. The formula is: divide by the square root of one plus the leverage.</li>
+            <li><strong>Model-free.</strong> Leverage is computed from the <em>data</em> (the feature matrix), not from any particular model. It measures how unusual a point's features are, regardless of whether you are using linear regression, a random forest, or a neural network. The geometric content &mdash; "this point is in a sparse region of feature space" &mdash; does not depend on your prediction method.</li>
+            <li><strong>Computationally negligible.</strong> One matrix decomposition, which you probably already computed when fitting the model. After that, each new point's leverage costs a handful of multiplications &mdash; far less than making a prediction with a random forest, let alone training a new model.</li>
+            <li><strong>Immune to the sign flip.</strong> In Part 6, we saw that training residuals are <em>compressed</em> at high-leverage points while prediction errors are <em>amplified</em>. Any method that estimates uncertainty from training residuals gets the direction backwards at high-leverage points. Leverage does not look at residuals at all. It is computed from the feature matrix. There is no sign to flip.</li>
+          </ol>
 
-      <h3>Property 2: Model-Free in a Specific Sense</h3>
+          <div class="mermaid">
+flowchart LR
+    subgraph Methods["Method Comparison"]
+        direction TB
+        L["Leverage-Based"]
+        C["CQR"]
+        S["Studentized CP"]
+        LC["Localized CP"]
+    end
 
-      <p>Here is a subtlety. The leverage score $h(x)$ is computed from the design matrix $\mathbf{X}$ alone &mdash; it does not depend on which model $\hat{f}$ is used for prediction. The hat matrix $\mathbf{H} = \mathbf{X}(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top$ is a property of the feature space, not the prediction model.</p>
+    subgraph Props["Properties"]
+        direction TB
+        P1["Closed-form formula"]
+        P2["Model-free"]
+        P3["Near-zero extra cost"]
+        P4["Immune to sign flip"]
+    end
 
-      <p>This means that even if you use a random forest, a neural network, or any other nonlinear model for prediction, you can still compute leverage scores from the raw feature matrix and use them to weight the conformal scores. The variance formula $\sigma^2(1+h)$ is derived for OLS, but the geometric content &mdash; "this point is far from the training distribution in a direction where data are sparse" &mdash; is model-independent.</p>
+    L --- P1
+    L --- P2
+    L --- P3
+    L --- P4
 
-      <p>The coverage guarantee of conformal prediction holds for any weight function and any model (Part 2). So using leverage-based weights with a non-OLS model preserves marginal coverage by construction. The question is whether the adaptation is effective &mdash; whether the leverage-based weights correctly identify where the non-OLS model is less certain. Empirically, this often works well, because the feature-space geometry is a first-order determinant of prediction difficulty regardless of the model class.</p>
+    C -. "Needs 2 extra models" .-> P1
+    S -. "Needs 1 extra model" .-> P1
+    LC -. "Needs kernel + bandwidth" .-> P1
 
-      <h3>Property 3: Computationally Negligible</h3>
+    style L fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style C fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style S fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style LC fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style P1 fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+    style P2 fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+    style P3 fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+    style P4 fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+          </div>
+          <p class="diagram-caption">Leverage is the only method that has all four properties. Every alternative lacks at least two.</p>
 
-      <p>The entire leverage computation &mdash; SVD plus score computation for all calibration and test points &mdash; costs $O(n_1 p^2 + n_2 p + n_{\text{test}} p)$. For context:</p>
+          <h3>How It Works, Without Any Math</h3>
 
-      <ul>
-        <li>CQR requires training two gradient-boosted trees: typically $O(n_1 \cdot n_{\text{trees}} \cdot p \cdot \text{depth})$.</li>
-        <li>Studentized CP requires training one additional model of comparable cost.</li>
-        <li>Localized CP requires $O(n_2 \cdot p)$ per test point for kernel evaluation.</li>
-      </ul>
+          <p>Here is the complete pipeline, from raw data to adaptive prediction intervals, using leverage:</p>
 
-      <p>For a dataset with $n_1 = 1000$, $n_2 = 500$, $p = 30$, and $n_{\text{test}} = 1000$:</p>
-      <ul>
-        <li>Leverage computation: $O(1000 \cdot 900 + 1500 \cdot 30) \approx 10^6$ operations.</li>
-        <li>CQR with 100-tree gradient boosting at depth 6: roughly $10^8$ operations.</li>
-      </ul>
+          <div class="mermaid">
+flowchart LR
+    A["Design Matrix X"] --> B["SVD\n(already computed!)"]
+    B --> C["Leverage Scores\nh(x) per point"]
+    C --> D["Weight Function\nw(h) = 1 / sqrt(1+h)"]
+    D --> E["Adaptive Intervals\nWider where h is large\nNarrower where h is small"]
 
-      <p>The leverage approach is one to two orders of magnitude faster. For randomized SVD, the cost drops further to $O(n_1 p \log p)$, which is nearly linear in the data size.</p>
+    style A fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+    style B fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style C fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+    style D fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+    style E fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">The leverage pipeline: the SVD is already computed, so the extra cost is nearly zero.</p>
 
-      <h3>Property 4: Immune to the Sign Flip</h3>
+          <p>Compare this to what the alternatives require:</p>
 
-      <p>This is perhaps the most important property. The sign flip from Part 6 &mdash; where training residual variance is $\sigma^2(1-h)$ but prediction error variance is $\sigma^2(1+h)$ &mdash; traps any method that estimates variance from training residuals.</p>
+          <ul>
+            <li><strong>CQR</strong> needs two extra quantile regression models. Each requires choosing a model class, setting hyperparameters, and spending significant compute on training. That is like buying two new instruments and learning to play them before your concert.</li>
+            <li><strong>Studentized CP</strong> needs one extra scale-estimation model, and it inherits the sign flip problem: it learns the wrong variance at high-leverage points. That is like hiring a guide who reads the map upside down in exactly the terrain where you most need directions.</li>
+            <li><strong>Localized CP</strong> is expensive at prediction time: it must compare each test point to every calibration point, with a kernel function and bandwidth that need to be chosen. For large test sets, this blows up.</li>
+          </ul>
 
-      <p>Leverage scores do not look at residuals at all. They are computed from the design matrix. The formula $\sigma^2(1+h)$ describes the <em>prediction-time</em> variance directly, without passing through the training residuals as an intermediary. There is no sign to flip.</p>
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p>Other methods for adaptive prediction intervals are like buying an expensive GPS device, programming the destination, and hoping it does not lose signal. Leverage is like realizing the map was already in your glove compartment the whole time &mdash; printed, accurate, and free.</p>
+          </div>
 
-      <p>This means that leverage-based adaptation is correct at high-leverage points &mdash; precisely the region where Studentized CP gets the sign wrong. At a high-leverage point with $h = 0.5$, the leverage-based method correctly assigns a width proportional to $\sqrt{1.5}$, while a training-residual-based method would assign a width proportional to $\sqrt{0.5}$, underestimating the uncertainty by a factor of $\sqrt{3} \approx 1.73$.</p>
+          <h3>When Does Leverage Actually Help?</h3>
 
-      <h2>When Does Leverage Variation Matter?</h2>
+          <p>Leverage-based adaptation helps when different points have meaningfully <em>different</em> leverage scores. If every point in the data has roughly the same leverage, the weights are roughly constant, and there is nothing to adapt. The method still works &mdash; it just reduces to the vanilla constant-width intervals.</p>
 
-      <p>Leverage-based adaptation is useful when there is meaningful variation in leverage across the calibration and test points. If all points have approximately the same leverage, the weight function $w(h)$ is approximately constant, and the method reduces to vanilla CP.</p>
+          <p>There is a simple diagnostic. Compute the <strong>leverage dispersion ratio</strong>: the standard deviation of the leverage scores divided by their mean. If this ratio is greater than 1, there is substantial variation, and leverage-based adaptation will noticeably improve interval quality. If the ratio is below 0.5, leverage variation is mild, and the improvement will be modest.</p>
 
-      <p>The amount of leverage variation depends on two factors:</p>
+          <div class="mermaid">
+flowchart TD
+    A["Compute leverage scores\non calibration set"] --> B["Compute dispersion ratio\neta = std(h) / mean(h)"]
+    B --> C{"eta > 1?"}
+    C -->|Yes| D["Large leverage variation\nLWCP helps significantly"]
+    C -->|No| E{"eta > 0.5?"}
+    E -->|Yes| F["Moderate variation\nLWCP helps somewhat"]
+    E -->|No| G["Mild variation\nLWCP similar to vanilla CP"]
 
-      <p><strong>The ratio $p/n$.</strong> The average training leverage is $p/n$. When $p/n$ is small (say, 0.01), leverages are concentrated near zero, with little variation. When $p/n$ is moderate (say, 0.1&ndash;0.3), there is substantial leverage variation &mdash; some points have leverages several times the average.</p>
+    style D fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style F fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+    style G fill:#fce4ec,stroke:#c62828,color:#1c1917
+          </div>
+          <p class="diagram-caption">The leverage dispersion diagnostic: a quick check for whether leverage-based adaptation will help.</p>
 
-      <p><strong>The feature distribution.</strong> If the features are drawn from a "spiked" distribution (a few dominant principal components), leverage variation can be large even when $p/n$ is small, because points that lie along the small principal components have disproportionately high leverage.</p>
+          <p>When does leverage variation tend to be large? Two situations: (1) when the number of features $p$ is a non-negligible fraction of the number of training points (say, $p/n > 0.05$), and (2) when the features have a "spiked" structure &mdash; a few dominant directions with most features being near-redundant. In modern datasets with many features and moderate sample sizes, both conditions are common.</p>
 
-      <p>A useful diagnostic for deciding whether leverage-based adaptation will help is the <strong>leverage dispersion ratio</strong>:</p>
+          <div class="callout">
+            <div class="callout-label">Key Insight</div>
+            <p>Leverage scores are a zero-cost description of where prediction uncertainty is amplified by feature-space geometry. They are computed as a byproduct of model fitting, require no tuning, work with any prediction method, and avoid the sign-flip trap that ensnares residual-based approaches.</p>
+          </div>
 
-      $$\hat{\eta} = \frac{\text{std}(h)}{\text{mean}(h)}$$
+        </div>
+      </div>
 
-      <p>where the standard deviation and mean are computed over the calibration set. When $\hat{\eta} > 1$, there is substantial leverage variation relative to the average, and leverage-based adaptation can significantly improve conditional coverage. When $\hat{\eta} < 0.5$, leverage variation is mild, and the improvement over vanilla CP will be modest.</p>
+      <!-- =========================================================== -->
+      <!-- LEVEL 2: TECHNICAL                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge technical">Technical</span>
+          <h2>The Four Properties, Made Precise</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
 
-      <h2>Beyond Homoscedastic Noise</h2>
+          <h3>What the SVD Already Gives Us</h3>
 
-      <p>We derived the weight $w(h) = (1+h)^{-1/2}$ from the homoscedastic case: $\text{Var}(\varepsilon) = \sigma^2$, so $\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \sigma^2(1+h)$. But what if the noise is itself heteroscedastic?</p>
+          <p>After fitting OLS on training data $\mathcal{D}_1$, we compute the thin SVD: $\mathbf{X} = \mathbf{U\Sigma V}^\top$. From this single decomposition, we have:</p>
 
-      <p>If the noise variance depends on leverage &mdash; say, $\text{Var}(\varepsilon \mid X) = \sigma^2 g(h(X))$ for some function $g$ &mdash; then the total prediction error variance becomes:</p>
+          <ol>
+            <li>The model: $\hat{f}(x) = x^\top \hat{\beta}$, where $\hat{\beta} = \mathbf{V\Sigma}^{-1}\mathbf{U}^\top \mathbf{Y}$.</li>
+            <li>Leverage scores: $h(x) = \|\mathbf{\Sigma}^{-1}\mathbf{V}^\top x\|^2$ for any point $x$, computable in $O(p)$ time.</li>
+            <li>The prediction variance formula: $\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \sigma^2(1 + h(x))$.</li>
+          </ol>
 
-      $$\text{Var}(Y_{\text{new}} - \hat{Y}(x) \mid x) \approx \sigma^2 g(h(x)) + \sigma^2 h(x) = \sigma^2(g(h(x)) + h(x))$$
+          <p>Everything that follows is a consequence of these three facts. Nothing additional needs to be estimated or learned.</p>
 
-      <p>The optimal weight is then $w^*(h) = (g(h) + h)^{-1/2}$. In the special case $g(h) = 1$ (homoscedastic), this reduces to $(1+h)^{-1/2}$. In the case $g(h) = 1+h$ (the textbook heteroscedastic linear model), it becomes $(1+2h)^{-1/2}$.</p>
+          <h3>Property 1: Closed-Form Weight</h3>
 
-      <p>More generally, under the scale-family assumption from Part 7 where $\varepsilon_i = \sigma\sqrt{g(h_i)} \cdot \eta_i$, the variance-stabilized weight is $w^*(h) = 1/\sqrt{g(h)}$. The key insight is that <em>$g$ depends only on $h$</em>, so the weight is still a function of leverage alone. No auxiliary model is needed &mdash; just the right functional form.</p>
+          <p>The variance formula $\sigma^2(1+h(x))$ means that prediction errors are <em>not</em> identically distributed. Larger leverage means larger variance. To make them comparable, we divide by the scale factor:</p>
 
-      <p>When the heteroscedasticity depends on features in ways <em>not</em> captured by leverage, leverage-based adaptation handles only the leverage-dependent component. For the remainder, one can combine leverage weighting with a lightweight scale estimator &mdash; but even then, the leverage component provides a substantial portion of the adaptation for free.</p>
+          $$w(h) = (1 + h)^{-1/2}$$
 
-      <h2>Summary</h2>
+          <p>This is the weight function in LWCP. It is a known formula of a known quantity. There is no estimation step, no tuning parameter, no model selection. The formula is derived from the exact variance decomposition (Part 6), not from an approximation.</p>
 
-      <p>Leverage scores satisfy a rare combination of properties for adaptive prediction intervals:</p>
+          <p>Compare: CQR requires choosing two quantile regression models, each with its own architecture and hyperparameters. Studentized CP requires choosing a scale estimation model. Both involve cross-validation or other tuning procedures. The leverage weight involves none of this.</p>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Property</th>
-            <th>Leverage</th>
-            <th>CQR</th>
-            <th>Studentized CP</th>
-            <th>Localized CP</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Closed-form</td>
-            <td>Yes</td>
-            <td>No</td>
-            <td>No</td>
-            <td>N/A</td>
-          </tr>
-          <tr>
-            <td>No auxiliary model</td>
-            <td>Yes</td>
-            <td>No</td>
-            <td>No</td>
-            <td>Yes</td>
-          </tr>
-          <tr>
-            <td>No hyperparameters</td>
-            <td>Yes</td>
-            <td>Many</td>
-            <td>Several</td>
-            <td>Kernel + bandwidth</td>
-          </tr>
-          <tr>
-            <td>Immune to sign flip</td>
-            <td>Yes</td>
-            <td>Partial</td>
-            <td>No</td>
-            <td>Yes</td>
-          </tr>
-          <tr>
-            <td>$O(1)$ per test point</td>
-            <td>Yes</td>
-            <td>Yes</td>
-            <td>Yes</td>
-            <td>No</td>
-          </tr>
-          <tr>
-            <td>Computable from design matrix</td>
-            <td>Yes</td>
-            <td>No</td>
-            <td>No</td>
-            <td>No</td>
-          </tr>
-        </tbody>
-      </table>
+          <h3>Property 2: Depends Only on the Design Matrix</h3>
 
-      <p>In the next and final post, we bring everything together: what would a method look like that combines conformal prediction's distribution-free guarantees with leverage-based adaptation?</p>
+          <p>The hat matrix $\mathbf{H} = \mathbf{X}(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top$ is a property of $\mathbf{X}$ alone. It does not depend on the response $\mathbf{Y}$, the model $\hat{f}$, or the noise distribution. The leverage score $h(x) = x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x$ is similarly model-free.</p>
+
+          <p>This has a powerful consequence: you can use leverage-based weights even when the prediction model is not OLS. If you fit a random forest, a neural network, or any other model, you can still compute leverage scores from the raw feature matrix $\mathbf{X}$ and use them to weight the conformal scores. The coverage guarantee of weighted conformal prediction holds for <em>any</em> weight function and <em>any</em> model (Part 2). The leverage weights will correctly identify where the feature-space geometry makes prediction harder, regardless of the prediction method.</p>
+
+          <h3>Property 3: Computational Cost</h3>
+
+          <p>The total cost of leverage-based adaptation breaks down as follows:</p>
+
+          <ul>
+            <li><strong>SVD of $\mathbf{X}$:</strong> $O(n_1 p^2)$. This is typically already computed as part of fitting OLS.</li>
+            <li><strong>Leverage for $n_2$ calibration points:</strong> $O(n_2 \cdot p)$. One matrix-vector product per point.</li>
+            <li><strong>Leverage for $n_{\text{test}}$ test points:</strong> $O(n_{\text{test}} \cdot p)$. Same operation.</li>
+          </ul>
+
+          <p>Total additional cost beyond model fitting: $O((n_2 + n_{\text{test}}) \cdot p)$.</p>
+
+          <div class="mermaid">
+flowchart LR
+    subgraph Leverage["Leverage-Based"]
+        direction TB
+        L1["SVD: O(n p^2)\n(already done)"]
+        L2["Scores: O(n_cal * p)"]
+        L3["Total extra: ~10^6 ops"]
+    end
+
+    subgraph CQR_cost["CQR"]
+        direction TB
+        C1["Train 2 quantile models"]
+        C2["Each: O(n * trees * p * depth)"]
+        C3["Total extra: ~10^8 ops"]
+    end
+
+    subgraph Student["Studentized CP"]
+        direction TB
+        S1["Train 1 scale model"]
+        S2["O(n * trees * p * depth)"]
+        S3["Total extra: ~10^7 ops"]
+    end
+
+    subgraph Local["Localized CP"]
+        direction TB
+        Lo1["Kernel per test point"]
+        Lo2["O(n_cal) per test point"]
+        Lo3["Total: ~5 * 10^7 ops"]
+    end
+
+    style L3 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style C3 fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style S3 fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style Lo3 fill:#fce4ec,stroke:#c62828,color:#1c1917
+          </div>
+          <p class="diagram-caption">Computational cost comparison for $n_1 = 1000$, $n_2 = 500$, $p = 30$, $n_{\text{test}} = 1000$. Leverage is one to two orders of magnitude cheaper.</p>
+
+          <h3>Property 4: No Residuals, No Sign Flip</h3>
+
+          <p>The sign flip (Part 6) is the observation that training residuals have variance $\sigma^2(1 - h_i)$ while prediction errors have variance $\sigma^2(1 + h(x))$. Any method that estimates the scale function from training residuals &mdash; including Studentized CP &mdash; learns a function that <em>decreases</em> at high leverage, when the truth <em>increases</em>.</p>
+
+          <p>Leverage scores bypass this entirely. They are computed from $\mathbf{X}$, not from residuals. The formula $\sigma^2(1+h)$ describes prediction-time variance <em>directly</em>. At a high-leverage point with $h = 0.5$:</p>
+
+          <ul>
+            <li>Leverage-based method: width $\propto \sqrt{1 + 0.5} = \sqrt{1.5} \approx 1.22$.</li>
+            <li>Residual-based method: learns width $\propto \sqrt{1 - 0.5} = \sqrt{0.5} \approx 0.71$.</li>
+          </ul>
+
+          <p>The residual-based method underestimates the uncertainty by a factor of $1.22 / 0.71 \approx 1.73$. The leverage-based method gets it exactly right.</p>
+
+          <h3>The Leverage Dispersion Diagnostic</h3>
+
+          <p>Define the <strong>leverage dispersion ratio</strong>:</p>
+
+          $$\hat{\eta} = \frac{\text{std}(h)}{\text{mean}(h)}$$
+
+          <p>computed over the calibration set. Since $\text{mean}(h_i) = p/n_1$ for training leverages (and approximately $p/n_1$ for new points), this ratio measures how spread out the leverages are relative to their average.</p>
+
+          <ul>
+            <li>$\hat{\eta} > 1$: substantial leverage variation. Some points have leverage several times the average. LWCP will produce noticeably better conditional coverage than vanilla CP.</li>
+            <li>$0.5 < \hat{\eta} < 1$: moderate variation. LWCP improves over vanilla, but the gap may be modest.</li>
+            <li>$\hat{\eta} < 0.5$: mild variation. Leverages are concentrated near their mean, and LWCP intervals will be similar to constant-width intervals.</li>
+          </ul>
+
+          <h3>Beyond Homoscedastic Noise</h3>
+
+          <p>The weight $w(h) = (1+h)^{-1/2}$ is derived under homoscedastic noise: $\text{Var}(\varepsilon \mid X) = \sigma^2$. What if the noise is itself heteroscedastic, with variance depending on leverage?</p>
+
+          <p>If $\text{Var}(\varepsilon \mid X) = \sigma^2 g(h(X))$ for some function $g$, then the total prediction error variance becomes:</p>
+
+          $$\text{Var}(Y_{\text{new}} - \hat{Y}(x) \mid x) \approx \sigma^2\bigl(g(h(x)) + h(x)\bigr)$$
+
+          <p>The first term is the noise variance; the second is the estimation variance amplified by leverage. The optimal weight is:</p>
+
+          $$w^*(h) = \bigl(g(h) + h\bigr)^{-1/2}$$
+
+          <p>Special cases:</p>
+          <ul>
+            <li><strong>Homoscedastic</strong> ($g = 1$): $w^*(h) = (1 + h)^{-1/2}$. This is the standard LWCP weight.</li>
+            <li><strong>Leverage-proportional noise</strong> ($g(h) = 1 + h$): $w^*(h) = (1 + 2h)^{-1/2}$. Both noise and estimation variance grow with leverage; the weight compensates for both.</li>
+          </ul>
+
+          <p>The key observation is that $w^*$ is still a function of leverage alone. No auxiliary model is needed &mdash; just the right functional form applied to a quantity we already have.</p>
+
+          <h3>Full Comparison</h3>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>Leverage</th>
+                <th>CQR</th>
+                <th>Studentized CP</th>
+                <th>Localized CP</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Closed-form weight</td>
+                <td>Yes</td>
+                <td>No</td>
+                <td>No</td>
+                <td>N/A</td>
+              </tr>
+              <tr>
+                <td>No auxiliary model</td>
+                <td>Yes</td>
+                <td>No (2 models)</td>
+                <td>No (1 model)</td>
+                <td>Yes</td>
+              </tr>
+              <tr>
+                <td>No hyperparameters</td>
+                <td>Yes</td>
+                <td>Many</td>
+                <td>Several</td>
+                <td>Kernel + bandwidth</td>
+              </tr>
+              <tr>
+                <td>Immune to sign flip</td>
+                <td>Yes</td>
+                <td>Partial</td>
+                <td>No</td>
+                <td>Yes</td>
+              </tr>
+              <tr>
+                <td>Cost per test point</td>
+                <td>$O(p)$</td>
+                <td>$O(1)$ after training</td>
+                <td>$O(1)$ after training</td>
+                <td>$O(n_2)$</td>
+              </tr>
+              <tr>
+                <td>Computed from design matrix</td>
+                <td>Yes</td>
+                <td>No</td>
+                <td>No</td>
+                <td>No</td>
+              </tr>
+              <tr>
+                <td>Exact variance formula</td>
+                <td>Yes</td>
+                <td>Approximate</td>
+                <td>Approximate</td>
+                <td>Asymptotic</td>
+              </tr>
+            </tbody>
+          </table>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 3: ADVANCED                                           -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>Formal Justifications and Extensions</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Formal Statement of the Four Properties</h3>
+
+          <p><strong>Property 1 (Closed-Form).</strong> Let $Y = X^\top\beta + \varepsilon$ with $\varepsilon \sim (0, \sigma^2)$ and $\hat{\beta} = (\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{Y}$ the OLS estimator. For a new point $x$ independent of the training data:</p>
+
+          $$\text{Var}(Y_{\text{new}} - x^\top\hat{\beta}) = \sigma^2(1 + h(x)), \quad h(x) = x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x$$
+
+          <p>This is exact (not asymptotic) under the stated assumptions. The variance-stabilizing weight $w(h) = (1+h)^{-1/2}$ follows immediately: after dividing by $\sqrt{1+h(x)}$, the normalized residuals have constant variance $\sigma^2$.</p>
+
+          <p><em>Proof sketch.</em> Write $Y_{\text{new}} - x^\top\hat{\beta} = \varepsilon_{\text{new}} - x^\top(\hat{\beta} - \beta)$. The two terms are independent (new noise vs. estimation error). $\text{Var}(\varepsilon_{\text{new}}) = \sigma^2$. $\text{Var}(x^\top(\hat{\beta} - \beta)) = \sigma^2 x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x = \sigma^2 h(x)$. Summing gives $\sigma^2(1 + h(x))$.</p>
+
+          <p><strong>Property 2 (Model-Free).</strong> The leverage $h(x) = x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x$ depends only on the design matrix $\mathbf{X}$ and the test point $x$. It is invariant to:</p>
+          <ul>
+            <li>The response vector $\mathbf{Y}$.</li>
+            <li>The fitted model $\hat{f}$ (OLS, ridge, random forest, etc.).</li>
+            <li>The noise distribution beyond its variance.</li>
+          </ul>
+
+          <p>For weighted split conformal prediction, the coverage guarantee $\mathbb{P}(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - \alpha$ holds for any weight function $w$ and any model $\hat{f}$, provided the calibration data and test point are exchangeable. Therefore, using leverage-based weights with a non-OLS model preserves the marginal coverage guarantee by construction.</p>
+
+          <p><strong>Property 3 (Computational Cost).</strong> The cost accounting is as follows:</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Operation</th>
+                <th>Cost</th>
+                <th>Already computed?</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Thin SVD of $\mathbf{X} \in \mathbb{R}^{n_1 \times p}$</td>
+                <td>$O(n_1 p^2)$</td>
+                <td>Yes (OLS fitting)</td>
+              </tr>
+              <tr>
+                <td>Store $\mathbf{\Sigma}^{-1}\mathbf{V}^\top \in \mathbb{R}^{p \times p}$</td>
+                <td>$O(p^2)$</td>
+                <td>Trivial</td>
+              </tr>
+              <tr>
+                <td>$h(x_i)$ for $n_2$ calibration points</td>
+                <td>$O(n_2 \cdot p)$</td>
+                <td>No (extra cost)</td>
+              </tr>
+              <tr>
+                <td>$h(x)$ for $n_{\text{test}}$ test points</td>
+                <td>$O(n_{\text{test}} \cdot p)$</td>
+                <td>No (extra cost)</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>Total <em>additional</em> cost: $O(n_1 p^2 + n_2 p + n_{\text{test}} \cdot p)$, dominated by the SVD if not already computed, or $O((n_2 + n_{\text{test}}) \cdot p)$ if it is.</p>
+
+          <p>For comparison, CQR with gradient-boosted trees (100 trees, depth 6) costs approximately $O(n_1 \cdot 100 \cdot p \cdot 6) = O(600 \cdot n_1 \cdot p)$ <em>per quantile model</em>, for a total of $O(1200 \cdot n_1 \cdot p)$. With $n_1 = 1000$ and $p = 30$, this is $\sim 3.6 \times 10^7$ operations, versus $\sim 4.5 \times 10^4$ for leverage computation of 1500 points. The ratio is approximately $800 \times$.</p>
+
+          <p><strong>Property 4 (Sign-Flip Immunity).</strong> For a training point $i$, the residual is $e_i = Y_i - \hat{Y}_i = (I - H)_i \cdot \varepsilon$, so $\text{Var}(e_i) = \sigma^2(1 - h_i)$. For a new test point $x$, $\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \sigma^2(1 + h(x))$. The sign of the leverage contribution <em>flips</em> between training and prediction.</p>
+
+          <p>Any method that regresses $|e_i|$ on $h_i$ to estimate $\sigma(x)$ learns the function $\sigma\sqrt{1-h}$ instead of $\sigma\sqrt{1+h}$. At the point $h = p/n_1$ (the average leverage), the relative error is:</p>
+
+          $$\frac{\sqrt{1+p/n_1} - \sqrt{1-p/n_1}}{\sqrt{1+p/n_1}} = 1 - \sqrt{\frac{1-p/n_1}{1+p/n_1}}$$
+
+          <p>For $p/n_1 = 0.1$, this is $\approx 10\%$. For $p/n_1 = 0.3$, this is $\approx 35\%$. The error grows with $p/n_1$ and is worst at the highest-leverage points, where accurate uncertainty estimation matters most.</p>
+
+          <p>Leverage-based weights use $h(x)$ directly from the design matrix, never passing through the training residuals. The formula $\sigma^2(1+h)$ is the <em>prediction-time</em> variance, not an estimate of it via training residuals.</p>
+
+          <h3>Randomized SVD</h3>
+
+          <p>For very large datasets where even the standard SVD is expensive, <em>randomized SVD</em> (Halko, Martinsson, and Tropp, 2011) computes an approximate thin SVD in $O(n_1 p \log p)$ time &mdash; nearly linear in the data size. The approximation error is controlled and can be made arbitrarily small by oversampling a few extra dimensions. This means that leverage computation scales to datasets with millions of rows and thousands of features.</p>
+
+          <p>The randomized SVD produces $\tilde{\mathbf{U}}, \tilde{\mathbf{\Sigma}}, \tilde{\mathbf{V}}$ such that $\|\mathbf{X} - \tilde{\mathbf{U}}\tilde{\mathbf{\Sigma}}\tilde{\mathbf{V}}^\top\|$ is close to optimal. The approximate leverage scores $\tilde{h}(x) = \|\tilde{\mathbf{\Sigma}}^{-1}\tilde{\mathbf{V}}^\top x\|^2$ satisfy $|\tilde{h}(x) - h(x)| \leq \epsilon$ for a user-chosen tolerance $\epsilon$, provided a modest oversampling parameter (typically 5-10 extra dimensions).</p>
+
+          <h3>General Heteroscedastic Case</h3>
+
+          <p>Suppose $\text{Var}(\varepsilon \mid X) = \sigma^2 g(h(X))$, where $g: [0,1] \to \mathbb{R}_+$ is a known or estimable function. Then:</p>
+
+          $$\text{Var}(Y_{\text{new}} - \hat{Y}(x) \mid x) = \sigma^2 g(h(x)) + \sigma^2 h(x) = \sigma^2\bigl(g(h(x)) + h(x)\bigr)$$
+
+          <p>The optimal variance-stabilizing weight is:</p>
+
+          $$w^*(h) = \bigl(g(h) + h\bigr)^{-1/2}$$
+
+          <p>Important special cases and their optimal weights:</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>$g(h)$</th>
+                <th>Total variance</th>
+                <th>Optimal weight $w^*(h)$</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Homoscedastic</td>
+                <td>$1$</td>
+                <td>$\sigma^2(1+h)$</td>
+                <td>$(1+h)^{-1/2}$</td>
+              </tr>
+              <tr>
+                <td>Leverage-proportional</td>
+                <td>$1 + h$</td>
+                <td>$\sigma^2(1+2h)$</td>
+                <td>$(1+2h)^{-1/2}$</td>
+              </tr>
+              <tr>
+                <td>Quadratic leverage</td>
+                <td>$1 + h^2$</td>
+                <td>$\sigma^2(1+h+h^2)$</td>
+                <td>$(1+h+h^2)^{-1/2}$</td>
+              </tr>
+              <tr>
+                <td>General</td>
+                <td>$g(h)$</td>
+                <td>$\sigma^2(g(h)+h)$</td>
+                <td>$(g(h)+h)^{-1/2}$</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>In every case, the optimal weight depends only on $h$. The entire adaptation mechanism is a univariate function of leverage.</p>
+
+          <h3>When Heteroscedasticity Is Not Captured by Leverage</h3>
+
+          <p>If $\text{Var}(\varepsilon \mid X) = \sigma^2(X) $ depends on features in ways that are <em>not</em> a function of $h(X)$, leverage-based adaptation handles only the geometric (estimation-variance) component. The total prediction error variance is then:</p>
+
+          $$\text{Var}(Y_{\text{new}} - \hat{Y}(x) \mid x) = \sigma^2(x) + \sigma_0^2 \cdot h(x)$$
+
+          <p>where $\sigma_0^2$ is the average noise level and $\sigma^2(x)$ is the feature-dependent noise. The leverage component $\sigma_0^2 \cdot h(x)$ is still handled exactly by leverage weighting. For the non-leverage component $\sigma^2(x)$, one can combine leverage weighting with a lightweight scale estimator. This is the LWCP+ approach: use a small random forest (say, 10 trees) to estimate $\hat{\sigma}(x)$ from training residuals, then define the weight as $w(x) = (\hat{\sigma}^2(x) \cdot (1 + h(x)))^{-1/2}$. The leverage component handles the geometry; the scale estimator handles the feature-dependent noise.</p>
+
+          <p>Even in this hybrid approach, the leverage component provides a substantial portion of the adaptation for free. The scale estimator needs to capture only the residual heteroscedasticity not explained by leverage, which is a simpler estimation problem than capturing all heteroscedasticity from scratch.</p>
+
+          <h3>Full Mathematical Pipeline</h3>
+
+          <div class="mermaid">
+flowchart TD
+    A["Training Data (X, Y)"] --> B["Thin SVD: X = U Sigma V^T\nCost: O(n1 * p^2)"]
+    B --> C["OLS coefficients\nbeta = V Sigma^-1 U^T Y"]
+    B --> D["Store Sigma^-1 V^T\nCost: O(p^2)"]
+
+    E["Calibration Data (X_cal, Y_cal)"] --> F["Predictions: Y_hat = X_cal * beta"]
+    E --> G["Leverage: h_i = ||Sigma^-1 V^T x_i||^2\nCost: O(n2 * p)"]
+
+    F --> H["Residuals: r_i = |Y_i - Y_hat_i|"]
+    G --> I["Weights: w_i = (1 + h_i)^{-1/2}"]
+
+    H --> J["Scores: s_i = r_i * w_i"]
+    I --> J
+
+    J --> K["Quantile: q_hat = Quantile_{1-alpha}(s_1, ..., s_n2)"]
+
+    L["Test point x_new"] --> M["h_new = ||Sigma^-1 V^T x_new||^2\nCost: O(p)"]
+    M --> N["Width = q_hat / w(h_new)\n= q_hat * sqrt(1 + h_new)"]
+
+    C --> O["y_hat_new = x_new^T * beta"]
+    N --> P["Interval:\n[y_hat - width, y_hat + width]"]
+    O --> P
+
+    style B fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style D fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style K fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+    style P fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+          </div>
+          <p class="diagram-caption">The complete LWCP pipeline, from data to adaptive prediction intervals. Green nodes indicate components that are shared with (or already computed by) standard OLS.</p>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- CLOSING                                                     -->
+      <!-- =========================================================== -->
+
+      <h2>Looking Ahead</h2>
+
+      <p>We have established that leverage scores satisfy a rare combination of properties: closed-form, model-free, computationally negligible, and immune to the sign flip. No other adaptation mechanism for conformal prediction has all four.</p>
+
+      <p>In the next and final post, we bring everything together. We define the Leverage-Weighted Conformal Prediction (LWCP) algorithm, prove its coverage guarantee, and demonstrate its performance on real and synthetic data. The free lunch, it turns out, is also a good one.</p>
 
     </div>
 

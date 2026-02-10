@@ -9,6 +9,8 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
     onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
 </head>
 <body>
 
@@ -35,96 +37,327 @@
 
     <div class="post-body">
 
-      <p>Over the past nine posts, we have built up two bodies of knowledge that, as far as the existing literature is concerned, have lived mostly separate lives.</p>
+      <p>This is the final post. For nine installments, we have been building toward a single idea from two different directions. One direction gave us a way to build prediction intervals that work for any model without any distributional assumptions. The other gave us a geometric measure that already knows, for free, where predictions are hard. This post is where the two roads meet.</p>
 
-      <p><strong>The conformal prediction track</strong> (Posts 1-3, 8) established that:</p>
-      <ul>
-        <li>Point predictions are incomplete; we need prediction intervals (Post 1).</li>
-        <li>Split conformal prediction provides distribution-free, finite-sample coverage guarantees for any model (Post 2).</li>
-        <li>But these intervals have constant width, leading to overcoverage in easy regions and undercoverage in hard regions (Post 3).</li>
-        <li>Existing adaptive methods &mdash; CQR, Studentized CP, Localized CP &mdash; each address this by introducing auxiliary models, hyperparameters, or computational overhead (Post 8).</li>
-      </ul>
+      <!-- =========================================================== -->
+      <!-- LEVEL 1: INTUITIVE                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>Two Roads, One Destination</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
 
-      <p><strong>The leverage track</strong> (Posts 4-7, 9) established that:</p>
-      <ul>
-        <li>The hat matrix diagonal &mdash; the leverage score &mdash; measures how far each point sits from the training distribution in Mahalanobis distance (Post 4).</li>
-        <li>Leverage has a 50-year history in regression diagnostics but has been largely overlooked by the ML community (Post 5).</li>
-        <li>Prediction error variance is $\sigma^2(1+h)$, while training residual variance is $\sigma^2(1-h)$ &mdash; the sign flip means that residual-based variance estimators systematically underestimate uncertainty at high-leverage points (Post 6).</li>
-        <li>Variance stabilization provides the framework for making heteroscedastic residuals comparable (Post 7).</li>
-        <li>Leverage scores provide a closed-form, model-free, computationally negligible, sign-flip-immune measure of where predictions are hard (Post 9).</li>
-      </ul>
+          <h3>The Journey So Far</h3>
 
-      <p>These two tracks are pointing toward an obvious combination.</p>
+          <p><strong>Track 1: Conformal Prediction (Posts 1&ndash;3, 8).</strong> We started with a simple observation: point predictions are incomplete. A model that says "$420,000" without any indication of confidence is like GPS without the blue circle. We then discovered conformal prediction &mdash; a remarkable framework that converts <em>any</em> model's predictions into prediction intervals with a mathematically guaranteed coverage rate. The guarantee is exact, holds in finite samples, and requires no assumptions about the data distribution. But there was a catch: the intervals have the same width everywhere. A prediction in the center of the data gets the same error bar as a prediction at the far edge. Posts 3 and 8 surveyed existing fixes &mdash; CQR, Studentized CP, Localized CP &mdash; and found that every one of them comes with a price: extra models to train, hyperparameters to tune, or fundamental vulnerabilities like the sign flip.</p>
 
-      <h2>The Question</h2>
+          <p><strong>Track 2: Leverage Scores (Posts 4&ndash;7, 9).</strong> In parallel, we built up a completely different body of knowledge. The design matrix &mdash; the table of features &mdash; contains a hidden map of prediction difficulty. The leverage score of any point tells you, in closed form, how far that point sits from the training data in the directions that matter. High leverage means the model is extrapolating; low leverage means it is interpolating. The prediction error variance is exactly $\sigma^2(1+h)$, where $h$ is the leverage. This formula requires no model training, no hyperparameters, and no residuals. It comes from a single SVD of the design matrix &mdash; an operation that is often already performed when fitting the model. And crucially, it avoids the sign flip that plagues residual-based methods: leverage looks at the geometry of the features, not at the residuals.</p>
 
-      <p>What if we used leverage scores directly as the weighting function in conformal prediction?</p>
+          <h3>The Convergence</h3>
 
-      <p>That is: instead of computing raw residuals $|Y_i - \hat{f}(X_i)|$ (vanilla CP) or normalized residuals $|Y_i - \hat{f}(X_i)| / \hat{\sigma}(X_i)$ (studentized CP), what if we computed <em>leverage-weighted residuals</em>:</p>
+          <p>These two tracks have been converging from opposite sides of the same problem. Conformal prediction has the <em>engine</em> &mdash; a machine for converting any score into guaranteed prediction intervals. Leverage scores have the <em>steering wheel</em> &mdash; a precise, closed-form measure of where to make intervals wider and where to make them narrower. What if we simply combine them?</p>
 
-      $$S_i = |Y_i - \hat{f}(X_i)| \cdot w(h(X_i))$$
+          <p>The idea is disarmingly simple: instead of feeding raw residuals into the conformal machine, feed in <em>leverage-weighted</em> residuals. The conformal guarantee still holds &mdash; it works for any score function. But now the intervals adapt to the geometry of the data: wider at high-leverage points where predictions are genuinely harder, narrower at low-leverage points where the model is on solid ground.</p>
 
-      <p>where $w(h)$ is a function that decreases with leverage &mdash; say, $w(h) = (1+h)^{-1/2}$?</p>
+          <div class="mermaid">
+flowchart LR
+    subgraph Track1["Track 1: Conformal Prediction"]
+      direction TB
+      A1["Data"] --> A2["Model"]
+      A2 --> A3["Residuals"]
+      A3 --> A4["Conformal Quantile"]
+      A4 --> A5["Constant Width\nInterval"]
+    end
+    subgraph Track2["Track 2: Leverage"]
+      direction TB
+      B1["Design Matrix"] --> B2["SVD"]
+      B2 --> B3["Leverage Scores"]
+      B3 --> B4["Weight Function\nw&#40;h&#41; = &#40;1+h&#41;^-1/2"]
+    end
+    A3 -. "?" .-> M["Leverage-Weighted\nResiduals"]
+    B4 --> M
+    M --> Q["Conformal Quantile"]
+    Q --> I["ADAPTIVE\nInterval"]
+    style A5 fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style I fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style M fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+          </div>
+          <p class="diagram-caption">Two independent tracks &mdash; conformal prediction and leverage &mdash; converge into a single method that inherits the best of both.</p>
 
-      <p>The conformal quantile of these weighted scores would yield a prediction interval with width proportional to $1/w(h(x)) = \sqrt{1+h(x)}$ &mdash; wider at high-leverage points (where prediction is harder) and narrower at low-leverage points (where prediction is easier).</p>
+          <p>The guarantee is exact and finite-sample &mdash; inherited from conformal prediction. The adaptation is based on 50 years of regression theory &mdash; inherited from leverage. The computational cost is a single SVD.</p>
 
-      <h2>What Would This Need?</h2>
+          <h3>What Does This Give Us?</h3>
 
-      <p>For such a method to be useful, it would need to satisfy several requirements. Let us check each one against what we have established:</p>
+          <p>Over the course of this series, we have articulated five requirements for a good adaptive prediction interval method. Let us see how the combination fares.</p>
 
-      <p><strong>Requirement 1: Marginal coverage guarantee.</strong></p>
+          <div class="mermaid">
+flowchart TD
+    R1["1. Coverage guarantee\nfor ANY model"]
+    R2["2. Adaptive width\nwider where harder"]
+    R3["3. No auxiliary models\nno hyperparameters"]
+    R4["4. Computationally cheap\none SVD + O&#40;p&#41; per point"]
+    R5["5. No sign flip\nno residuals in the weight"]
+    R1 --- V1["Conformal framework\nguarantees this"]
+    R2 --- V2["Leverage controls\nprediction variance"]
+    R3 --- V3["SVD of design matrix\nnothing else needed"]
+    R4 --- V4["Already computed\nwhen fitting OLS"]
+    R5 --- V5["Weight uses geometry\nnot residuals"]
+    style R1 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style R2 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style R3 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style R4 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style R5 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">All five requirements are satisfied by combining conformal prediction with leverage-based weighting.</p>
 
-      <p>From Part 2, we know that the conformal coverage guarantee relies on <em>exchangeability</em> of the scores, not on any specific form of the scores. The rank uniformity argument works for <em>any</em> function of $(X, Y)$ that is applied uniformly to calibration and test points. So replacing raw residuals with weighted residuals preserves the coverage guarantee, for <em>any</em> weight function $w$, for <em>any</em> model $\hat{f}$.</p>
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p>For 20 years, conformal prediction had the engine but no steering wheel. It could build prediction intervals for any model &mdash; an extraordinary capability &mdash; but those intervals were the same width everywhere. For 50 years, leverage scores had the steering wheel but no engine. They could tell you exactly where predictions are hard &mdash; but they could not, on their own, produce prediction intervals with finite-sample guarantees. The combination gives you both: an engine that runs on any fuel, steered by 50 years of geometric insight.</p>
+          </div>
 
-      <p>This is not a conjecture &mdash; it follows directly from the proof structure. The weight $w(h(X))$ is a deterministic function of $X$ (given the training set), so it does not break exchangeability.</p>
+          <h3>Open Questions</h3>
 
-      <p><strong>Requirement 2: Improved conditional coverage.</strong></p>
+          <p>The combination sounds almost too good to be true, and indeed several questions remain. Can it be made mathematically rigorous, with formal optimality results? Does it actually work in experiments, or does the theory fall apart in finite samples? What about non-linear models, where the variance formula $\sigma^2(1+h)$ was derived for OLS? And could leverage be combined with a lightweight scale estimator to handle heteroscedasticity that depends on features in ways beyond what geometry captures?</p>
 
-      <p>From Parts 6-7, we know that under a linear model with homoscedastic errors, the prediction error has variance $\sigma^2(1+h(x))$. The variance-stabilized score &mdash; dividing by $\sqrt{1+h}$ &mdash; yields scores with approximately constant variance, which is exactly the condition for the conformal quantile to estimate the correct conditional quantile at each leverage level.</p>
+          <div class="callout">
+            <div class="callout-label">Stay Tuned</div>
+            <p>We have something coming. The ideas in this series are not just a pedagogical exercise. They point toward a concrete method &mdash; Leverage-Weighted Conformal Prediction &mdash; with theoretical guarantees and empirical results. The formal treatment is the subject of ongoing work.</p>
+          </div>
 
-      <p>Under the scale family framework (Part 7), using the optimal weight $w^*(h) = 1/\sqrt{g(h)}$ produces scores that are not just variance-stabilized but <em>identically distributed</em> across the calibration set. This is the strongest possible condition for the conformal quantile to be uniformly informative.</p>
+        </div>
+      </div>
 
-      <p><strong>Requirement 3: No auxiliary models or hyperparameters.</strong></p>
+      <!-- =========================================================== -->
+      <!-- LEVEL 2: TECHNICAL                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge technical">Technical</span>
+          <h2>The Proposal and Its Requirements</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
 
-      <p>The weight $w(h) = (1+h)^{-1/2}$ is a fixed, known function of the leverage score. The leverage score is computed from the SVD of the design matrix. No model is trained, no hyperparameters are tuned, no cross-validation is performed.</p>
+          <h3>Leverage-Weighted Conformal Scores</h3>
 
-      <p><strong>Requirement 4: Computational efficiency.</strong></p>
+          <p>The proposal is to replace the vanilla conformal score $S_i = |Y_i - \hat{f}(X_i)|$ with a leverage-weighted score:</p>
 
-      <p>The additional cost is one SVD ($O(n_1 p^2)$, or $O(n_1 p \log p)$ with randomized methods) plus $O(p)$ per point for leverage computation. For most practical datasets, this is negligible compared to the cost of training the prediction model.</p>
+          $$S_i = |Y_i - \hat{f}(X_i)| \cdot w(h(X_i))$$
 
-      <p><strong>Requirement 5: Robustness to the sign flip.</strong></p>
+          <p>where $h(X_i) = X_i^\top (\mathbf{X}^\top \mathbf{X})^{-1} X_i$ is the leverage of the calibration point and $w(h) = (1+h)^{-1/2}$ is the weight function derived from the variance formula in Part 6.</p>
 
-      <p>The leverage-based weight does not use training residuals at all. It is computed from the design matrix geometry. There is no sign to flip.</p>
+          <p>Given the conformal quantile $\hat{q} = \text{Quantile}_{1-\alpha}\left(\{S_1, \ldots, S_{n_2}, +\infty\}\right)$, the prediction interval at a new point $x$ is:</p>
 
-      <h2>What Remains Open</h2>
+          $$\hat{C}(x) = \left[\hat{f}(x) - \frac{\hat{q}}{w(h(x))}, \;\; \hat{f}(x) + \frac{\hat{q}}{w(h(x))}\right]$$
 
-      <p>The sketch above is suggestive, but several questions remain before it can be called a complete method:</p>
+          <p>The interval has width $2\hat{q}/w(h(x)) = 2\hat{q}\sqrt{1+h(x)}$. This is wider at high-leverage points and narrower at low-leverage points &mdash; exactly the behavior we want.</p>
 
-      <p><strong>Efficiency.</strong> The marginal coverage guarantee holds for <em>any</em> weight function &mdash; including terrible ones. But does the leverage-based weight achieve <em>good</em> conditional coverage? Is there a formal sense in which it is optimal? Does it come at a cost in terms of marginal interval width?</p>
+          <div class="mermaid">
+flowchart TD
+    subgraph Training["Step 1: Training Split D1"]
+      T1["Fit model f&#x0302; on D1"]
+      T2["Compute SVD: X = U&Sigma;V'"]
+      T1 --- T2
+    end
+    subgraph Calibration["Step 2: Calibration Split D2"]
+      C1["For each &#40;Xi, Yi&#41; in D2:"]
+      C2["Compute h&#40;Xi&#41; = ||&Sigma;^-1 V' Xi||^2"]
+      C3["Compute weight w&#40;h&#41; = &#40;1+h&#41;^-1/2"]
+      C4["Score Si = |Yi - f&#x0302;&#40;Xi&#41;| * w&#40;h&#41;"]
+      C1 --> C2 --> C3 --> C4
+    end
+    subgraph Quantile["Step 3: Conformal Quantile"]
+      Q1["q&#x0302; = Quantile at level\n&#40;1-&alpha;&#41;&#40;1 + 1/n2&#41;\nof &#123;S1, ..., Sn2&#125;"]
+    end
+    subgraph Predict["Step 4: Prediction"]
+      P1["For new x:"]
+      P2["Compute h&#40;x&#41;"]
+      P3["Width = 2q&#x0302; / w&#40;h&#40;x&#41;&#41;\n= 2q&#x0302; * sqrt&#40;1+h&#40;x&#41;&#41;"]
+      P1 --> P2 --> P3
+    end
+    Training --> Calibration --> Quantile --> Predict
+          </div>
+          <p class="diagram-caption">The leverage-weighted conformal prediction pipeline, from training through prediction.</p>
 
-      <p><strong>Finite samples.</strong> The variance formula $\sigma^2(1+h)$ and the scale-family analysis are asymptotic or assume a correctly specified linear model. How does the method behave when $p/n$ is not negligible? When the model is misspecified?</p>
+          <h3>The Five Requirements</h3>
 
-      <p><strong>Approximate leverage.</strong> If we use randomized SVD to approximate the leverage scores (for computational efficiency), does the coverage guarantee still hold? How does the approximation error affect the interval width?</p>
+          <p>Let us check each requirement systematically.</p>
 
-      <p><strong>Non-linear models.</strong> The variance decomposition $\sigma^2(1+h)$ applies to OLS. What happens when the prediction model is a random forest or neural network? The coverage guarantee still holds (it is model-free), but does the leverage-based adaptation still improve conditional coverage?</p>
+          <p><strong>Requirement 1: Marginal coverage guarantee.</strong> The conformal coverage guarantee (Part 2) depends on exchangeability of the scores, not on their specific form. The weight $w(h(X_i))$ is a deterministic function of $X_i$ given the training set $D_1$. Multiplying exchangeable residuals by a deterministic function of the features preserves exchangeability. Therefore, the marginal coverage guarantee $P(Y_{\text{new}} \in \hat{C}(X_{\text{new}})) \geq 1-\alpha$ holds for <em>any</em> weight function $w$, for <em>any</em> prediction model $\hat{f}$, in finite samples.</p>
 
-      <p><strong>Combination with learned scale.</strong> When heteroscedasticity has both leverage-dependent and feature-dependent components, can leverage weighting be combined with a lightweight scale estimator for additional adaptation? Does the leverage component help with the sign flip problem of the scale estimator?</p>
+          <p><strong>Requirement 2: Improved conditional coverage.</strong> Under a linear model with homoscedastic errors, the prediction error $Y_i - \hat{f}(X_i)$ has variance $\sigma^2(1+h(X_i))$ on the calibration set (Part 6). The weighted score $S_i = |Y_i - \hat{f}(X_i)| \cdot (1+h(X_i))^{-1/2}$ therefore has approximately constant variance $\sigma^2$ across the calibration set. When the scores have constant variance, the conformal quantile estimates the correct conditional quantile at every leverage level &mdash; this is the best possible condition for uniform conditional coverage.</p>
 
-      <p>These are precisely the kinds of questions that motivate a rigorous theoretical and empirical investigation.</p>
+          <p><strong>Requirement 3: No auxiliary models or hyperparameters.</strong> The weight $w(h) = (1+h)^{-1/2}$ is a fixed, known function. The leverage $h(x)$ is computed from the SVD of the design matrix. No model is trained, no hyperparameter is tuned, no cross-validation is performed.</p>
 
-      <h2>The Convergence</h2>
+          <p><strong>Requirement 4: Computational efficiency.</strong> One SVD costs $O(n_1 p^2)$, or $O(n_1 p \log p)$ with randomized methods. Each leverage score costs $O(p)$. For most practical datasets, this is negligible compared to the cost of fitting the prediction model.</p>
 
-      <p>Looking back at the full arc of this series, the convergence of conformal prediction and leverage scores is not a coincidence. It is the meeting of two fundamental ideas:</p>
+          <p><strong>Requirement 5: Immunity to the sign flip.</strong> The leverage-based weight uses the design matrix geometry. It does not look at residuals, not training residuals, not calibration residuals. There is no sign to flip. At a high-leverage point with $h = 0.5$, the method correctly assigns width proportional to $\sqrt{1.5}$, while a residual-based method would assign width proportional to $\sqrt{0.5}$ &mdash; underestimating uncertainty by a factor of $\sqrt{3}$.</p>
 
-      <p><strong>Conformal prediction</strong> provides the <em>inferential framework</em>: a way to convert any score function into a prediction interval with guaranteed coverage. The framework is agnostic to the score function &mdash; it treats it as a black box. The coverage guarantee is "free" in the sense that it holds for any score.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Requirement</th>
+                <th>Satisfied?</th>
+                <th>Mechanism</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1. Marginal coverage</td>
+                <td>Yes</td>
+                <td>Exchangeability preserved for any $w$</td>
+              </tr>
+              <tr>
+                <td>2. Conditional coverage</td>
+                <td>Yes (under linear model)</td>
+                <td>Variance stabilization via $w(h) = (1+h)^{-1/2}$</td>
+              </tr>
+              <tr>
+                <td>3. No auxiliary models</td>
+                <td>Yes</td>
+                <td>$w$ is a fixed function of SVD</td>
+              </tr>
+              <tr>
+                <td>4. Computationally cheap</td>
+                <td>Yes</td>
+                <td>One SVD + $O(p)$ per point</td>
+              </tr>
+              <tr>
+                <td>5. No sign flip</td>
+                <td>Yes</td>
+                <td>No residuals used in weight</td>
+              </tr>
+            </tbody>
+          </table>
 
-      <p><strong>Leverage scores</strong> provide the <em>score function</em>: a principled, closed-form, computationally efficient measure of prediction difficulty that arises from the geometry of the feature space. The leverage-based weight is "free" in the sense that it requires no additional learning.</p>
+          <div class="mermaid">
+flowchart LR
+    subgraph Requirements
+      direction TB
+      R1["Marginal coverage"]
+      R2["Conditional coverage"]
+      R3["No auxiliary models"]
+      R4["Computational efficiency"]
+      R5["Sign-flip immunity"]
+    end
+    subgraph Sources["Source of Guarantee"]
+      direction TB
+      S1["Exchangeability\n&#40;conformal framework&#41;"]
+      S2["Variance stabilization\n&#40;leverage theory&#41;"]
+      S3["Fixed function of SVD\n&#40;closed form&#41;"]
+      S4["One SVD + O&#40;p&#41;\n&#40;linear algebra&#41;"]
+      S5["Design matrix geometry\n&#40;no residuals&#41;"]
+    end
+    R1 --> S1
+    R2 --> S2
+    R3 --> S3
+    R4 --> S4
+    R5 --> S5
+          </div>
+          <p class="diagram-caption">Each of the five requirements is satisfied by a specific property of the leverage-weighted approach.</p>
 
-      <p>The combination is natural: use conformal prediction for the guarantee, and leverage for the adaptation. The guarantee is exact and finite-sample. The adaptation is based on 50 years of regression theory. The computational cost is a single SVD.</p>
+          <div class="callout">
+            <div class="callout-label">The Key Insight</div>
+            <p>Coverage holds for <em>any</em> weight function $w$ &mdash; this is the beauty of the conformal framework. But <em>efficiency</em> depends on choosing $w$ well. The leverage-based weight is not just any weight; it is the variance-stabilizing weight from the theory of heteroscedastic regression. It is the unique weight that makes the scores approximately i.i.d., which is the optimal condition for the conformal quantile to be informative.</p>
+          </div>
 
-      <p>Whether this combination can be made rigorous &mdash; with formal optimality results, finite-sample bounds, and empirical validation &mdash; is a question worth investigating carefully.</p>
+        </div>
+      </div>
 
-      <p>Stay tuned. There is more to come.</p>
+      <!-- =========================================================== -->
+      <!-- LEVEL 3: ADVANCED                                           -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>Formal Arguments and Open Questions</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Formal Coverage Argument</h3>
+
+          <p>We make the coverage argument precise. Consider the split conformal setup: a training set $D_1 = \{(X_i, Y_i)\}_{i=1}^{n_1}$ and a calibration set $D_2 = \{(X_j, Y_j)\}_{j=1}^{n_2}$, with the test point $(X_{\text{new}}, Y_{\text{new}})$. We assume that the calibration and test points are exchangeable (the standard conformal assumption).</p>
+
+          <p>Given $D_1$, we fit a model $\hat{f}$ and compute the SVD of the design matrix $\mathbf{X}_1 = \mathbf{U\Sigma V}^\top$. The weight function $w(h(x)) = (1 + \|\Sigma^{-1}V^\top x\|^2)^{-1/2}$ is now a <em>deterministic</em> function of $x$, conditional on $D_1$. Define the weighted scores:</p>
+
+          $$S_j = |Y_j - \hat{f}(X_j)| \cdot w(h(X_j)), \quad j = 1, \ldots, n_2$$
+
+          $$S_{\text{new}} = |Y_{\text{new}} - \hat{f}(X_{\text{new}})| \cdot w(h(X_{\text{new}}))$$
+
+          <p>Conditional on $D_1$, the model $\hat{f}$ and the weight function $w \circ h$ are fixed. The residual $R_j = Y_j - \hat{f}(X_j)$ is a deterministic function of $(X_j, Y_j)$ and $D_1$. Multiplying $|R_j|$ by the deterministic function $w(h(X_j))$ preserves the symmetry structure. Since $(X_1, Y_1), \ldots, (X_{n_2}, Y_{n_2}), (X_{\text{new}}, Y_{\text{new}})$ are exchangeable conditional on $D_1$, the scores $S_1, \ldots, S_{n_2}, S_{\text{new}}$ are exchangeable conditional on $D_1$.</p>
+
+          <p>By the rank uniformity argument (Part 2), the rank of $S_{\text{new}}$ among $\{S_1, \ldots, S_{n_2}, S_{\text{new}}\}$ is uniformly distributed on $\{1, \ldots, n_2 + 1\}$. Therefore:</p>
+
+          $$P\left(S_{\text{new}} \leq \text{Quantile}_{(1-\alpha)(1+1/n_2)}\{S_1, \ldots, S_{n_2}\}\right) \geq 1-\alpha$$
+
+          <p>Substituting $S_{\text{new}} = |Y_{\text{new}} - \hat{f}(X_{\text{new}})| \cdot w(h(X_{\text{new}}))$ and rearranging:</p>
+
+          $$P\left(|Y_{\text{new}} - \hat{f}(X_{\text{new}})| \leq \frac{\hat{q}}{w(h(X_{\text{new}}))}\right) \geq 1-\alpha$$
+
+          <p>This gives the prediction interval $\hat{f}(X_{\text{new}}) \pm \hat{q}/w(h(X_{\text{new}}))$ with marginal coverage at least $1-\alpha$. The argument is exact and finite-sample. It holds for any model $\hat{f}$, any weight function $w$, and any joint distribution of the data.</p>
+
+          <div class="mermaid">
+flowchart TD
+    A["Exchangeability of\ncalibration + test points\n&#40;conditional on D1&#41;"]
+    B["w&#40;h&#40;x&#41;&#41; is deterministic\ngiven D1"]
+    C["Weighted scores\nSj = |Rj| * w&#40;hj&#41;\nare exchangeable"]
+    D["Rank of S_new\nis uniform on\n&#123;1, ..., n2+1&#125;"]
+    E["Marginal coverage\nP&#40;Y_new in C&#40;x&#41;&#41;\n&ge; 1 - &alpha;"]
+    A --> C
+    B --> C
+    C --> D
+    D --> E
+    style E fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">The logical structure of the coverage argument. The key step is that the weight is deterministic conditional on $D_1$, preserving exchangeability.</p>
+
+          <h3>The Efficiency Question</h3>
+
+          <p>The coverage guarantee holds for <em>any</em> weight function &mdash; including the identity (vanilla CP), the constant function (also vanilla CP), and even adversarially chosen weights. So the guarantee alone cannot distinguish good weights from bad ones. The question is <em>efficiency</em>: does the leverage-based weight produce intervals that are informative about the conditional quantile?</p>
+
+          <p>Consider the scale family model: $Y_i - \hat{f}(X_i) = \sigma \sqrt{g(h_i)} \cdot \eta_i$, where $\eta_i$ are i.i.d. with $\mathbb{E}[\eta_i] = 0$ and $\text{Var}(\eta_i) = 1$. If $g(h) = 1 + h$ (the homoscedastic linear model case), then with weight $w(h) = (1+h)^{-1/2}$:</p>
+
+          $$S_i = |Y_i - \hat{f}(X_i)| \cdot (1+h_i)^{-1/2} = \sigma |\eta_i|$$
+
+          <p>The weighted scores are <em>i.i.d.</em>, not merely variance-stabilized. They are identically distributed regardless of leverage. This is the strongest possible condition for the conformal quantile to be a good estimator of the conditional quantile everywhere: if the scores are i.i.d., the $(1-\alpha)$-quantile of the scores is the $(1-\alpha)$-quantile of $\sigma|\eta|$, which is the correct conditional quantile at every leverage level (after inverting the weight).</p>
+
+          <p>No other weight achieves this. Any other $w$ leaves residual dependence on $h$ in the score distribution, meaning the conformal quantile is an average over an inhomogeneous set of scores &mdash; too conservative in some regions and too liberal in others.</p>
+
+          <h3>Open Questions Formalized</h3>
+
+          <p>The above argument is clean in the idealized setting. Several questions arise when the assumptions are relaxed.</p>
+
+          <p><strong>Finite-sample behavior when $p/n$ is not small.</strong> The variance formula $\sigma^2(1+h)$ holds exactly for OLS under homoscedastic errors, but the scale family approximation $S_i \approx \sigma|\eta_i|$ requires the weighted scores to be approximately identically distributed. When $p/n$ is moderate (say 0.1 to 0.3), the estimation error term $\sigma^2 h(x)$ is non-negligible, and the higher-order behavior of leverage scores (their distribution, concentration, and interaction with the error distribution) affects whether variance stabilization actually works. What are the finite-sample bounds on conditional coverage as a function of $p/n$?</p>
+
+          <p><strong>Model misspecification.</strong> Under model misspecification, the prediction residual $Y - \hat{f}(X)$ includes both the irreducible error and the approximation error from misspecification. The approximation error may depend on features in ways not captured by leverage. Marginal coverage is unaffected (the conformal guarantee holds regardless). But does leverage-based weighting still improve conditional coverage under misspecification, or does the approximation error dominate?</p>
+
+          <p><strong>Approximate leverage via randomized SVD.</strong> Randomized SVD computes leverage scores approximately in $O(n_1 p \log p)$ time. If $\tilde{h}(x)$ is an approximation to $h(x)$ with $|\tilde{h}(x) - h(x)| \leq \delta$, the marginal coverage guarantee still holds exactly (the approximation error is absorbed into the score function, which can be arbitrary). But how does the approximation error $\delta$ affect interval width and conditional coverage? Specifically, if $\tilde{w}(x) = (1 + \tilde{h}(x))^{-1/2}$, the width ratio at any point is:</p>
+
+          $$\frac{\tilde{w}(x)}{w(x)} = \sqrt{\frac{1+h(x)}{1+\tilde{h}(x)}} = 1 + O(\delta)$$
+
+          <p>So the width approximation error is at most $O(\delta)$ multiplicatively, which is typically small for well-implemented randomized SVD.</p>
+
+          <p><strong>Non-linear models.</strong> The formula $\sigma^2(1+h)$ is derived for OLS. For non-linear models (random forests, neural networks, boosted trees), leverage is computed from the raw design matrix and is no longer tied to the model's prediction mechanism. Marginal coverage still holds (the conformal guarantee is model-free). But does leverage-based adaptation help? The hypothesis is that it does, because leverage captures the <em>data geometry</em> &mdash; which regions of feature space are data-sparse &mdash; and data sparsity affects prediction difficulty regardless of the model class. Formalizing this requires a theory of effective leverage for non-linear models.</p>
+
+          <p><strong>Combination with learned scale estimation.</strong> When the noise variance depends on features in ways not captured by leverage alone &mdash; for instance, $\text{Var}(\varepsilon \mid X) = \sigma^2(X)$ where $\sigma^2(X)$ is an arbitrary function of features &mdash; leverage weighting handles only the geometric component. A natural extension is:</p>
+
+          $$S_i = \frac{|Y_i - \hat{f}(X_i)|}{\hat{\sigma}(X_i) \cdot \sqrt{1 + h(X_i)}}$$
+
+          <p>where $\hat{\sigma}(X_i)$ is a lightweight estimate of the feature-dependent noise scale. The leverage factor $\sqrt{1+h}$ handles the geometric heteroscedasticity, while $\hat{\sigma}$ handles the remaining feature-dependent heteroscedasticity. A key question: does the leverage component mitigate the sign flip problem for the scale estimator? The sign flip arises because training residual variance is $\sigma^2(1-h)$ while prediction variance is $\sigma^2(1+h)$. If the scale estimator learns $\hat{\sigma}(x) \approx \sigma(x)\sqrt{1-h(x)}$ (wrong sign) but the leverage factor corrects by $\sqrt{1+h(x)}$, the composite $\hat{\sigma}(x) \cdot \sqrt{1+h(x)} \approx \sigma(x)\sqrt{1-h(x)^2}$ may be a better approximation than $\hat{\sigma}(x)$ alone.</p>
+
+          <p>These open questions are precisely the kinds that motivate a rigorous theoretical and empirical investigation. They point toward a concrete research program: formalize the method, establish finite-sample bounds, characterize the regimes where leverage weighting dominates, and validate the theory with experiments.</p>
+
+          <div class="callout">
+            <div class="callout-label">The Program Ahead</div>
+            <p>The ideas in this series are not speculative. They point toward a concrete algorithm &mdash; Leverage-Weighted Conformal Prediction &mdash; with provable properties and practical advantages. The formal treatment, including finite-sample theory, misspecification analysis, and extensive experiments on both synthetic and real data, is the subject of upcoming work. The pieces are in place. The connection between geometry and distribution-free inference, missing for decades, is now clear.</p>
+          </div>
+
+        </div>
+      </div>
 
     </div>
 

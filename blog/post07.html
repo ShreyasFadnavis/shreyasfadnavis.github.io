@@ -3,12 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Heteroscedasticity and Variance Stabilization: Making Apples-to-Apples Comparisons — Shreyas Fadnavis</title>
+  <title>Heteroscedasticity and Variance Stabilization — Shreyas Fadnavis</title>
   <link rel="stylesheet" href="../css/style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
     onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
 </head>
 <body>
 
@@ -25,7 +27,7 @@
 <main>
   <article class="post">
     <div class="post-header">
-      <h1>Heteroscedasticity and Variance Stabilization: Making Apples-to-Apples Comparisons</h1>
+      <h1>Heteroscedasticity and Variance Stabilization</h1>
       <p class="post-subtitle">Part 7 of a 10-part series on prediction intervals, conformal prediction, and leverage scores.</p>
     </div>
 
@@ -34,131 +36,390 @@
     </div>
 
     <div class="post-body">
-      <p>In Part 6, we saw that prediction error variance depends on leverage: $\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \sigma^2(1 + h(x))$. This means that residuals from different points in feature space are not directly comparable — some are drawn from high-variance distributions and others from low-variance distributions. In this post, we develop the tool for handling this: <em>variance stabilization</em>.</p>
 
-      <h2>What Is Heteroscedasticity?</h2>
+      <p>In Part 6, we saw that prediction error variance depends on leverage: $\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \sigma^2(1 + h(x))$. This means that residuals from different points in feature space are not directly comparable &mdash; some are drawn from high-variance distributions and others from low-variance distributions. In this post, we develop the tool for handling this: <em>variance stabilization</em>.</p>
 
-      <p>In regression, <strong>homoscedasticity</strong> means that the variance of the errors is constant across all observations:</p>
+      <!-- ============================================================ -->
+      <!-- LEVEL 1: INTUITIVE                                           -->
+      <!-- ============================================================ -->
+      <div class="level">
+        <div class="level-header" role="button" aria-expanded="true" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>Grading on a Curve for Each Region</h2>
+          <span class="level-toggle" aria-hidden="true">&#9660;</span>
+        </div>
+        <div class="level-content">
 
-      $$\text{Var}(\varepsilon_i \mid X_i) = \sigma^2 \quad \text{for all } i$$
+          <h3>The Exam Grading Analogy</h3>
 
-      <p><strong>Heteroscedasticity</strong> means that the error variance depends on the features:</p>
+          <p>Imagine comparing test scores from two different classes. Class A had an easy exam: scores range from 85 to 100, and most students cluster around 93. Class B had a brutally hard exam: scores range from 40 to 90, and most students cluster around 65.</p>
 
-      $$\text{Var}(\varepsilon_i \mid X_i) = \sigma^2 g(X_i) \quad \text{for some function } g$$
+          <p>Now suppose a student from each class scores 85. In Class A, a score of 85 means "just average &mdash; nothing special." In Class B, a score of 85 means "excellent &mdash; near the top of the class." The raw number 85 tells you almost nothing until you know the difficulty of the exam. To compare students fairly, you need to <em>adjust for the difficulty</em>: divide each score by its class's standard deviation, or convert to a percentile within the class.</p>
 
-      <p>Heteroscedasticity is the rule, not the exception, in real data. House prices are more variable for expensive homes than for modest ones. Medical outcomes are more variable for patients with complex conditions. Energy consumption is more variable in extreme weather.</p>
+          <p>This is exactly what happens with model errors. Some predictions are inherently harder (more variable) than others. A residual of 10 at an easy-to-predict point means "bad prediction &mdash; the model really missed." But a residual of 10 at a hard-to-predict point means "actually pretty good &mdash; given how uncertain this region is, a miss of 10 is normal."</p>
 
-      <p>From Part 6, we know that even under homoscedastic errors (constant $\sigma^2$), the <em>prediction errors</em> are heteroscedastic because of the leverage term:</p>
+          <p><strong>Variance stabilization is "grading on a curve" for each region of feature space.</strong> It adjusts each residual by the local difficulty so that all residuals become directly comparable.</p>
 
-      $$\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \sigma^2(1 + h(x))$$
+          <div class="mermaid">
+            flowchart LR
+              A["Raw Residuals<br/>(unfair comparison)<br/>Different difficulty<br/>at each point"]
+              B["Divide by<br/>local difficulty<br/>&radic;g(x)"]
+              C["Stabilized Residuals<br/>(fair comparison)<br/>Same scale everywhere"]
 
-      <p>So prediction intervals face heteroscedasticity whether or not the underlying noise is heteroscedastic. The design matrix geometry alone creates it.</p>
+              A --> B --> C
 
-      <h2>Scale Families</h2>
+              style A fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style B fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style C fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">Variance stabilization: divide each residual by the local difficulty to make all residuals comparable.</p>
 
-      <p>A particularly structured form of heteroscedasticity is the <strong>scale family</strong>. In a scale family, the <em>shape</em> of the error distribution is the same everywhere — only the <em>scale</em> changes:</p>
+          <h3>Why Leverage Creates Unequal Difficulty</h3>
 
-      $$\varepsilon_i = \sigma \sqrt{g(X_i)} \cdot \eta_i, \quad \eta_i \stackrel{iid}{\sim} F_\eta$$
+          <p>Even when the noise in the data is perfectly constant &mdash; every observation has the same amount of random error &mdash; the model's <em>prediction errors</em> still have different variances at different points. This is the leverage effect from Part 6. Points far from the training data center have high leverage, and the model is more uncertain about its predictions there. Points near the center have low leverage, and the model is more confident.</p>
 
-      <p>where g is a known or estimable function, and the $\eta_i$ are identically distributed with mean 0 and variance 1. The key property is that $\varepsilon_i / \sqrt{g(X_i)}$ has the <em>same distribution</em> for all i — not just the same variance, but the same shape, the same quantiles, everything.</p>
+          <p>The result is that raw residuals naturally <em>fan out</em> as leverage increases: high-leverage points produce larger residuals on average, not because the data is noisier there, but because the model is less certain. After dividing by the difficulty factor, the fan shape collapses into a horizontal band where all residuals have the same spread.</p>
 
-      <p>Scale families are a natural model for many forms of heteroscedasticity:</p>
+          <div class="mermaid">
+            flowchart TD
+              subgraph Before["Before: Raw Residuals"]
+                direction TB
+                B1["Low leverage: small residuals"]
+                B2["Medium leverage: moderate residuals"]
+                B3["High leverage: large residuals"]
+                B1 --- B2 --- B3
+              end
+              subgraph After["After: Stabilized Residuals"]
+                direction TB
+                A1["Low leverage: same scale"]
+                A2["Medium leverage: same scale"]
+                A3["High leverage: same scale"]
+                A1 --- A2 --- A3
+              end
 
-      <ul>
-        <li><strong>Proportional noise:</strong> If measurement error is proportional to the signal, then $g(x) = f^2(x)$ and the coefficient of variation is constant.</li>
-        <li><strong>Leverage-dependent noise:</strong> If the noise variance depends on leverage, then $g(x) = g(h(x))$. The simplest case is $g(h) = 1 + h$, which arises naturally from the prediction error variance formula.</li>
-        <li><strong>Variance functions in GLMs:</strong> In generalized linear models, the variance function $V(\mu)$ defines a scale family indexed by the mean.</li>
-      </ul>
+              Before --> |"Divide by &radic;(1+h)"| After
 
-      <h2>Variance-Stabilizing Transformations</h2>
+              style Before fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style After fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style B1 fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style B2 fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style B3 fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style A1 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style A2 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style A3 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">Raw residuals fan out with leverage (left). After dividing by the difficulty factor, they collapse into a uniform band (right).</p>
 
-      <p>Given a scale family with known g, there is a simple way to make all observations comparable: <strong>divide by the scale factor</strong>.</p>
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p>Comparing raw residuals across the feature space is like comparing marathon times at sea level vs. at high altitude. A 3:30 marathon at sea level is a solid recreational time. A 3:30 marathon at 10,000 feet elevation is an impressive athletic feat. You need to adjust for the conditions before comparing.</p>
+          </div>
 
-      <p>If $Z_i$ has variance proportional to $g(X_i)$, then:</p>
+          <div class="callout">
+            <div class="callout-label">Key Insight</div>
+            <p>Variance stabilization transforms <strong>heteroscedastic</strong> (varying difficulty) residuals into <strong>homoscedastic</strong> (equal difficulty) ones. Once stabilized, a single threshold can fairly judge all residuals &mdash; which is exactly what conformal prediction needs.</p>
+          </div>
 
-      $$\tilde{Z}_i = \frac{Z_i}{\sqrt{g(X_i)}}$$
+        </div>
+      </div>
 
-      <p>has constant variance. More importantly, if the $Z_i$ form a scale family, then the transformed variables $\tilde{Z}_i$ are <em>identically distributed</em> — they have the same distribution as $\sigma\eta_i$.</p>
+      <!-- ============================================================ -->
+      <!-- LEVEL 2: TECHNICAL                                           -->
+      <!-- ============================================================ -->
+      <div class="level">
+        <div class="level-header" role="button" aria-expanded="true" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');">
+          <span class="level-badge technical">Technical</span>
+          <h2>Scale Families, VSTs, and Weight Functions</h2>
+          <span class="level-toggle" aria-hidden="true">&#9660;</span>
+        </div>
+        <div class="level-content">
 
-      <p>This is called a <strong>variance-stabilizing transformation</strong> (VST). The idea dates back to the early 20th century (Bartlett 1947, Anscombe 1948) and is a standard tool in applied statistics. Common examples:</p>
+          <h3>Homoscedasticity vs. Heteroscedasticity</h3>
 
-      <ul>
-        <li><strong>Square root transformation</strong> for Poisson data (where variance equals the mean).</li>
-        <li><strong>Arcsine transformation</strong> for binomial proportions (where variance depends on the success probability).</li>
-        <li><strong>Log transformation</strong> for data where variance is proportional to the squared mean.</li>
-      </ul>
+          <p>In regression, <strong>homoscedasticity</strong> means the error variance is constant across all observations:</p>
 
-      <p>The general recipe: if $\text{Var}(Z) = f(\theta)$, then the transformation $Z / \sqrt{f(\theta)}$ stabilizes the variance.</p>
+          $$\text{Var}(\varepsilon_i \mid X_i) = \sigma^2 \quad \text{for all } i$$
 
-      <h2>Variance Stabilization in Conformal Prediction</h2>
+          <p><strong>Heteroscedasticity</strong> means the error variance depends on the features:</p>
 
-      <p>Now connect this to conformal prediction. Recall from Part 2 that split conformal prediction computes nonconformity scores:</p>
+          $$\text{Var}(\varepsilon_i \mid X_i) = \sigma^2 \, g(X_i) \quad \text{for some function } g$$
 
-      $$S_i = |Y_i - \hat{f}(X_i)|$$
+          <p>The function $g$ captures the local difficulty: where $g(x) > 1$, errors are larger than average; where $g(x) < 1$, errors are smaller. In most real data, some form of heteroscedasticity is the rule rather than the exception.</p>
 
-      <p>and takes a quantile of these scores to form the prediction interval. The coverage guarantee relies on the scores being exchangeable.</p>
+          <h3>Scale Families</h3>
 
-      <p>But if the prediction errors have different variances at different points (which they do, because of leverage), then the raw absolute residuals are drawn from different distributions. A large residual at a low-leverage point means something different from a large residual at a high-leverage point: the first indicates an unusual observation; the second might just be normal variation in a high-variance region.</p>
+          <p>A particularly clean form of heteroscedasticity is the <strong>scale family</strong>. In a scale family, the <em>shape</em> of the error distribution is the same everywhere &mdash; only the <em>scale</em> changes:</p>
 
-      <p>Comparing these raw residuals is like comparing test scores from exams of different difficulty. A score of 80/100 on a hard exam means more than 80/100 on an easy exam. To make a fair comparison, you need to normalize by the exam's difficulty.</p>
+          $$\varepsilon_i = \sigma \sqrt{g(X_i)} \cdot \eta_i, \quad \eta_i \stackrel{iid}{\sim} F_\eta$$
 
-      <p>The variance-stabilized score is:</p>
+          <p>where $g$ is a known or estimable function, and the $\eta_i$ are identically distributed with mean 0 and variance 1. The key property is that $\varepsilon_i / \sqrt{g(X_i)}$ has the <em>same distribution</em> for all $i$ &mdash; not just the same variance, but the same shape, the same quantiles, everything.</p>
 
-      $$\tilde{S}_i = \frac{|Y_i - \hat{f}(X_i)|}{\sqrt{g(X_i)}}$$
+          <h3>Variance-Stabilizing Transformations</h3>
 
-      <p>If the errors form a scale family with scale function g, then the transformed scores $\tilde{S}_i$ are identically distributed across the calibration set. The conformal quantile of these scores is a more meaningful threshold, and the resulting prediction interval adapts to the local difficulty:</p>
+          <p>Given a scale family with known $g$, we can stabilize the variance by dividing out the scale factor. If $Z_i$ has variance proportional to $g(X_i)$, define:</p>
 
-      $$\hat{C}(x) = \left[\hat{f}(x) - \hat{q} \cdot \sqrt{g(x)}, \;\; \hat{f}(x) + \hat{q} \cdot \sqrt{g(x)}\right]$$
+          $$\tilde{Z}_i = \frac{Z_i}{\sqrt{g(X_i)}}$$
 
-      <p>The width at x is $2\hat{q} \cdot \sqrt{g(x)}$, which is wider where g is large (harder regions) and narrower where g is small (easier regions).</p>
+          <p>The transformed variables $\tilde{Z}_i$ have constant variance. More importantly, if the $Z_i$ form a scale family, the $\tilde{Z}_i$ are <em>identically distributed</em> &mdash; exchangeable in the sense conformal prediction requires.</p>
 
-      <h2>The Weight Function Perspective</h2>
+          <h3>VST in Conformal Prediction</h3>
 
-      <p>An equivalent way to express variance stabilization is through a <strong>weight function</strong> w. Define:</p>
+          <p>Apply this to conformal prediction. Instead of raw absolute residuals $S_i = |Y_i - \hat{f}(X_i)|$, use the <strong>stabilized scores</strong>:</p>
 
-      $$w(x) = \frac{1}{\sqrt{g(x)}}$$
+          $$\tilde{S}_i = \frac{|Y_i - \hat{f}(X_i)|}{\sqrt{g(X_i)}}$$
 
-      <p>Then the variance-stabilized score is $S_i = |Y_i - \hat{f}(X_i)| \cdot w(X_i)$, and the prediction interval width at x is $2\hat{q} / w(x)$. Multiplying the residual by w is the same as dividing by $\sqrt{g}$.</p>
+          <p>If the errors form a scale family, these stabilized scores are identically distributed across the calibration set. The conformal quantile of the stabilized scores is a more meaningful threshold, and the resulting prediction interval <strong>adapts to local difficulty</strong>:</p>
 
-      <p>The weight function perspective is useful because it separates the <em>conformal mechanics</em> (take a quantile of weighted scores, form an interval) from the <em>domain knowledge</em> (choose w to reflect the variance structure). Different weight functions correspond to different variance models:</p>
+          $$\hat{C}(x) = \left[\hat{f}(x) - \hat{q} \cdot \sqrt{g(x)}, \;\; \hat{f}(x) + \hat{q} \cdot \sqrt{g(x)}\right]$$
 
-      <ul>
-        <li><strong>$w(x) = 1$</strong> (constant weight): recovers vanilla conformal prediction. Assumes constant variance.</li>
-        <li><strong>$w(x) = 1/\hat{\sigma}(x)$</strong> (inverse estimated variance): this is studentized conformal prediction. The scale function g is estimated from data.</li>
-        <li><strong>$w(x) = (1+h(x))^{-1/2}$</strong> (inverse root leverage): assumes the prediction variance structure $\sigma^2(1+h)$. This is the weight implied by the variance decomposition from Part 6.</li>
-      </ul>
+          <p>The interval is wider where $g(x)$ is large (harder predictions) and narrower where $g(x)$ is small (easier predictions).</p>
 
-      <p>The third option is interesting because it uses the <em>known</em> relationship between leverage and prediction variance, rather than requiring an estimated variance function. It does not need any auxiliary model.</p>
+          <div class="mermaid">
+            flowchart LR
+              R["Raw scores<br/>|Y - f&#770;(X)|"]
+              W["Weight function<br/>w(x) = 1/&radic;g(x)"]
+              S["Stabilized scores<br/>|Y - f&#770;(X)| &middot; w(x)"]
+              Q["Conformal quantile<br/>q&#770;"]
+              I["Adaptive interval<br/>f&#770;(x) &plusmn; q&#770; / w(x)"]
 
-      <h2>When Does Variance Stabilization Help?</h2>
+              R --> W --> S --> Q --> I
 
-      <p>Variance stabilization improves conformal intervals when two conditions hold:</p>
+              style R fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style W fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style S fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style Q fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+              style I fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">The variance stabilization pipeline: raw scores are multiplied by the weight function, a quantile is computed, and the interval width is scaled by 1/w(x).</p>
 
-      <p><strong>Condition 1: The variance actually varies.</strong> If the prediction error variance is approximately constant across the calibration set, there is nothing to stabilize. This happens when leverage variation is small (all points are roughly equidistant from the training centroid) and the intrinsic noise is constant.</p>
+          <h3>The Weight Function Perspective</h3>
 
-      <p><strong>Condition 2: The variance function is known or well-estimated.</strong> If you divide by the wrong scale factor, you can make things worse. A variance estimator that is systematically biased (like the sign-flip problem from Part 6) will produce poorly adapted intervals.</p>
+          <p>An equivalent way to express variance stabilization is through a <strong>weight function</strong> $w$:</p>
 
-      <p>The leverage-based weight $w(h) = (1+h)^{-1/2}$ satisfies condition 2 by construction: it uses the exact variance formula from the OLS prediction error decomposition, not an estimate. The question is whether condition 1 holds — whether leverage variation is large enough to matter. This depends on the data geometry and the ratio $p/n$, which we will discuss in Part 9.</p>
+          $$w(x) = \frac{1}{\sqrt{g(x)}}$$
+
+          <p>The stabilized score is $\tilde{S}_i = |Y_i - \hat{f}(X_i)| \cdot w(X_i)$, and the prediction interval width at $x$ is $2\hat{q} / w(x)$. Different weight functions correspond to different assumptions about the variance structure:</p>
+
+          <div class="mermaid">
+            flowchart TD
+              WF["Weight Function w(x)"]
+              WF --> W1["w = 1<br/>Constant weight"]
+              WF --> W2["w = 1/&sigma;&#770;(x)<br/>Inverse estimated variance"]
+              WF --> W3["w = (1+h)^{-1/2}<br/>Inverse root leverage"]
+
+              W1 --> A1["Vanilla CP<br/>Assumes constant variance"]
+              W2 --> A2["Studentized CP<br/>Estimates g from data"]
+              W3 --> A3["Leverage-weighted CP<br/>Uses design matrix geometry"]
+
+              A1 --> P1["No extra model needed<br/>but ignores heteroscedasticity"]
+              A2 --> P2["Captures noise heteroscedasticity<br/>but needs auxiliary model<br/>and risks sign flip"]
+              A3 --> P3["Exact for leverage-induced<br/>heteroscedasticity<br/>No auxiliary model needed"]
+
+              style WF fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+              style W1 fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style W2 fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style W3 fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style A1 fill:#faf8f5,stroke:#1565c0,color:#1c1917
+              style A2 fill:#faf8f5,stroke:#1565c0,color:#1c1917
+              style A3 fill:#faf8f5,stroke:#1565c0,color:#1c1917
+              style P1 fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style P2 fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style P3 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">Three weight functions and what they assume about the variance structure.</p>
+
+          <h3>Comparing the Three Approaches</h3>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Approach</th>
+                <th>Weight $w(x)$</th>
+                <th>Variance model</th>
+                <th>Requires aux. model?</th>
+                <th>Sign-flip risk?</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Vanilla CP</td>
+                <td>$1$</td>
+                <td>$g(x) = 1$ (constant)</td>
+                <td>No</td>
+                <td>No</td>
+              </tr>
+              <tr>
+                <td>Studentized CP</td>
+                <td>$1/\hat{\sigma}(x)$</td>
+                <td>$g(x)$ estimated from data</td>
+                <td>Yes</td>
+                <td>Yes (Part 6)</td>
+              </tr>
+              <tr>
+                <td>Leverage-weighted CP</td>
+                <td>$(1+h(x))^{-1/2}$</td>
+                <td>$g(x) = 1 + h(x)$</td>
+                <td>No</td>
+                <td>No</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>The leverage-based weight is notable because it uses the <em>known</em> relationship between leverage and prediction variance (from the exact formula $\sigma^2(1+h)$) rather than requiring an estimated variance function. It avoids the sign-flip trap from Part 6 because it is derived from the design matrix geometry at prediction time, not from training residuals.</p>
+
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- LEVEL 3: ADVANCED                                            -->
+      <!-- ============================================================ -->
+      <div class="level">
+        <div class="level-header" role="button" aria-expanded="true" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>General VST Theory and Optimal Weights</h2>
+          <span class="level-toggle" aria-hidden="true">&#9660;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>The General Variance-Stabilizing Principle</h3>
+
+          <p>The general recipe for variance stabilization: if a random variable $Z$ has variance that depends on a parameter $\theta$, specifically $\text{Var}(Z) = f(\theta)$, then the transformation</p>
+
+          $$\tilde{Z} = \frac{Z}{\sqrt{f(\theta)}}$$
+
+          <p>stabilizes the variance to a constant. This is a fundamental tool in statistics dating back to the early 20th century, with several classical instantiations:</p>
+
+          <ul>
+            <li><strong>Square root transformation for Poisson data:</strong> If $Z \sim \text{Poisson}(\lambda)$, then $\text{Var}(Z) = \lambda$, so $Z / \sqrt{\lambda}$ stabilizes. In practice, $\sqrt{Z}$ is used since $\text{Var}(\sqrt{Z}) \approx 1/4$ for large $\lambda$.</li>
+            <li><strong>Arcsine transformation for binomial proportions:</strong> If $\hat{p} = Z/n$ with $Z \sim \text{Binomial}(n,p)$, then $\text{Var}(\hat{p}) = p(1-p)/n$. The transformation $\arcsin(\sqrt{\hat{p}})$ stabilizes the variance to approximately $1/(4n)$.</li>
+            <li><strong>Log transformation for proportional variance:</strong> If $\text{Var}(Z) \propto [\mathbb{E}(Z)]^2$, then $\log(Z)$ stabilizes the variance (the coefficient of variation is constant).</li>
+          </ul>
+
+          <h3>Optimal Weight Under Leverage Heteroscedasticity</h3>
+
+          <p>In the linear model setting, the prediction error variance is exactly $\sigma^2(1+h(x))$, so the variance function is $g(h) = 1+h$. The optimal weight follows immediately:</p>
+
+          $$w^*(x) = \frac{1}{\sqrt{1 + h(x)}}$$
+
+          <p>This gives stabilized scores $\tilde{S}_i = |Y_i - \hat{f}(X_i)| / \sqrt{1 + h(X_i)}$, which have constant variance $\sigma^2$ regardless of leverage.</p>
+
+          <h3>When Noise Is Also Heteroscedastic</h3>
+
+          <p>The situation becomes more interesting when the noise itself is heteroscedastic. Suppose:</p>
+
+          $$\text{Var}(\varepsilon \mid X) = \sigma^2 g(h(X))$$
+
+          <p>where $g$ depends on leverage. Then the total prediction error variance combines the noise variance and the estimation error variance:</p>
+
+          $$\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \text{Var}(\varepsilon_{\text{new}}) + \text{Var}(x^\top(\hat{\beta} - \beta^*))$$
+
+          $$= \sigma^2 g(h(x)) + \sigma^2 h(x) = \sigma^2\bigl(g(h(x)) + h(x)\bigr)$$
+
+          <p>The optimal weight for stabilizing the total prediction error is therefore:</p>
+
+          $$w^*(h) = \frac{1}{\sqrt{g(h) + h}}$$
+
+          <div class="mermaid">
+            flowchart TD
+              V["Total prediction variance<br/>&sigma;&sup2;(g(h) + h)"]
+              V --> D["Decomposition"]
+              D --> N["Noise term<br/>&sigma;&sup2; g(h)"]
+              D --> E["Estimation term<br/>&sigma;&sup2; h"]
+
+              N --> C1["g = 1<br/>Homoscedastic noise"]
+              N --> C2["g = 1 + h<br/>Noise grows with leverage"]
+
+              C1 --> W1["Total: &sigma;&sup2;(1 + h)<br/>w* = (1 + h)^{-1/2}"]
+              C2 --> W2["Total: &sigma;&sup2;(1 + 2h)<br/>w* = (1 + 2h)^{-1/2}"]
+
+              W1 --> O["Optimal weight<br/>depends on g"]
+              W2 --> O
+
+              style V fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+              style D fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style N fill:#faf8f5,stroke:#1565c0,color:#1c1917
+              style E fill:#faf8f5,stroke:#1565c0,color:#1c1917
+              style C1 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style C2 fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style W1 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style W2 fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style O fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+          </div>
+          <p class="diagram-caption">The optimal weight depends on whether the noise itself varies with leverage. Two special cases are shown.</p>
+
+          <h3>Special Cases</h3>
+
+          <p>The two most important special cases illustrate the range of behavior:</p>
+
+          <p><strong>Case 1: Homoscedastic noise ($g = 1$).</strong> The noise variance is constant at $\sigma^2$. The total prediction variance is $\sigma^2(1 + h)$, and the optimal weight is $(1+h)^{-1/2}$. This is the simplest and most common setting. The weight corrects only for the estimation error term, and it is <em>exact</em> at any sample size because the formula $\sigma^2(1+h)$ is an exact identity, not an approximation.</p>
+
+          <p><strong>Case 2: Noise proportional to $(1+h)$ ($g = 1+h$).</strong> The noise itself grows with leverage &mdash; points that are geometrically unusual also happen to be noisier. The total variance is:</p>
+
+          $$\sigma^2\bigl((1+h) + h\bigr) = \sigma^2(1 + 2h)$$
+
+          <p>and the optimal weight is $(1+2h)^{-1/2}$. The weight must correct for both the noise heteroscedasticity and the estimation error, leading to a steeper decay with $h$.</p>
+
+          <h3>When Does Variance Stabilization Help?</h3>
+
+          <p>Variance stabilization improves conformal intervals when two conditions hold simultaneously:</p>
+
+          <p><strong>Condition 1: The variance actually varies.</strong> If leverage scores are nearly constant across the feature space (all points are roughly equidistant from the training centroid and the intrinsic noise is constant), there is nothing to stabilize. The diagnostic $\hat{\eta} = \text{std}(h) / \text{mean}(h)$ measures leverage heterogeneity: when $\hat{\eta} > 1$, leverage variation is substantial and LWCP is likely to help; when $\hat{\eta} < 0.5$, leverage variation is small and vanilla CP performs comparably.</p>
+
+          <p><strong>Condition 2: The variance function is known or well-estimated.</strong> Dividing by the wrong scale factor can make things worse. The leverage-based weight $w(h) = (1+h)^{-1/2}$ satisfies this condition by construction because it uses the exact variance formula from the OLS prediction error decomposition, not an estimate. Studentized CP, which estimates $g$ from training residuals, is vulnerable to the sign-flip problem (Part 6): the estimator learns $\sigma^2(1-h)$ instead of $\sigma^2(1+h)$, producing systematically wrong corrections.</p>
+
+          <div class="mermaid">
+            flowchart TD
+              Q["Does variance stabilization help?"]
+              Q --> C1["Condition 1:<br/>Does variance actually vary?"]
+              Q --> C2["Condition 2:<br/>Is g known or well-estimated?"]
+
+              C1 --> Y1["&eta;&#770; > 1<br/>Leverage varies a lot"]
+              C1 --> N1["&eta;&#770; < 0.5<br/>Leverage nearly constant"]
+
+              C2 --> Y2["Leverage-based w<br/>Exact formula, no estimation"]
+              C2 --> N2["Estimated &sigma;&#770;(x)<br/>Risk of sign flip"]
+
+              Y1 --> G["LWCP helps significantly"]
+              Y2 --> G
+              N1 --> B["LWCP &asymp; Vanilla CP"]
+              N2 --> B2["May hurt more than help"]
+
+              style Q fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+              style C1 fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style C2 fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style Y1 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style N1 fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style Y2 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style N2 fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style G fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style B fill:#faf8f5,stroke:#a0522d,color:#1c1917
+              style B2 fill:#fce4ec,stroke:#c62828,color:#1c1917
+          </div>
+          <p class="diagram-caption">Decision diagram: variance stabilization helps when leverage varies substantially and the variance function is correctly specified.</p>
+
+        </div>
+      </div>
 
       <h2>Summary</h2>
 
       <p>The key ideas from this post:</p>
 
       <ol>
-        <li><strong>Heteroscedasticity</strong> — non-constant variance — is ubiquitous in prediction errors, even under constant noise, because of the leverage term.</li>
-        <li><strong>Scale families</strong> provide a structured model where variance changes but the distributional shape does not.</li>
+        <li><strong>Heteroscedasticity</strong> &mdash; non-constant variance &mdash; is ubiquitous in prediction errors, even under constant noise, because of the leverage term.</li>
+        <li><strong>Scale families</strong> provide a structured model where the variance changes but the distributional shape does not.</li>
         <li><strong>Variance-stabilizing transformations</strong> divide by the scale factor to make observations comparable.</li>
         <li>In conformal prediction, this translates to <strong>weighted nonconformity scores</strong> and adaptive interval widths.</li>
-        <li>The weight function is the key design choice. It can be estimated from data (risk: sign flip, overfitting) or derived from the design matrix geometry (no estimation needed).</li>
+        <li>The weight function is the key design choice: $w = 1$ (vanilla), $w = 1/\hat{\sigma}(x)$ (studentized), or $w = (1+h)^{-1/2}$ (leverage-based). The leverage-based weight is exact and requires no auxiliary model.</li>
       </ol>
 
-      <p>In the next post, we survey the existing adaptive conformal methods — CQR, Studentized CP, Localized CP — and examine their trade-offs in light of everything we have learned.</p>
+      <p>In the next post, we survey the existing adaptive conformal methods &mdash; CQR, Studentized CP, Localized CP &mdash; and examine their trade-offs in light of everything we have learned.</p>
+
     </div>
 
     <div class="further-reading">
       <h3>Further Reading</h3>
       <ul>
-        <li>Bartlett, M. S. (1947). The use of transformations. <em>Biometrics</em>, 3(1), 39-52.</li>
+        <li>Bartlett, M. S. (1947). The use of transformations. <em>Biometrics</em>, 3(1), 39&ndash;52.</li>
         <li>Carroll, R. J. &amp; Ruppert, D. (1988). <em>Transformation and Weighting in Regression.</em> Chapman &amp; Hall.</li>
         <li>Romano, Y., Patterson, E., &amp; Candes, E. J. (2019). Conformalized quantile regression. <em>NeurIPS</em>.</li>
       </ul>

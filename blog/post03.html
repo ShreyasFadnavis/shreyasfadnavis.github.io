@@ -9,6 +9,8 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
     onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
 </head>
 <body>
 
@@ -37,101 +39,377 @@
 
     <div class="post-body">
 
-      <p>In Part 2, we saw that split conformal prediction delivers a finite-sample, distribution-free coverage guarantee for any model. The recipe is simple: compute calibration residuals, take a quantile, form an interval. The coverage is at least $1-\alpha$, guaranteed.</p>
+      <p>In Part 2, we saw that split conformal prediction delivers a finite-sample, distribution-free coverage guarantee: compute calibration residuals, take a quantile, form an interval. The coverage is at least $1-\alpha$, guaranteed.</p>
 
       <p>But look at the interval again:</p>
 
       $$\hat{C}(x) = [\hat{f}(x) - \hat{q}, \;\; \hat{f}(x) + \hat{q}]$$
 
-      <p>The half-width is $\hat{q}$ — a single number, the same for every test point. The interval is centered at the model's prediction, but its <em>width does not depend on x</em>.</p>
+      <p>The half-width $\hat{q}$ is a single number, the same for every test point. The interval is centered at the model's prediction, but its <em>width does not depend on x</em>. This is the constant-width problem, and it is the central limitation of vanilla conformal prediction.</p>
 
-      <p>This is the constant-width problem, and it is the central limitation of vanilla conformal prediction.</p>
+      <!-- ============================================================ -->
+      <!-- LEVEL 1: INTUITIVE                                           -->
+      <!-- ============================================================ -->
+      <div class="level">
+        <div class="level-header" role="button" aria-expanded="true" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>The Hospital Temperature Problem</h2>
+          <span class="level-toggle" aria-hidden="true">&#9660;</span>
+        </div>
+        <div class="level-content">
 
-      <h2>A Concrete Example</h2>
+          <h3>The Average Is Fine. The Per-Room Distribution Is Terrible.</h3>
 
-      <p>Consider predicting house prices. Suppose you train a model on a dataset that includes both dense suburban neighborhoods (many similar houses, lots of comparable training data) and remote luxury estates (each one unique, very few comparable training points).</p>
+          <p>Imagine a hospital administrator announces: "The average temperature across all rooms is a comfortable 72 degrees Fahrenheit." That sounds reassuring. But walk through the building and you find that the ICU is a sweltering 95 degrees, the surgical suite is a frigid 50, and a handful of rooms in the middle wing happen to be exactly 72. The average is truthful. The lived experience is a disaster.</p>
 
-      <p>The model will be very accurate for suburban homes — the training data is rich in similar examples — and much less accurate for luxury estates, where it is effectively extrapolating.</p>
+          <p>This is exactly what happens with constant-width prediction intervals. The <em>average</em> coverage across all test points is 90%, as promised. But some test points are covered 99% of the time (the intervals are wastefully wide), and others are covered only 70% of the time (the intervals are dangerously narrow). The guarantee is real, but it is hiding a profound unevenness.</p>
 
-      <p>But conformal prediction gives the same interval width to both. If the conformal quantile is $50,000, then a suburban home predicted at $350,000 gets the interval [$300K, $400K], and a remote estate predicted at $2.5M also gets the interval [$2.45M, $2.55M].</p>
+          <h3>The House Price Example</h3>
 
-      <p>The suburban interval is probably too wide (the model is very accurate there), and the estate interval is almost certainly too narrow (the model is guessing). The average coverage across all test points might be 90%, but the per-point coverage varies wildly.</p>
+          <p>Suppose you train a model to predict house prices. Your training data contains thousands of suburban homes in the $250K&ndash;$400K range and a handful of remote luxury estates worth $2M+. The model learns the suburban pattern well (it has seen thousands of similar houses) but is essentially guessing for the luxury estates (it has almost no comparable data).</p>
 
-      <h2>Marginal vs. Conditional Coverage</h2>
+          <p>Now conformal prediction hands you a single number &mdash; say $\hat{q} = \$50{,}000$ &mdash; and tells you to use it everywhere. A suburban house predicted at $350K gets the interval [$300K, $400K]. A remote estate predicted at $2.5M gets the interval [$2.45M, $2.55M].</p>
 
-      <p>This distinction is central to everything that follows.</p>
+          <ul>
+            <li>The <strong>suburban interval is too wide</strong>. The model rarely misses by more than $20K here. That extra $30K of width on each side is wasted precision &mdash; it makes the interval less informative than it could be.</li>
+            <li>The <strong>estate interval is too narrow</strong>. The model routinely misses by $200K+ on these unusual properties. The $50K half-width is nowhere near enough. These intervals will fail to cover the true price far more than 10% of the time.</li>
+          </ul>
 
-      <p><strong>Marginal coverage</strong> is the guarantee that conformal prediction actually provides:</p>
+          <div class="mermaid">
+            flowchart TD
+              Q["Single conformal quantile q&#770; = $50K"]
+              Q --> E["Easy Region: Suburban homes"]
+              Q --> H["Hard Region: Luxury estates"]
+              E --> EO["Interval too WIDE<br/>Wasting precision<br/>Coverage: ~99%"]
+              H --> HO["Interval too NARROW<br/>Dangerous undercoverage<br/>Coverage: ~70%"]
+              EO --> M["Marginal average: 90% &#10003;"]
+              HO --> M
 
-      $$P(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - \alpha$$
+              style Q fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+              style E fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style H fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style EO fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style HO fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style M fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+          </div>
+          <p class="diagram-caption">A single quantile forces a tradeoff: overcoverage in easy regions subsidizes undercoverage in hard regions.</p>
 
-      <p>This averages over both the test point X and its response Y. It says: if you draw a random test point from the same distribution, the interval covers it with probability at least $1-\alpha$. Over many test points, the coverage rate will be at least 90%.</p>
+          <h3>Constant Width vs. Adaptive Width</h3>
 
-      <p><strong>Conditional coverage</strong> is what we actually want:</p>
+          <p>The following diagram contrasts what constant-width intervals look like against what we actually want. In the constant-width case, the band is a uniform ribbon around the prediction. In the adaptive case, the band breathes &mdash; narrow where the model is confident, wide where it is uncertain.</p>
 
-      $$P(Y_{n+1} \in \hat{C}(X_{n+1}) \mid X_{n+1} = x) \geq 1 - \alpha \quad \text{for all } x$$
+          <div class="mermaid">
+            flowchart LR
+              subgraph Constant["Constant-Width Band"]
+                direction TB
+                C1["&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;<br/>Same width everywhere<br/>&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;"]
+              end
+              subgraph Adaptive["Ideal Adaptive Band"]
+                direction TB
+                A1["&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;<br/>Narrow where easy<br/>&#9473;&#9473;&#9473;<br/><br/>&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;<br/>Wide where hard<br/>&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;&#9473;"]
+              end
 
-      <p>This says: for <em>each specific</em> test point x, the interval covers the response with probability at least $1-\alpha$. This is a much stronger requirement. It means that the interval is correctly calibrated everywhere in the feature space, not just on average.</p>
+              Constant --> |"What we want"| Adaptive
 
-      <p>An analogy: marginal coverage is like saying "the average temperature in this hospital is 72 degrees Fahrenheit." Conditional coverage is like saying "the temperature in every room is 72 degrees." The first statement is compatible with some patients being in a sauna and others in a walk-in freezer.</p>
+              style Constant fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style Adaptive fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style C1 fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style A1 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">Left: constant-width intervals treat all predictions equally. Right: adaptive intervals allocate width where it is needed.</p>
 
-      <h2>The Impossibility Result</h2>
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p>It is like giving every student in a class the same grade. The struggling students pass when they should not, and the top students are undervalued. The class average looks reasonable, but no individual grade is meaningful.</p>
+          </div>
 
-      <p>Here is the sobering fact: <strong>exact conditional coverage is impossible to achieve in a distribution-free setting</strong>.</p>
+          <h3>The Key Question</h3>
 
-      <p>This was established by Vovk (2012) and formalized more precisely by Barber, Candes, Ramdas, and Tibshirani (2021). The result, informally, states:</p>
+          <p>If we <em>know</em> that some predictions are harder than others &mdash; if we know the model has lots of training data in one region and almost none in another &mdash; why give them all the same error bar?</p>
 
-      <blockquote>
-        <p>For any distribution-free prediction interval procedure that achieves marginal coverage $1-\alpha$, there exist distributions under which the conditional coverage at some points is as low as 0 and at other points is as high as 1.</p>
-      </blockquote>
+          <p>The answer, frustratingly, is that vanilla conformal prediction has no mechanism for adjusting. It calibrates a single quantile against the entire calibration set, and that quantile is blind to where in the feature space each point lives.</p>
 
-      <p>In other words, any method that works without distributional assumptions <em>must</em> have uneven conditional coverage under some data distribution. You cannot have both "distribution-free" and "perfect conditional coverage" simultaneously.</p>
+          <div class="callout">
+            <div class="callout-label">Important Caveat</div>
+            <p><strong>Exact conditional coverage is mathematically impossible</strong> without structural assumptions (we will formalize this in the Advanced section below). But <em>approximate</em> conditional coverage is very much achievable, and the gap between constant-width intervals and well-designed adaptive intervals is enormous in practice. Closing that gap is the goal of the rest of this series.</p>
+          </div>
 
-      <p>This is not a failure of existing methods — it is a mathematical impossibility. The proof works by construction: given any distribution-free method, one can craft an adversarial distribution that forces the method to misallocate its interval widths.</p>
+        </div>
+      </div>
 
-      <p>The impossibility result does not say that all methods are equally bad at conditional coverage. Some methods achieve much better <em>approximate</em> conditional coverage than others. And under structural assumptions (which are weaker than full parametric assumptions), near-perfect conditional coverage is achievable. The impossibility result sets a lower bound on what is possible, and the gap between that lower bound and what practical methods achieve is where all the interesting work happens.</p>
+      <!-- ============================================================ -->
+      <!-- LEVEL 2: TECHNICAL                                           -->
+      <!-- ============================================================ -->
+      <div class="level">
+        <div class="level-header" role="button" aria-expanded="true" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');">
+          <span class="level-badge technical">Technical</span>
+          <h2>Marginal vs. Conditional Coverage</h2>
+          <span class="level-toggle" aria-hidden="true">&#9660;</span>
+        </div>
+        <div class="level-content">
 
-      <h2>What Constant Width Gets Wrong</h2>
+          <h3>Two Kinds of Coverage</h3>
 
-      <p>To see concretely how constant-width intervals fail, consider a one-dimensional regression where the noise variance increases with x:</p>
+          <p>The distinction between marginal and conditional coverage is the conceptual engine driving everything that follows in this series.</p>
 
-      $$Y = f(x) + \varepsilon(x), \quad \text{where } \text{Var}(\varepsilon(x)) \text{ increases with } |x|$$
+          <p><strong>Marginal coverage</strong> is the guarantee that conformal prediction actually provides:</p>
 
-      <p>Points near the center have small noise, and points far from the center have large noise. A constant-width interval calibrated on the calibration set will:</p>
+          $$P(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - \alpha$$
 
-      <ul>
-        <li><strong>Overcover near the center:</strong> The interval is wider than needed, because the noise is small. Coverage might be 99% instead of 90%.</li>
-        <li><strong>Undercover at the extremes:</strong> The interval is too narrow for the large noise. Coverage might be 70% instead of 90%.</li>
-      </ul>
+          <p>This probability averages over <em>both</em> the random draw of the test point $X_{n+1}$ and its response $Y_{n+1}$. It says: if you draw a random test point from the same distribution, the interval covers it with probability at least $1-\alpha$. Over many test points drawn from the population, the fraction covered will be at least 90%.</p>
 
-      <p>The marginal coverage is 90% (the overcoverage at the center compensates for the undercoverage at the extremes), but the conditional coverage varies from 70% to 99%. This is the "hospital temperature" problem in action.</p>
+          <p><strong>Conditional coverage</strong> is what we actually want:</p>
 
-      <p>In high-stakes applications, undercoverage at the extremes is dangerous. The extreme regions are often where predictions matter most (unusual patients, extreme market conditions, edge cases in autonomous driving) and where the model is least reliable.</p>
+          $$P(Y_{n+1} \in \hat{C}(X_{n+1}) \mid X_{n+1} = x) \geq 1 - \alpha \quad \text{for all } x$$
 
-      <h2>Why Does This Happen?</h2>
+          <p>This says: for <em>each specific</em> test point $x$, the interval covers the true response with probability at least $1-\alpha$. This is a much stronger requirement. It means the interval is correctly calibrated everywhere in the feature space, not just on average.</p>
 
-      <p>The root cause is that conformal prediction uses a single quantile for all test points. The quantile $\hat{q}$ is calibrated to be correct <em>on average</em> over the calibration set, which is a mix of easy and hard points. For easy points, $\hat{q}$ is too large; for hard points, $\hat{q}$ is too small.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>Marginal Coverage</th>
+                <th>Conditional Coverage</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Averages over</td>
+                <td>All test points $X$</td>
+                <td>Fixed at each $x$</td>
+              </tr>
+              <tr>
+                <td>Guarantee</td>
+                <td>Overall fraction $\geq 1-\alpha$</td>
+                <td>Per-point fraction $\geq 1-\alpha$</td>
+              </tr>
+              <tr>
+                <td>Achieved by vanilla CP</td>
+                <td>Yes (finite-sample)</td>
+                <td>No</td>
+              </tr>
+              <tr>
+                <td>Allows constant width</td>
+                <td>Yes</td>
+                <td>Only if noise is homoscedastic</td>
+              </tr>
+              <tr>
+                <td>Practical implication</td>
+                <td>90% coverage <em>on average</em></td>
+                <td>90% coverage <em>at every point</em></td>
+              </tr>
+              <tr>
+                <td>Analogy</td>
+                <td>Average hospital temp = 72&deg;F</td>
+                <td>Every room = 72&deg;F</td>
+              </tr>
+            </tbody>
+          </table>
 
-      <p>What we need is a way to make the interval width depend on x: wider where prediction is harder, narrower where it is easier. This requires knowing — or estimating — what makes some predictions harder than others.</p>
+          <h3>Why Constant Width Fails: A Heteroscedastic Example</h3>
 
-      <p>There are two fundamentally different approaches to this:</p>
+          <p>Consider a one-dimensional regression where the noise variance increases with the input:</p>
 
-      <ol>
-        <li><strong>Learn the difficulty.</strong> Train an auxiliary model to estimate where predictions are hard (e.g., estimate the conditional variance, or fit quantile regressors). This is the approach taken by methods like CQR and studentized conformal prediction.</li>
-        <li><strong>Derive the difficulty from data geometry.</strong> Use structural properties of the feature space — specifically, how far each point is from the training distribution — to determine prediction difficulty. This requires no auxiliary model.</li>
-      </ol>
+          $$Y = f(x) + \varepsilon(x), \quad \text{where } \text{Var}(\varepsilon(x)) \text{ increases with } |x|$$
 
-      <p>The first approach has been extensively studied and is the subject of Part 8. The second approach is what the later posts in this series build toward.</p>
+          <p>Points near the center have small noise, and points far from the center have large noise. A constant-width interval calibrated on the calibration set uses a single quantile $\hat{q}$, which is calibrated to be correct <em>on average</em> over the calibration set &mdash; a mixture of easy (center) and hard (extremes) points.</p>
 
-      <p>But before we can understand either approach, we need to understand what determines prediction difficulty in the first place. In linear models, there is a remarkably clean answer involving a quantity called the <em>leverage score</em>. That is where we go next.</p>
+          <div class="mermaid">
+            flowchart LR
+              subgraph Center["Near Center"]
+                direction TB
+                CN["Small noise variance"]
+                CC["Coverage: ~99%"]
+                CL["Interval: much too wide"]
+              end
+              subgraph Middle["Mid Range"]
+                direction TB
+                MN["Moderate noise variance"]
+                MC["Coverage: ~90%"]
+                ML["Interval: about right"]
+              end
+              subgraph Extremes["At Extremes"]
+                direction TB
+                EN["Large noise variance"]
+                EC["Coverage: ~70%"]
+                EL["Interval: far too narrow"]
+              end
+
+              Center --- Middle --- Extremes
+
+              style Center fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style Middle fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style Extremes fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style CN fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style CC fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style CL fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style MN fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style MC fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style ML fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style EN fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style EC fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style EL fill:#fce4ec,stroke:#c62828,color:#1c1917
+          </div>
+          <p class="diagram-caption">Overcoverage at the center (99%) subsidizes undercoverage at the extremes (70%). The marginal average is 90%.</p>
+
+          <p>The overcoverage near the center compensates for the undercoverage at the extremes, so the marginal guarantee holds. But in high-stakes applications, the undercovered regions are often exactly where predictions matter most: unusual patients, extreme market conditions, edge cases in autonomous systems.</p>
+
+          <h3>The Root Cause</h3>
+
+          <p>The root cause is that conformal prediction uses a single quantile for all test points. The quantile $\hat{q}$ is calibrated to be correct on average over the calibration set, which is a mixture of easy and hard points. For easy points, $\hat{q}$ is too large; for hard points, $\hat{q}$ is too small.</p>
+
+          <p>What we need is a way to make the interval width depend on $x$: wider where prediction is harder, narrower where it is easier. This requires knowing &mdash; or estimating &mdash; what makes some predictions harder than others.</p>
+
+          <h3>Two Approaches to Adaptive Intervals</h3>
+
+          <p>There are two fundamentally different strategies for making intervals adaptive:</p>
+
+          <ol>
+            <li><strong>Learn the difficulty.</strong> Train an auxiliary model to estimate where predictions are hard. For example, estimate the conditional variance $\text{Var}(Y \mid X=x)$ or fit quantile regressors. This is the approach taken by Conformalized Quantile Regression (CQR) and Studentized Conformal Prediction.</li>
+            <li><strong>Derive the difficulty from geometry.</strong> Use structural properties of the design matrix &mdash; specifically, how far each point is from the training distribution &mdash; to determine prediction difficulty without any auxiliary model. This is the leverage-based approach.</li>
+          </ol>
+
+          <div class="mermaid">
+            flowchart TD
+              Q["How to make intervals adaptive?"]
+              Q --> L["Learn the difficulty"]
+              Q --> G["Derive from geometry"]
+
+              L --> CQR["Conformalized Quantile<br/>Regression (CQR)"]
+              L --> SCP["Studentized Conformal<br/>Prediction"]
+              L --> LWP["LWCP+<br/>(hybrid)"]
+
+              G --> LEV["Leverage scores<br/>from the hat matrix"]
+              G --> LWCP["LWCP<br/>(this series)"]
+
+              CQR --> PRO1["+ Captures heteroscedasticity"]
+              CQR --> CON1["- Requires training<br/>quantile regressors"]
+
+              LEV --> PRO2["+ No auxiliary model needed"]
+              LEV --> CON2["- Only captures<br/>geometric difficulty"]
+
+              style Q fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+              style L fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style G fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style CQR fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style SCP fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style LWP fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style LEV fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style LWCP fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style PRO1 fill:#faf8f5,stroke:#1565c0,color:#1c1917
+              style CON1 fill:#faf8f5,stroke:#1565c0,color:#1c1917
+              style PRO2 fill:#faf8f5,stroke:#2e7d32,color:#1c1917
+              style CON2 fill:#faf8f5,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">Two paradigms for adaptive intervals: learn difficulty with auxiliary models, or derive it from the geometry of the data.</p>
+
+          <p>The first approach is powerful but requires extra modeling effort (and the auxiliary model can itself be wrong). The second approach is elegant and free &mdash; in linear models, the hat matrix tells you exactly how hard each prediction is. The later posts in this series build toward the geometric approach, but we will compare both.</p>
+
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- LEVEL 3: ADVANCED                                            -->
+      <!-- ============================================================ -->
+      <div class="level">
+        <div class="level-header" role="button" aria-expanded="true" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>The Impossibility Theorem and What Lies Beyond</h2>
+          <span class="level-toggle" aria-hidden="true">&#9660;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>The Impossibility Result</h3>
+
+          <p>The sobering mathematical backdrop to this entire discussion is a result established by Vovk (2012) and formalized more precisely by Barber, Candes, Ramdas, and Tibshirani (2021):</p>
+
+          <blockquote>
+            <p>For any distribution-free prediction interval procedure that achieves marginal coverage $1-\alpha$, there exist distributions under which the conditional coverage at some points is as low as 0 and at other points is as high as 1.</p>
+          </blockquote>
+
+          <p>More precisely: let $\hat{C}$ be any prediction set procedure satisfying $P(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - \alpha$ for all distributions $P$ on $(X,Y)$. Then for any $\delta > 0$, there exists a distribution $P^*$ such that:</p>
+
+          $$P^*\bigl(Y_{n+1} \in \hat{C}(X_{n+1}) \mid X_{n+1} = x\bigr) \leq \delta \quad \text{for some } x$$
+
+          $$P^*\bigl(Y_{n+1} \in \hat{C}(X_{n+1}) \mid X_{n+1} = x'\bigr) \geq 1 - \delta \quad \text{for some } x'$$
+
+          <h3>Proof Intuition</h3>
+
+          <p>The proof works by adversarial construction. Given any distribution-free method $\hat{C}$, one constructs a distribution $P^*$ that concentrates the noise variance at points where $\hat{C}$ allocates the least width. Because $\hat{C}$ must be distribution-free (it cannot "know" where $P^*$ will place its variance), the adversary can always find a distribution that defeats it.</p>
+
+          <p>Concretely: if $\hat{C}$ gives narrow intervals at some point $x_0$, set $P^*$ so that $\text{Var}(Y \mid X = x_0)$ is enormous. The interval at $x_0$ will have near-zero conditional coverage. Meanwhile, at points where $\hat{C}$ gives wide intervals, set the variance to zero; the conditional coverage there approaches 1. The marginal coverage can still be $1-\alpha$ because the overcoverage at the easy points compensates, but the conditional coverage is maximally misallocated.</p>
+
+          <p>The impossibility result does not say that all methods are equally bad. It sets a <em>lower bound</em> on what is achievable in the fully distribution-free setting. The space between that lower bound and what practical methods achieve is where all the interesting work lives.</p>
+
+          <h3>Escaping Impossibility: Structural Assumptions</h3>
+
+          <p>The impossibility result applies only in the <em>fully</em> distribution-free setting. Under structural assumptions that are weaker than full parametric models, near-perfect conditional coverage becomes achievable:</p>
+
+          <ul>
+            <li><strong>Scale families:</strong> If $Y = f(X) + \sigma(X) \cdot \varepsilon$ where $\varepsilon$ is independent of $X$ and $\sigma(X)$ can be estimated, then dividing by $\hat{\sigma}(X)$ makes residuals exchangeable conditional on $X$, and conditional coverage follows.</li>
+            <li><strong>Smoothness:</strong> If the conditional distribution of $Y \mid X$ varies smoothly, local calibration methods can achieve conditional coverage at rate $O(n^{-\beta/(2\beta+d)})$ where $\beta$ is the smoothness and $d$ is the dimension.</li>
+            <li><strong>Linear models:</strong> The hat matrix provides an exact decomposition of prediction variance, enabling precise width allocation with no auxiliary modeling.</li>
+          </ul>
+
+          <div class="mermaid">
+            flowchart TB
+              I["Impossibility boundary<br/>Distribution-free + exact conditional<br/>= impossible"]
+              I --> |"Add structure"| S["Structural assumptions"]
+              S --> S1["Scale families<br/>Y = f(X) + &sigma;(X)&middot;&epsilon;"]
+              S --> S2["Smoothness<br/>Slow variation of P(Y|X)"]
+              S --> S3["Linear models<br/>Hat matrix geometry"]
+
+              S1 --> P1["Near-exact conditional<br/>coverage achievable"]
+              S2 --> P2["Rates: O(n^{-&beta;/(2&beta;+d)})"]
+              S3 --> P3["Exact variance<br/>decomposition"]
+
+              P1 --> G["The practical landscape:<br/>All interesting methods live here"]
+              P2 --> G
+              P3 --> G
+
+              style I fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style S fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style S1 fill:#faf8f5,stroke:#1565c0,color:#1c1917
+              style S2 fill:#faf8f5,stroke:#1565c0,color:#1c1917
+              style S3 fill:#faf8f5,stroke:#1565c0,color:#1c1917
+              style P1 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style P2 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style P3 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style G fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">The landscape of conditional coverage: impossibility sets the floor, structural assumptions open the door to practical methods.</p>
+
+          <h3>Quantifying the Cost: Wasted Width Ratio</h3>
+
+          <p>To measure how much a constant-width method loses relative to the ideal, define the <strong>Wasted Width Ratio</strong>:</p>
+
+          $$\text{WWR} = \frac{\mathbb{E}[\text{width}(\hat{C}(X))]}{\mathbb{E}[\text{width}(\hat{C}^*(X))]}$$
+
+          <p>where $\hat{C}^*$ is the oracle adaptive interval that achieves exact $1-\alpha$ conditional coverage everywhere. The oracle interval has width $2 \cdot q_\alpha \cdot \sigma(x)$ at each point (where $q_\alpha$ is the $\alpha$-quantile of the standardized noise distribution), so it is narrow where noise is small and wide where noise is large.</p>
+
+          <p>For a constant-width interval, the WWR is always $\geq 1$, and it grows with the heterogeneity of the noise. In a linear model with heteroscedastic noise driven by leverage:</p>
+
+          <ul>
+            <li>If leverage scores range from 0.01 to 0.3, the WWR can exceed 2, meaning the constant-width interval uses more than twice the average width needed for the same marginal coverage.</li>
+            <li>In high-dimensional settings where $p/n$ is appreciable, leverage heterogeneity is large, and the WWR grows further.</li>
+          </ul>
+
+          <p>The WWR is not just a theoretical curiosity. In practice, excess width translates directly to less informative intervals: a doctor looking at a prediction interval twice as wide as necessary will dismiss it as useless, even if the coverage guarantee is valid. <em>Tightness matters</em>, not just coverage.</p>
+
+          <h3>The Road Ahead</h3>
+
+          <p>The impossibility result tells us we cannot have everything. But it also tells us that the gap between "marginal coverage with constant width" and "near-conditional coverage with adaptive width" is exactly the gap that structural assumptions can close. In linear models, the hat matrix provides all the structure we need. That is where we go next.</p>
+
+        </div>
+      </div>
 
     </div>
 
     <div class="further-reading">
       <h3>Further Reading</h3>
       <ul>
-        <li>Vovk, V. (2012). Conditional validity of inductive conformal predictors. <em>Asian Conference on Machine Learning</em>, 475-490.</li>
-        <li>Barber, R. F., Candes, E. J., Ramdas, A., &amp; Tibshirani, R. J. (2021). The limits of distribution-free conditional predictive inference. <em>Information and Inference</em>, 10(2), 455-482.</li>
+        <li>Vovk, V. (2012). Conditional validity of inductive conformal predictors. <em>Asian Conference on Machine Learning</em>, 475&ndash;490.</li>
+        <li>Barber, R. F., Candes, E. J., Ramdas, A., &amp; Tibshirani, R. J. (2021). The limits of distribution-free conditional predictive inference. <em>Information and Inference</em>, 10(2), 455&ndash;482.</li>
         <li>Tibshirani, R. J. (2023). Conformal prediction: A gentle introduction. <em>Foundations and Trends in Machine Learning</em>.</li>
       </ul>
     </div>

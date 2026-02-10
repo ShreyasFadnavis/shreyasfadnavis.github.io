@@ -9,6 +9,8 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
     onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
 </head>
 <body>
 
@@ -37,120 +39,390 @@
 
     <div class="post-body">
 
-      <p>We now shift gears. Parts 1-3 covered conformal prediction and its constant-width limitation. This post begins a parallel track: the linear algebra of prediction, and a quantity called the <em>leverage score</em> that will eventually connect back to conformal prediction in a surprising way.</p>
+      <p>We now shift gears. Parts 1&ndash;3 covered conformal prediction and its constant-width limitation. This post begins a new track: <strong>the geometry of data</strong>. We introduce a quantity called the <em>leverage score</em> that measures how unusual each data point is, and a matrix called the <em>hat matrix</em> that encodes these scores for every point simultaneously. By the end of this series, leverage will connect back to conformal prediction in a surprising and powerful way.</p>
 
-      <p>The story starts with ordinary least squares regression and a matrix that most ML practitioners have never thought carefully about.</p>
+      <p>This post is organized in three progressive difficulty levels. Start wherever you are comfortable.</p>
 
-      <h2>Ordinary Least Squares, Briefly</h2>
+      <!-- ============================================================ -->
+      <!-- LEVEL 1: INTUITIVE -->
+      <!-- ============================================================ -->
+      <div class="level">
+        <div class="level-header" role="button" aria-expanded="true" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>The Big Picture: What Is Leverage?</h2>
+          <span class="level-toggle" aria-hidden="true">&#9660;</span>
+        </div>
+        <div class="level-content">
 
-      <p>Given training data $\{(X_1, Y_1), \ldots, (X_n, Y_n)\}$ with $X_i \in \mathbb{R}^p$ and $Y_i \in \mathbb{R}$, ordinary least squares (OLS) finds the coefficient vector $\hat{\beta}$ that minimizes the sum of squared residuals:</p>
+          <h3>A Social Circle Analogy</h3>
 
-      $$\hat{\beta} = \arg\min_\beta \sum_{i=1}^n (Y_i - X_i^\top \beta)^2$$
+          <p>Imagine you are in a room of 100 people. Most of them are clustered in the center, chatting in groups. But you are standing alone in the far corner. Now someone asks the room a question and averages all the answers. Your answer has outsized influence &mdash; because you are the only one representing "the corner." If you change your answer, the average shifts noticeably. If someone in the center changes theirs, it barely matters; there are dozens of others nearby giving similar answers.</p>
 
-      <p>The solution is the well-known normal equation:</p>
+          <p>That is <strong>leverage</strong> &mdash; how much pull a single data point has on the model's answer.</p>
 
-      $$\hat{\beta} = (\mathbf{X}^\top \mathbf{X})^{-1} \mathbf{X}^\top \mathbf{Y}$$
+          <h3>Leverage in Machine Learning</h3>
 
-      <p>where $\mathbf{X}$ is the $n \times p$ design matrix (rows are training feature vectors) and $\mathbf{Y}$ is the n-vector of responses. The fitted values are:</p>
+          <p>When a model fits data, most training points are "average" &mdash; they share similar features with many other points. But some points are unusual: they sit in sparse regions of the feature space, far from the crowd. These unusual points have <strong>high leverage</strong>. The model is forced to pay extra attention to them because there is no one else nearby to "vote" on what the prediction should be in that region.</p>
 
-      $$\hat{\mathbf{Y}} = \mathbf{X}\hat{\beta} = \mathbf{X}(\mathbf{X}^\top \mathbf{X})^{-1} \mathbf{X}^\top \mathbf{Y}$$
+          <div class="mermaid">
+            graph LR
+              subgraph Feature Space
+                C1((Point))
+                C2((Point))
+                C3((Point))
+                C4((Point))
+                C5((Point))
+                C6((Point))
+                C7((Point))
+              end
+              O((Outlier<br/>HIGH leverage))
+              C1 --- C2
+              C2 --- C3
+              C3 --- C4
+              C4 --- C5
+              C5 --- C6
+              C6 --- C7
+              C1 --- C4
+              C2 --- C5
+              C3 --- C6
+              O -. "model bends<br/>toward this point" .-> C7
+              style O fill:#fce4ec,stroke:#c62828,stroke-width:2px,color:#c62828
+              style C1 fill:#e8f5e9,stroke:#2e7d32,color:#2e7d32
+              style C2 fill:#e8f5e9,stroke:#2e7d32,color:#2e7d32
+              style C3 fill:#e8f5e9,stroke:#2e7d32,color:#2e7d32
+              style C4 fill:#e8f5e9,stroke:#2e7d32,color:#2e7d32
+              style C5 fill:#e8f5e9,stroke:#2e7d32,color:#2e7d32
+              style C6 fill:#e8f5e9,stroke:#2e7d32,color:#2e7d32
+              style C7 fill:#e8f5e9,stroke:#2e7d32,color:#2e7d32
+          </div>
+          <p class="diagram-caption">A cluster of ordinary points (low leverage) and one isolated point (high leverage). The model "bends" toward the isolated point because it is the only representative of that region.</p>
 
-      <p>Look at the matrix that transforms $\mathbf{Y}$ into the fitted values. It appears naturally from the algebra of least squares, and it has a name.</p>
+          <h3>From Data to Leverage Scores</h3>
 
-      <h2>The Hat Matrix</h2>
+          <div class="mermaid">
+            flowchart LR
+              A[Data] --> B[Fit Model]
+              B --> C{Which points<br/>matter most?}
+              C --> D[Leverage Scores]
+              D --> E[High leverage =<br/>unusual position]
+              style A fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+              style B fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+              style C fill:#faf8f5,stroke:#a0522d,color:#1c1917
+              style D fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+              style E fill:#fce4ec,stroke:#c62828,color:#c62828
+          </div>
+          <p class="diagram-caption">Leverage scores summarize which data points have the most influence on the model by virtue of their position in feature space.</p>
 
-      <p>Define:</p>
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p>Leverage is like being the only voter in your district &mdash; your vote counts much more than someone in a crowded district. The model must listen to you because there is no one else nearby to balance you out.</p>
+          </div>
 
-      $$\mathbf{H} = \mathbf{X}(\mathbf{X}^\top \mathbf{X})^{-1} \mathbf{X}^\top$$
+          <div class="callout">
+            <div class="callout-label">Key Point</div>
+            <p>Leverage depends on <strong>where you are</strong> in feature space, not on your Y value. A point can have a perfectly normal outcome but extreme leverage. It is entirely about position &mdash; how far you are from the "center" of the training data, accounting for correlations between features.</p>
+          </div>
 
-      <p>This is the <strong>hat matrix</strong>. It is called this because it "puts the hat on Y": it maps the observed responses $\mathbf{Y}$ to the fitted responses $\hat{\mathbf{Y}} = \mathbf{H}\mathbf{Y}$.</p>
+          <h3>Why Should You Care?</h3>
 
-      <p>The hat matrix is an $n \times n$ matrix, and it has several elegant properties:</p>
+          <p>High-leverage points are not necessarily bad. But they are <em>powerful</em>. If a high-leverage point happens to have an unusual response (maybe it is an error, or just an outlier in Y), it can drag the entire model off course. Knowing which points have high leverage lets you:</p>
 
-      <p><strong>Symmetry:</strong> $\mathbf{H} = \mathbf{H}^\top$. The hat matrix is symmetric.</p>
+          <ul>
+            <li>Identify which training points the model depends on most</li>
+            <li>Flag test points where the model is effectively extrapolating</li>
+            <li>Understand why prediction intervals should be wider in some regions than others</li>
+          </ul>
 
-      <p><strong>Idempotence:</strong> $\mathbf{H}^2 = \mathbf{H}$. Applying the hat matrix twice is the same as applying it once. This means $\mathbf{H}$ is a projection matrix — it projects $\mathbf{Y}$ onto the column space of $\mathbf{X}$.</p>
+          <p>This last point is the connection to Parts 1&ndash;3. Leverage will turn out to be the key to making prediction intervals <em>adaptive</em> &mdash; wider where the model is less certain, narrower where it is more certain. But we are getting ahead of ourselves. First, let us see where leverage comes from mathematically.</p>
 
-      <p><strong>Trace:</strong> $\text{tr}(\mathbf{H}) = p$. The sum of the diagonal entries equals the number of features. This is because $\mathbf{H}$ projects onto a p-dimensional subspace.</p>
+        </div>
+      </div>
 
-      <p><strong>Complement:</strong> The residual vector is $\mathbf{e} = \mathbf{Y} - \hat{\mathbf{Y}} = (\mathbf{I} - \mathbf{H})\mathbf{Y}$. The matrix $(\mathbf{I} - \mathbf{H})$ is also a projection — it projects onto the orthogonal complement of the column space of $\mathbf{X}$.</p>
+      <!-- ============================================================ -->
+      <!-- LEVEL 2: TECHNICAL -->
+      <!-- ============================================================ -->
+      <div class="level">
+        <div class="level-header" role="button" aria-expanded="true" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');">
+          <span class="level-badge technical">Technical</span>
+          <h2>The Hat Matrix and Leverage Scores</h2>
+          <span class="level-toggle" aria-hidden="true">&#9660;</span>
+        </div>
+        <div class="level-content">
 
-      <h2>Leverage Scores: The Diagonal of the Hat Matrix</h2>
+          <h3>Ordinary Least Squares</h3>
 
-      <p>The diagonal entries of $\mathbf{H}$ are called <strong>leverage scores</strong>:</p>
+          <p>Given training data $\{(X_1, Y_1), \ldots, (X_n, Y_n)\}$ with $X_i \in \mathbb{R}^p$ and $Y_i \in \mathbb{R}$, OLS finds the coefficient vector that minimizes the sum of squared residuals. The solution is the normal equation:</p>
 
-      $$h_i = H_{ii} = X_i^\top (\mathbf{X}^\top \mathbf{X})^{-1} X_i$$
+          $$\hat{\beta} = (\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{Y}$$
 
-      <p>The leverage score $h_i$ measures something precise: <strong>how much the fitted value $\hat{Y}_i$ depends on the observed response $Y_i$</strong>. To see this, note that:</p>
+          <p>where $\mathbf{X}$ is the $n \times p$ design matrix (rows are training feature vectors) and $\mathbf{Y}$ is the $n$-vector of responses. The fitted values are:</p>
 
-      $$\hat{Y}_i = \sum_{j=1}^n H_{ij} Y_j = h_i Y_i + \sum_{j \neq i} H_{ij} Y_j$$
+          $$\hat{\mathbf{Y}} = \mathbf{X}\hat{\beta} = \underbrace{\mathbf{X}(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top}_{\mathbf{H}} \mathbf{Y}$$
 
-      <p>So $h_i$ is the weight that $Y_i$ receives in its own prediction. If $h_i$ is close to 1, the model essentially passes through the observed value — it "leverages" that point heavily. If $h_i$ is close to 0, the point has little influence on its own fitted value.</p>
+          <h3>Defining the Hat Matrix</h3>
 
-      <p><strong>Key properties of leverage scores:</strong></p>
+          <p>The matrix that transforms $\mathbf{Y}$ into fitted values $\hat{\mathbf{Y}}$ is the <strong>hat matrix</strong>:</p>
 
-      <ol>
-        <li><strong>Bounded (for training data):</strong> $0 \leq h_i \leq 1$. This follows from the idempotence of $\mathbf{H}$: $\mathbf{H}^2 = \mathbf{H}$ implies $h_i = \sum_j H^2_{ij} \geq H^2_{ii} = h^2_i$, so $h_i(1-h_i) \geq 0$.</li>
-        <li><strong>Average value:</strong> The average leverage is $p/n$, since $\sum_i h_i = \text{tr}(\mathbf{H}) = p$.</li>
-        <li><strong>Lower bound:</strong> $h_i \geq 1/n$ (if the design matrix includes an intercept column).</li>
-      </ol>
+          $$\mathbf{H} = \mathbf{X}(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top$$
 
-      <p>For test points, the leverage can exceed 1. A test point with $h(x) > 1$ is deep in extrapolation territory — it is farther from the training centroid than any training point, in a Mahalanobis sense.</p>
+          <p>It is called the hat matrix because it "puts the hat on Y": $\hat{\mathbf{Y}} = \mathbf{H}\mathbf{Y}$.</p>
 
-      <h2>The Geometric Interpretation</h2>
+          <div class="mermaid">
+            flowchart LR
+              Y["Response Y"] -->|"multiply by H"| Yhat["Fitted Ŷ = HY"]
+              Yhat -->|"H is a projection"| CS["Column space of X"]
+              Y -->|"I - H"| R["Residuals e = (I-H)Y"]
+              R -->|"I-H is a projection"| OC["Orthogonal complement"]
+              style Y fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+              style Yhat fill:#e3f2fd,stroke:#1565c0,color:#1565c0
+              style CS fill:#e3f2fd,stroke:#1565c0,color:#1565c0
+              style R fill:#fce4ec,stroke:#c62828,color:#c62828
+              style OC fill:#fce4ec,stroke:#c62828,color:#c62828
+          </div>
+          <p class="diagram-caption">The hat matrix H projects Y onto the column space of X. The complement (I - H) projects onto the orthogonal complement, giving the residuals.</p>
 
-      <p>The formula $h(x) = x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x$ has a clean geometric meaning. The matrix $(\mathbf{X}^\top\mathbf{X})^{-1}$ defines an ellipsoid in $\mathbb{R}^p$ — the inverse of the sample covariance of the training features (up to a factor of n). The quantity $x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x$ is the squared <strong>Mahalanobis distance</strong> from x to the origin (the training centroid, after centering).</p>
+          <h3>Properties of the Hat Matrix</h3>
 
-      <p>In other words, leverage measures <strong>how far a point is from the center of the training data, accounting for the correlation structure of the features</strong>.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>Statement</th>
+                <th>Meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Symmetric</strong></td>
+                <td>$\mathbf{H} = \mathbf{H}^\top$</td>
+                <td>The influence of point $i$ on prediction $j$ equals the influence of $j$ on $i$</td>
+              </tr>
+              <tr>
+                <td><strong>Idempotent</strong></td>
+                <td>$\mathbf{H}^2 = \mathbf{H}$</td>
+                <td>H is a projection matrix &mdash; projecting twice is the same as projecting once</td>
+              </tr>
+              <tr>
+                <td><strong>Trace</strong></td>
+                <td>$\text{tr}(\mathbf{H}) = p$</td>
+                <td>The total leverage across all training points equals the number of features</td>
+              </tr>
+              <tr>
+                <td><strong>Complement</strong></td>
+                <td>$(\mathbf{I} - \mathbf{H})^2 = \mathbf{I} - \mathbf{H}$</td>
+                <td>The residual-maker matrix is also a projection</td>
+              </tr>
+            </tbody>
+          </table>
 
-      <p>Consider a two-dimensional example. If the training data form an elongated elliptical cloud (the features are correlated), a point that is far from the center <em>along the major axis</em> has moderate leverage, but a point that is far <em>along the minor axis</em> (perpendicular to the correlation) has very high leverage. The Mahalanobis distance accounts for the shape of the data cloud, not just the Euclidean distance.</p>
+          <h3>Leverage Scores: The Diagonal of H</h3>
 
-      <p>This is why leverage captures something that individual feature values miss. A data point can look "normal" in every individual feature but still have high leverage because it sits in an unusual <em>combination</em> of feature values — a region of feature space where the training data are sparse.</p>
+          <p>The diagonal entries of $\mathbf{H}$ are the <strong>leverage scores</strong>:</p>
 
-      <h2>Computing Leverage via SVD</h2>
+          $$h_i = H_{ii} = X_i^\top(\mathbf{X}^\top\mathbf{X})^{-1}X_i$$
 
-      <p>The direct formula $h(x) = x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x$ requires forming and inverting the $p \times p$ matrix $\mathbf{X}^\top\mathbf{X}$. A more numerically stable and often faster approach uses the thin SVD of the design matrix.</p>
+          <h4>Self-Influence</h4>
 
-      <p>The thin SVD decomposes $\mathbf{X}$ as:</p>
+          <p>The leverage score has a direct interpretation as <strong>self-influence</strong>. Since $\hat{Y}_i = \sum_{j=1}^n H_{ij} Y_j$, we can decompose:</p>
 
-      $$\mathbf{X} = \mathbf{U} \boldsymbol{\Sigma} \mathbf{V}^\top$$
+          $$\hat{Y}_i = h_i Y_i + \sum_{j \neq i} H_{ij} Y_j$$
 
-      <p>where $\mathbf{U}$ is $n \times p$ (orthonormal columns), $\boldsymbol{\Sigma}$ is $p \times p$ (diagonal, positive entries), and $\mathbf{V}$ is $p \times p$ (orthogonal). Then:</p>
+          <p>The leverage $h_i$ is the weight that $Y_i$ receives in its own prediction. If $h_i \approx 1$, the model essentially passes through the observed value &mdash; the point "leverages" the fit completely. If $h_i \approx 0$, the point has negligible influence on its own fitted value.</p>
 
-      $$(\mathbf{X}^\top \mathbf{X})^{-1} = (\mathbf{V}\boldsymbol{\Sigma}^2\mathbf{V}^\top)^{-1} = \mathbf{V}\boldsymbol{\Sigma}^{-2}\mathbf{V}^\top$$
+          <h4>Properties of Leverage Scores</h4>
 
-      <p>So the leverage score becomes:</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>Formula</th>
+                <th>Explanation</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Bounded</strong></td>
+                <td>$0 \leq h_i \leq 1$</td>
+                <td>For training points; follows from idempotence of H</td>
+              </tr>
+              <tr>
+                <td><strong>Average</strong></td>
+                <td>$\bar{h} = p/n$</td>
+                <td>Since $\sum_i h_i = \text{tr}(\mathbf{H}) = p$</td>
+              </tr>
+              <tr>
+                <td><strong>Flagging rule</strong></td>
+                <td>$h_i > 2p/n$</td>
+                <td>Classical threshold: leverage more than twice the average is "high"</td>
+              </tr>
+              <tr>
+                <td><strong>Lower bound</strong></td>
+                <td>$h_i \geq 1/n$</td>
+                <td>If X includes an intercept column</td>
+              </tr>
+              <tr>
+                <td><strong>Test points</strong></td>
+                <td>$h(x)$ can exceed 1</td>
+                <td>Deep extrapolation &mdash; farther from centroid than any training point</td>
+              </tr>
+            </tbody>
+          </table>
 
-      $$h(x) = x^\top \mathbf{V}\boldsymbol{\Sigma}^{-2}\mathbf{V}^\top x = \|\boldsymbol{\Sigma}^{-1}\mathbf{V}^\top x\|_2^2$$
+          <h3>Geometric Interpretation: Mahalanobis Distance</h3>
 
-      <p>This is the squared norm of the vector obtained by rotating x into the principal component coordinate system ($\mathbf{V}^\top x$) and then scaling each component by the inverse singular value (dividing by $\sigma_j$). Components aligned with directions of low variance in the training data get amplified; components aligned with high-variance directions get shrunk.</p>
+          <p>The formula $h(x) = x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x$ is the squared <strong>Mahalanobis distance</strong> from $x$ to the training centroid (after centering). The matrix $(\mathbf{X}^\top\mathbf{X})^{-1}$ defines an ellipsoid in $\mathbb{R}^p$ &mdash; the inverse of the sample covariance of the training features (up to a factor of $n$).</p>
 
-      <p>For the training data, the leverages are even simpler: $h_i = \|u_i\|^2$ where $u_i$ is the i-th row of $\mathbf{U}$. The hat matrix is just $\mathbf{H} = \mathbf{U}\mathbf{U}^\top$.</p>
+          <p>Consider a 2D example where the training data form an elongated elliptical cloud (correlated features). A point that is far along the <em>major axis</em> has moderate leverage, but a point that is far along the <em>minor axis</em> has very high leverage. The Mahalanobis distance accounts for the shape of the data cloud, not just the Euclidean distance. This is why leverage captures something that individual feature values miss: a point can look "normal" in every individual feature but have high leverage because it sits in an unusual <em>combination</em> of feature values.</p>
 
-      <p>The computational cost of the thin SVD is $O(np^2)$ for $n > p$, or $O(n^2p)$ for $n < p$. This is typically dominated by the cost of fitting the regression model itself, so leverage scores come essentially for free once you have the SVD.</p>
+          <h3>Computing Leverage via SVD</h3>
 
-      <h2>A Preview of What Leverage Controls</h2>
+          <p>Rather than forming and inverting $\mathbf{X}^\top\mathbf{X}$, we compute leverage through the thin SVD of the design matrix:</p>
 
-      <p>We have introduced leverage as a geometric quantity: a measure of how unusual a point is relative to the training distribution. But leverage has a much deeper role. It directly controls the <em>variance of predictions</em>.</p>
+          $$\mathbf{X} = \mathbf{U}\boldsymbol{\Sigma}\mathbf{V}^\top$$
 
-      <p>Here is a preview of what we will develop in Part 6. Under a linear model $Y = X^\top\beta^* + \varepsilon$ with homoscedastic errors $\text{Var}(\varepsilon) = \sigma^2$, the variance of the prediction error at a test point x is:</p>
+          <p>where $\mathbf{U}$ is $n \times p$ (orthonormal columns), $\boldsymbol{\Sigma}$ is $p \times p$ (diagonal), and $\mathbf{V}$ is $p \times p$ (orthogonal). Then:</p>
 
-      $$\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \sigma^2(1 + h(x))$$
+          $$h(x) = \|\boldsymbol{\Sigma}^{-1}\mathbf{V}^\top x\|^2$$
 
-      <p>The factor $(1 + h(x))$ means that prediction uncertainty is <em>directly amplified by leverage</em>. At the centroid of the training data ($h \approx 0$), the prediction variance is approximately $\sigma^2$ — just the irreducible noise. At a high-leverage point ($h$ large), the prediction variance grows, because the model's coefficient estimates are uncertain in that direction.</p>
+          <div class="mermaid">
+            flowchart LR
+              X["Design Matrix X"] --> SVD["Thin SVD"]
+              SVD --> U["U (n x p)"]
+              SVD --> S["&Sigma; (p x p)"]
+              SVD --> V["V (p x p)"]
+              V --> T1["V&#7488;x"]
+              S --> T2["&Sigma;&#8315;&sup1; V&#7488;x"]
+              T1 --> T2
+              T2 --> H["h(x) = ||&Sigma;&#8315;&sup1;V&#7488;x||&sup2;"]
+              style X fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+              style SVD fill:#e3f2fd,stroke:#1565c0,color:#1565c0
+              style U fill:#faf8f5,stroke:#a0522d,color:#1c1917
+              style S fill:#faf8f5,stroke:#a0522d,color:#1c1917
+              style V fill:#faf8f5,stroke:#a0522d,color:#1c1917
+              style T1 fill:#faf8f5,stroke:#a0522d,color:#1c1917
+              style T2 fill:#faf8f5,stroke:#a0522d,color:#1c1917
+              style H fill:#e8f5e9,stroke:#2e7d32,color:#2e7d32
+          </div>
+          <p class="diagram-caption">Computing leverage via SVD: rotate into principal component coordinates, scale by inverse singular values, and take the squared norm.</p>
 
-      <p>This is the connection between leverage and prediction intervals: points with high leverage <em>should</em> have wider prediction intervals, and the leverage score tells you exactly how much wider.</p>
+          <p>For training points, the leverages are even simpler: $h_i = \|u_i\|^2$, where $u_i$ is the $i$-th row of $\mathbf{U}$. The hat matrix is just $\mathbf{H} = \mathbf{U}\mathbf{U}^\top$.</p>
 
-      <p>But there is a subtlety — a "sign flip" — that makes this connection trickier than it first appears. That is the subject of Part 6, after we cover leverage's classical role in regression diagnostics in Part 5.</p>
+          <div class="callout">
+            <div class="callout-label">Key Insight</div>
+            <p>Leverage tells you how far each point is from the "center" of the training data, accounting for correlations between features. Components aligned with directions of <em>low variance</em> in the training data get amplified; components aligned with <em>high-variance</em> directions get shrunk. A point that deviates along a direction the training data rarely explores will have high leverage, even if it looks ordinary in each feature individually.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- LEVEL 3: ADVANCED -->
+      <!-- ============================================================ -->
+      <div class="level">
+        <div class="level-header" role="button" aria-expanded="true" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>Proofs, Derivations, and the Road to Prediction Variance</h2>
+          <span class="level-toggle" aria-hidden="true">&#9660;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Full SVD Derivation</h3>
+
+          <p>Starting from the thin SVD $\mathbf{X} = \mathbf{U}\boldsymbol{\Sigma}\mathbf{V}^\top$, we derive the leverage formula step by step.</p>
+
+          <p>First, compute $\mathbf{X}^\top\mathbf{X}$:</p>
+
+          $$\mathbf{X}^\top\mathbf{X} = (\mathbf{U}\boldsymbol{\Sigma}\mathbf{V}^\top)^\top (\mathbf{U}\boldsymbol{\Sigma}\mathbf{V}^\top) = \mathbf{V}\boldsymbol{\Sigma}\mathbf{U}^\top\mathbf{U}\boldsymbol{\Sigma}\mathbf{V}^\top = \mathbf{V}\boldsymbol{\Sigma}^2\mathbf{V}^\top$$
+
+          <p>where we used $\mathbf{U}^\top\mathbf{U} = \mathbf{I}_p$ (orthonormal columns of the thin SVD). Inverting:</p>
+
+          $$(\mathbf{X}^\top\mathbf{X})^{-1} = \mathbf{V}\boldsymbol{\Sigma}^{-2}\mathbf{V}^\top$$
+
+          <p>Now the leverage of an arbitrary point $x$:</p>
+
+          $$h(x) = x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x = x^\top\mathbf{V}\boldsymbol{\Sigma}^{-2}\mathbf{V}^\top x = \|\boldsymbol{\Sigma}^{-1}\mathbf{V}^\top x\|^2$$
+
+          <p>The last step uses the identity $a^\top a = \|a\|^2$ with $a = \boldsymbol{\Sigma}^{-1}\mathbf{V}^\top x$.</p>
+
+          <p>For training points, $x = X_i$ (the $i$-th row of $\mathbf{X}$, transposed). Since $\mathbf{X} = \mathbf{U}\boldsymbol{\Sigma}\mathbf{V}^\top$, the $i$-th row of $\mathbf{X}$ is $X_i^\top = u_i^\top \boldsymbol{\Sigma}\mathbf{V}^\top$, so $\mathbf{V}^\top X_i = \boldsymbol{\Sigma} u_i$. Substituting:</p>
+
+          $$h_i = \|\boldsymbol{\Sigma}^{-1}\boldsymbol{\Sigma} u_i\|^2 = \|u_i\|^2$$
+
+          <p>where $u_i$ is the $i$-th row of $\mathbf{U}$. This is a clean and computationally useful result.</p>
+
+          <h3>Proof of Idempotence</h3>
+
+          <p>The hat matrix is idempotent ($\mathbf{H}^2 = \mathbf{H}$):</p>
+
+          $$\mathbf{H}^2 = \mathbf{X}(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top \cdot \mathbf{X}(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top = \mathbf{X}(\mathbf{X}^\top\mathbf{X})^{-1}\underbrace{(\mathbf{X}^\top\mathbf{X})(\mathbf{X}^\top\mathbf{X})^{-1}}_{\mathbf{I}_p}\mathbf{X}^\top = \mathbf{X}(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top = \mathbf{H}$$
+
+          <p>This confirms that $\mathbf{H}$ is a projection matrix &mdash; it projects the response vector onto the column space of the design matrix.</p>
+
+          <h3>Proof of the Leverage Bounds</h3>
+
+          <p>The bound $0 \leq h_i \leq 1$ for training points follows directly from idempotence. Since $\mathbf{H}^2 = \mathbf{H}$, looking at the $(i,i)$ entry:</p>
+
+          $$h_i = (\mathbf{H}^2)_{ii} = \sum_{j=1}^n H_{ij}^2 \geq H_{ii}^2 = h_i^2$$
+
+          <p>Therefore $h_i \geq h_i^2$, which gives $h_i(1 - h_i) \geq 0$. Since $h_i = \sum_j H_{ij}^2 \geq 0$, we must have $0 \leq h_i \leq 1$.</p>
+
+          <p>Note that both bounds can be achieved: $h_i = 0$ only if $X_i = 0$ (the point is at the origin), and $h_i = 1$ only if $X_i$ is orthogonal to all other training points after projection.</p>
+
+          <h3>Test Points: Beyond the [0,1] Bound</h3>
+
+          <p>For a test point $x$ not in the training set, the leverage $h(x) = x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x$ can exceed 1. The bound $h_i \leq 1$ relied on $H_{ii}$ being a diagonal entry of an idempotent matrix, which only applies to the $n$ training points that define $\mathbf{H}$. A new point $x$ is not constrained by this.</p>
+
+          <p>When $h(x) > 1$, the model is in <strong>deep extrapolation</strong>: the test point is farther from the training centroid (in Mahalanobis distance) than any training point. Predictions at such points should be treated with extreme caution.</p>
+
+          <h3>Prediction Variance: The Punchline</h3>
+
+          <p>Under the linear model $Y = X^\top\beta^* + \varepsilon$ with $\text{Var}(\varepsilon) = \sigma^2$ and a new test point $(x, Y_{\text{new}})$ independent of the training data:</p>
+
+          $$\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \text{Var}(Y_{\text{new}}) + \text{Var}(\hat{Y}(x)) = \sigma^2 + \sigma^2 h(x) = \sigma^2(1 + h(x))$$
+
+          <p>where $\text{Var}(\hat{Y}(x)) = x^\top \text{Var}(\hat{\beta}) x = \sigma^2 x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x = \sigma^2 h(x)$, and the cross-term vanishes because $Y_{\text{new}}$ is independent of $\hat{\beta}$.</p>
+
+          <div class="mermaid">
+            flowchart TD
+              X2["Design Matrix X"] --> XTX["X&#7488;X"]
+              XTX --> INV["(X&#7488;X)&#8315;&sup1;"]
+              X2 --> H2["H = X(X&#7488;X)&#8315;&sup1;X&#7488;"]
+              INV --> H2
+              H2 --> HII["h(x) = x&#7488;(X&#7488;X)&#8315;&sup1;x"]
+              HII --> PV["Var(Y - Ŷ) = &sigma;&sup2;(1 + h(x))"]
+              PV --> PI["Prediction interval width<br/>&prop; &sigma; &middot; &radic;(1 + h(x))"]
+              style X2 fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+              style XTX fill:#faf8f5,stroke:#a0522d,color:#1c1917
+              style INV fill:#faf8f5,stroke:#a0522d,color:#1c1917
+              style H2 fill:#e3f2fd,stroke:#1565c0,color:#1565c0
+              style HII fill:#e3f2fd,stroke:#1565c0,color:#1565c0
+              style PV fill:#fce4ec,stroke:#c62828,color:#c62828
+              style PI fill:#fce4ec,stroke:#c62828,color:#c62828
+          </div>
+          <p class="diagram-caption">The full mathematical pipeline: from the design matrix to the hat matrix, to leverage scores, to prediction variance, and finally to prediction interval widths.</p>
+
+          <p>This is the fundamental result: <strong>leverage directly controls prediction variance</strong>. At the centroid of the training data ($h \approx 0$), the prediction variance is approximately $\sigma^2$ &mdash; just the irreducible noise. At a high-leverage point, prediction variance grows because the coefficient estimates are uncertain in that direction.</p>
+
+          <div class="callout">
+            <div class="callout-label">Preview: The Sign Flip</div>
+            <p>There is a subtlety that makes connecting leverage to conformal prediction trickier than it first appears. For <em>training</em> residuals, $\text{Var}(Y_i - \hat{Y}_i) = \sigma^2(1 - h_i)$ &mdash; high-leverage training points have <strong>smaller</strong> residuals. But for <em>test</em> prediction errors, $\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \sigma^2(1 + h(x))$ &mdash; high-leverage test points have <strong>larger</strong> errors. The sign flips! This training-test mismatch is the subject of Part 6.</p>
+          </div>
+
+          <h3>Computational Cost</h3>
+
+          <p>The thin SVD of the $n \times p$ design matrix costs $O(np^2)$ for $n > p$, or $O(n^2 p)$ for $n < p$. Once the SVD is computed, the leverage of any new test point costs $O(p)$ (one matrix-vector product with $\mathbf{V}$, one scaling by $\boldsymbol{\Sigma}^{-1}$, and one inner product). For training points, all $n$ leverages come for free as $\|u_i\|^2$ from the rows of $\mathbf{U}$. In practice, the SVD is typically already computed as part of the regression fit, so leverage scores cost essentially nothing extra.</p>
+
+        </div>
+      </div>
 
     </div>
 
     <div class="further-reading">
       <h3>Further Reading</h3>
       <ul>
-        <li>Hoaglin, D. C. &amp; Welsch, R. E. (1978). The hat matrix in regression and ANOVA. <em>The American Statistician</em>, 32(1), 17-22.</li>
-        <li>Hastie, T., Tibshirani, R., &amp; Friedman, J. (2009). <em>The Elements of Statistical Learning</em>, 2nd ed. Springer. (Chapter 3 on linear regression.)</li>
-        <li>Strang, G. (2019). <em>Linear Algebra and Its Applications</em>, 5th ed. Cengage. (For the SVD and projection matrix properties.)</li>
+        <li>Hoaglin, D. C. &amp; Welsch, R. E. (1978). The hat matrix in regression and ANOVA. <em>The American Statistician</em>, 32(1), 17&ndash;22.</li>
+        <li>Hastie, T., Tibshirani, R., &amp; Friedman, J. (2009). <em>The Elements of Statistical Learning</em>, 2nd ed. Springer. Chapter 3 on linear regression.</li>
+        <li>Strang, G. (2019). <em>Linear Algebra and Its Applications</em>, 5th ed. Cengage. For the SVD and projection matrix properties.</li>
       </ul>
     </div>
 

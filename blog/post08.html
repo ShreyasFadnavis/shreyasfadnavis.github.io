@@ -9,6 +9,8 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
     onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
 </head>
 <body>
 
@@ -35,171 +37,524 @@
 
     <div class="post-body">
 
-      <p>We have now established the problem (constant-width intervals, Part 3), the tool for diagnosis (leverage scores, Parts 4-5), the key structural insight (the sign flip, Part 6), and the remedy framework (variance stabilization, Part 7). Before we synthesize these ideas, we need to survey the existing landscape: what methods are already available for constructing adaptive conformal prediction intervals, and where do they succeed or fall short?</p>
+      <p>We have now established the problem (constant-width intervals, Part 3), the tool for diagnosis (leverage scores, Parts 4&ndash;5), the key structural insight (the sign flip, Part 6), and the remedy framework (variance stabilization, Part 7). Before we synthesize these ideas, we need to survey the existing landscape: what methods are already available for constructing adaptive conformal prediction intervals, and where do they succeed or fall short?</p>
 
-      <h2>Conformalized Quantile Regression (CQR)</h2>
+      <!-- ============================================================ -->
+      <!-- LEVEL 1: INTUITIVE                                           -->
+      <!-- ============================================================ -->
+      <div class="level">
+        <div class="level-header" role="button" aria-expanded="true" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>The Landscape of Adaptive Methods</h2>
+          <span class="level-toggle" aria-hidden="true">&#9660;</span>
+        </div>
+        <div class="level-content">
 
-      <p><strong>Reference:</strong> Romano, Patterson, and Candes, NeurIPS 2019.</p>
+          <h3>People Have Already Tried to Fix This</h3>
 
-      <p>CQR was the first widely adopted method for adaptive conformal prediction intervals. The core idea is to replace the point prediction + constant interval with learned quantile estimates.</p>
+          <p>The "same width everywhere" problem from Part 3 has not gone unnoticed. Over the past decade, researchers have proposed three main strategies for making conformal intervals adaptive. Each is clever, each has real merit, and each introduces its own trade-offs. Let us walk through them before asking whether there is a simpler path.</p>
 
-      <p><strong>Step 1:</strong> Train two quantile regressors on D&#8321;: one targeting the &#945;/2 quantile ($\hat{Q}_{\text{lo}}(x)$) and one targeting the $1-\alpha/2$ quantile ($\hat{Q}_{\text{hi}}(x)$). These estimate the lower and upper bounds of the prediction interval directly.</p>
+          <h3>Strategy 1: Learn the Bounds Directly (CQR)</h3>
 
-      <p><strong>Step 2:</strong> On the calibration set D&#8322;, compute conformity scores:</p>
+          <p>The first idea is disarmingly natural. Instead of predicting a single number and then wrapping a fixed error bar around it, why not train two models &mdash; one to predict the lower bound of the interval and one to predict the upper bound? Then use the conformal correction to guarantee coverage.</p>
 
-      $$S_i = \max\left(\hat{Q}_{\text{lo}}(X_i) - Y_i, \;\; Y_i - \hat{Q}_{\text{hi}}(X_i)\right)$$
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p>Instead of saying "the house costs $420K plus or minus $50K" (symmetric, constant), you say "the house costs somewhere between $370K and $480K" (asymmetric, adaptive). For a luxury estate, the range might be $1.8M to $3.2M &mdash; much wider, reflecting genuine uncertainty. For a cookie-cutter suburban home, it might be $345K to $365K &mdash; tight, because the model knows this territory well.</p>
+          </div>
 
-      <p>This score measures how far the true response falls outside the predicted quantile range. If the quantile estimates are perfect, most scores will be negative (meaning Y falls inside the range).</p>
+          <p>This is <strong>Conformalized Quantile Regression (CQR)</strong>. The conformal correction guarantees the coverage, while the learned bounds provide adaptation. The catch? You now need to train two additional models (the quantile regressors), tune their hyperparameters, and hope they learn the right shape.</p>
 
-      <p><strong>Step 3:</strong> Compute the conformal quantile $\hat{q}$ of these scores. The prediction interval is:</p>
+          <h3>Strategy 2: Estimate the Difficulty (Studentized CP)</h3>
 
-      $$\hat{C}(x) = [\hat{Q}_{\text{lo}}(x) - \hat{q}, \;\; \hat{Q}_{\text{hi}}(x) + \hat{q}]$$
+          <p>The second idea is also intuitive. Train a separate model that estimates <em>how wrong</em> your main model usually is at each point. Then scale the error bars accordingly: wider where the model struggles, narrower where it is reliable.</p>
 
-      <p><strong>Strengths:</strong></p>
-      <ul>
-        <li>Naturally adaptive: the width $\hat{Q}_{\text{hi}}(x) - \hat{Q}_{\text{lo}}(x)$ varies across $x$.</li>
-        <li>Can capture asymmetric intervals (different upper and lower tails).</li>
-        <li>The conformal correction $\hat{q}$ preserves marginal coverage regardless of how good the quantile regressors are.</li>
-      </ul>
+          <p>This is <strong>Studentized (Normalized) Conformal Prediction</strong>. The problem, as we saw in Part 6, is that this difficulty estimator is trained on <em>training</em> mistakes &mdash; and training mistakes have the sign flipped. The model looks <em>most accurate</em> at exactly the points where it is <em>least reliable</em> for future predictions. It learns the wrong lesson.</p>
 
-      <p><strong>Limitations:</strong></p>
-      <ul>
-        <li>Requires choosing and training quantile regression models &mdash; two of them.</li>
-        <li>The quality of adaptation depends entirely on how well the quantile models fit. Poor quantile estimates lead to poor adaptation, even though coverage is maintained.</li>
-        <li>Computational cost: training two quantile regressors adds significant overhead. For gradient-boosted trees, this roughly triples the training time.</li>
-        <li>Hyperparameters: the quantile models introduce all the usual hyperparameters (tree depth, learning rate, regularization) that must be tuned.</li>
-      </ul>
+          <h3>Strategy 3: Only Look Nearby (Localized CP)</h3>
 
-      <h2>Studentized (Normalized) Conformal Prediction</h2>
+          <p>The third strategy sidesteps model training entirely. For each test point, find the "nearby" calibration points and compute the error bar using only those neighbors. If all your neighbors have large residuals, your error bar will be wide; if they have small residuals, it will be narrow.</p>
 
-      <p><strong>Reference:</strong> Papadopoulos, Proedrou, Vovk, and Gammerman, 2008; Lei, G'Sell, Rinaldo, Tibshirani, and Wasserman, 2018.</p>
+          <p>This is <strong>Localized Conformal Prediction</strong>. It avoids the sign flip (no auxiliary models trained on training data), but "nearby" in high dimensions is treacherous. With 30 or 100 features, almost no calibration points are truly nearby, so you end up averaging over nearly everything anyway &mdash; or using so few neighbors that the coverage guarantee breaks down.</p>
 
-      <p>Studentized CP normalizes residuals by an estimated standard deviation, following the classical idea of studentization in statistics.</p>
+          <div class="mermaid">
+            flowchart LR
+              subgraph V["Vanilla CP"]
+                V1["Train model"] --> V2["Compute residuals"]
+                V2 --> V3["Single quantile q&#770;"]
+                V3 --> V4["Same width everywhere"]
+              end
 
-      <p><strong>Step 1:</strong> Train a point prediction model $\hat{f}$ on D&#8321;. Additionally, train a scale estimator $\hat{\sigma}(x)$ on D&#8321;, typically by fitting a model to the absolute residuals $\{(X_i, |Y_i - \hat{f}(X_i)|)\}$ for $i$ in D&#8321;.</p>
+              subgraph C["CQR"]
+                C1["Train model +<br/>2 quantile regressors"] --> C2["Compute<br/>quantile scores"]
+                C2 --> C3["Single quantile q&#770;"]
+                C3 --> C4["Adaptive asymmetric<br/>intervals"]
+              end
 
-      <p><strong>Step 2:</strong> Compute normalized scores on D&#8322;:</p>
+              subgraph S["Studentized CP"]
+                S1["Train model +<br/>scale estimator"] --> S2["Compute<br/>normalized scores"]
+                S2 --> S3["Single quantile q&#770;"]
+                S3 --> S4["Scaled symmetric<br/>intervals"]
+              end
 
-      $$S_i = \frac{|Y_i - \hat{f}(X_i)|}{\hat{\sigma}(X_i)}$$
+              subgraph L["Localized CP"]
+                L1["Train model"] --> L2["Compute residuals"]
+                L2 --> L3["Weighted quantile<br/>per test point"]
+                L3 --> L4["Locally adaptive<br/>intervals"]
+              end
 
-      <p><strong>Step 3:</strong> Compute the conformal quantile $\hat{q}$. The prediction interval is:</p>
+              style V fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+              style C fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style S fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style L fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style V4 fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style C4 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style S4 fill:#fff9c4,stroke:#f9a825,color:#1c1917
+              style L4 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">Four parallel pipelines for conformal prediction. Each adaptive method adds complexity at a different stage.</p>
 
-      $$\hat{C}(x) = [\hat{f}(x) - \hat{q} \cdot \hat{\sigma}(x), \;\; \hat{f}(x) + \hat{q} \cdot \hat{\sigma}(x)]$$
+          <h3>The Key Trade-off</h3>
 
-      <p><strong>Strengths:</strong></p>
-      <ul>
-        <li>Intuitive: divide by the estimated scale, multiply back when forming the interval.</li>
-        <li>Flexible: any regression model can serve as $\hat{\sigma}$.</li>
-        <li>Preserves marginal coverage by the standard conformal argument.</li>
-      </ul>
+          <p>These methods sit on a spectrum. On one end is vanilla CP: zero additional complexity, zero adaptation. On the other end is full conditional coverage (the theoretical ideal): perfect adaptation, but requiring essentially infinite data. Every practical method lives somewhere in between, trading complexity for adaptation quality.</p>
 
-      <p><strong>Limitations:</strong></p>
-      <ul>
-        <li>Requires training an auxiliary model for $\hat{\sigma}$.</li>
-        <li><strong>The sign flip problem</strong> (Part 6). The scale estimator is trained on training residuals, which have variance $\sigma^2(1-h)$. But calibration/test residuals have variance $\sigma^2(1+h)$. The estimator learns the wrong function. At high-leverage points, it predicts small variance (because training residuals were small) when the true prediction variance is large.</li>
-        <li>This systematic bias degrades conditional coverage precisely where it matters most.</li>
-      </ul>
+          <div class="mermaid">
+            flowchart LR
+              A["<strong>Less Adaptation</strong><br/>Simpler, faster,<br/>fewer assumptions"]
+              B["Vanilla CP<br/>No extra models<br/>Constant width"]
+              C["Studentized CP<br/>1 extra model<br/>Sign flip risk"]
+              D["CQR<br/>2 extra models<br/>Depends on fit"]
+              E["Localized CP<br/>No extra models<br/>O(n) per point"]
+              F["<strong>More Adaptation</strong><br/>Complex, slower,<br/>more assumptions"]
 
-      <p>The sign flip problem is particularly insidious because it is invisible in standard evaluation. If you evaluate $\hat{\sigma}$ on held-out training-like data, it looks fine. The failure only manifests at prediction time, at unusual points &mdash; exactly where you most need the uncertainty estimate to be correct.</p>
+              A ~~~ B --> C --> D --> E ~~~ F
 
-      <h2>Localized Conformal Prediction</h2>
+              style A fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style B fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style C fill:#fff9c4,stroke:#f9a825,color:#1c1917
+              style D fill:#fff9c4,stroke:#f9a825,color:#1c1917
+              style E fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style F fill:#fce4ec,stroke:#c62828,color:#1c1917
+          </div>
+          <p class="diagram-caption">The adaptation-complexity spectrum. Moving right gains adaptation but at increasing cost.</p>
 
-      <p><strong>Reference:</strong> Guan, 2023.</p>
+          <h3>Quick Comparison</h3>
 
-      <p>Localized CP takes a different approach: instead of normalizing the scores, it re-weights the calibration set to focus on points similar to the test point.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>Extra models needed</th>
+                <th>Speed</th>
+                <th>Sign flip problem?</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Vanilla CP</td>
+                <td>None</td>
+                <td>Fastest</td>
+                <td>N/A (no adaptation)</td>
+              </tr>
+              <tr>
+                <td>CQR</td>
+                <td>2 quantile regressors</td>
+                <td>Fast at test time</td>
+                <td>Partial (quantile regressors see attenuated residuals)</td>
+              </tr>
+              <tr>
+                <td>Studentized CP</td>
+                <td>1 scale estimator</td>
+                <td>Fast at test time</td>
+                <td>Yes &mdash; learns $(1-h)$ when reality is $(1+h)$</td>
+              </tr>
+              <tr>
+                <td>Localized CP</td>
+                <td>None</td>
+                <td>Slow ($O(n_2)$ per test point)</td>
+                <td>No</td>
+              </tr>
+            </tbody>
+          </table>
 
-      <p><strong>Idea:</strong> For each test point $x$, assign kernel weights to the calibration points based on their similarity to $x$:</p>
+          <h3>The Gap</h3>
 
-      $$w_i(x) = K\left(\frac{X_i - x}{\text{bandwidth}}\right)$$
+          <p>Every existing adaptive method either trains extra models (CQR, Studentized) or adds per-test-point computational cost (Localized). None uses the geometry of the data &mdash; the structure of the design matrix &mdash; directly. In Parts 4&ndash;6, we discovered that leverage scores already encode exactly the information we need: where predictions are easy, where they are hard, and by how much. Why isn't anyone using this?</p>
 
-      <p>Then compute a <em>weighted</em> conformal quantile: the $(1-\alpha)$-quantile of the calibration scores under the kernel weights. Points similar to $x$ get more weight in determining the quantile; dissimilar points get less.</p>
+          <div class="callout">
+            <div class="callout-label">Key Question</div>
+            <p>Every existing adaptive method introduces additional complexity &mdash; extra models, extra hyperparameters, or extra computation. The question is: is there a simpler path? One that uses what the data already provides, at zero additional cost?</p>
+          </div>
 
-      <p><strong>Strengths:</strong></p>
-      <ul>
-        <li>Achieves approximate conditional coverage by localizing the quantile computation.</li>
-        <li>Does not require training auxiliary models.</li>
-        <li>Theoretically grounded: under regularity conditions, the weighted quantile converges to the conditional quantile.</li>
-      </ul>
+        </div>
+      </div>
 
-      <p><strong>Limitations:</strong></p>
-      <ul>
-        <li><strong>Kernel and bandwidth selection:</strong> The choice of kernel function and bandwidth is critical and introduces hyperparameters that must be tuned.</li>
-        <li><strong>Computational cost:</strong> For each test point, you must recompute the weighted quantile over the entire calibration set. This costs $O(n_2)$ per test point, versus $O(1)$ for vanilla CP. In high dimensions, the kernel weights may degenerate (curse of dimensionality).</li>
-        <li><strong>Effective sample size:</strong> In high dimensions, most calibration points will receive negligible weight, leaving very few effective calibration points and degrading the coverage guarantee.</li>
-        <li>The locality is with respect to <em>all</em> features simultaneously. In linear regression, prediction difficulty depends on the Mahalanobis distance (leverage), not the Euclidean distance. A kernel that localizes in Euclidean distance may miss the structure that actually matters.</li>
-      </ul>
+      <!-- ============================================================ -->
+      <!-- LEVEL 2: TECHNICAL                                           -->
+      <!-- ============================================================ -->
+      <div class="level">
+        <div class="level-header" role="button" aria-expanded="true" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');">
+          <span class="level-badge technical">Technical</span>
+          <h2>Algorithms and Analysis</h2>
+          <span class="level-toggle" aria-hidden="true">&#9660;</span>
+        </div>
+        <div class="level-content">
 
-      <h2>A Comparison</h2>
+          <h3>Conformalized Quantile Regression (CQR)</h3>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Method</th>
-            <th>Auxiliary models</th>
-            <th>Hyperparameters</th>
-            <th>Cost per test point</th>
-            <th>Sign flip?</th>
-            <th>Adaptation mechanism</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Vanilla CP</td>
-            <td>None</td>
-            <td>None</td>
-            <td>$O(1)$</td>
-            <td>N/A</td>
-            <td>None (constant width)</td>
-          </tr>
-          <tr>
-            <td>CQR</td>
-            <td>2 quantile regressors</td>
-            <td>Model hyperparams</td>
-            <td>$O(1)$</td>
-            <td>Partial</td>
-            <td>Learned quantile gap</td>
-          </tr>
-          <tr>
-            <td>Studentized CP</td>
-            <td>1 scale estimator</td>
-            <td>Model hyperparams</td>
-            <td>$O(1)$</td>
-            <td>Yes</td>
-            <td>Estimated $\sigma(x)$</td>
-          </tr>
-          <tr>
-            <td>Localized CP</td>
-            <td>None</td>
-            <td>Kernel, bandwidth</td>
-            <td>$O(n_2)$</td>
-            <td>No</td>
-            <td>Kernel weights</td>
-          </tr>
-        </tbody>
-      </table>
+          <p><strong>Reference:</strong> Romano, Patterson, and Candes, NeurIPS 2019.</p>
 
-      <p>Three observations emerge:</p>
+          <p>CQR replaces the point prediction plus constant interval with learned quantile estimates that naturally adapt to the local difficulty of the problem.</p>
 
-      <ol>
-        <li><strong>Every adaptive method involves a trade-off.</strong> Either you train auxiliary models (CQR, Studentized), choose kernel parameters (Localized), or accept constant width (Vanilla). There is no existing method that adapts without introducing additional complexity.</li>
-        <li><strong>Methods that estimate variance from residuals inherit the sign flip.</strong> This includes Studentized CP and, to a lesser extent, CQR (whose quantile regressors are also trained on D&#8321; and therefore see attenuated residuals at high-leverage points).</li>
-        <li><strong>Computational costs vary dramatically.</strong> Vanilla CP and CQR/Studentized CP have $O(1)$ cost per test point (after training). Localized CP has $O(n_2)$ cost per test point. For a test set of 10,000 points and a calibration set of 5,000 points, Localized CP requires 50 million kernel evaluations.</li>
-      </ol>
+          <p><strong>Step 1: Train quantile regressors.</strong> Split the data into a training set $D_1$ and a calibration set $D_2$. On $D_1$, train two quantile regressors: $\hat{Q}_{\text{lo}}(x)$ targeting the $\alpha/2$ quantile and $\hat{Q}_{\text{hi}}(x)$ targeting the $1-\alpha/2$ quantile of $Y \mid X = x$.</p>
 
-      <h2>What Is Missing?</h2>
+          <p><strong>Step 2: Compute conformity scores.</strong> On the calibration set $D_2$, compute:</p>
 
-      <p>Looking at this landscape through the lens of Parts 4-7, a gap becomes apparent. We know that:</p>
+          $$S_i = \max\!\left(\hat{Q}_{\text{lo}}(X_i) - Y_i, \;\; Y_i - \hat{Q}_{\text{hi}}(X_i)\right)$$
 
-      <ul>
-        <li>Leverage scores provide a <em>closed-form, exact</em> description of how prediction variance depends on feature-space geometry (Part 6).</li>
-        <li>Leverage can be computed from the design matrix alone, without looking at residuals, so it is immune to the sign flip (Part 6).</li>
-        <li>Leverage computation is dominated by a single SVD, which may already be computed as part of fitting the regression (Part 4).</li>
-        <li>Variance stabilization using the known variance function $\sigma^2(1+h)$ converts the heteroscedastic problem into a homoscedastic one (Part 7).</li>
-      </ul>
+          <p>This score measures how far the true response falls outside the predicted quantile range. If the quantile estimates are perfect, most scores are negative (meaning $Y$ falls within the predicted range).</p>
 
-      <p>Yet no existing adaptive conformal method uses leverage scores as the adaptation mechanism. CQR and Studentized CP train auxiliary models to <em>learn</em> what leverage already <em>knows</em>. Localized CP uses a kernel to approximate locality, while leverage provides an exact, closed-form measure of feature-space position.</p>
+          <p><strong>Step 3: Form the interval.</strong> Compute $\hat{q}$ as the $\lceil(1-\alpha)(1+1/|D_2|)\rceil$-th smallest score. The prediction interval is:</p>
 
-      <p>This gap &mdash; between what existing methods do and what the design matrix geometry already provides &mdash; is the subject of the next two posts.</p>
+          $$\hat{C}(x) = \left[\hat{Q}_{\text{lo}}(x) - \hat{q}, \;\; \hat{Q}_{\text{hi}}(x) + \hat{q}\right]$$
+
+          <p>The width at $x$ is $\hat{Q}_{\text{hi}}(x) - \hat{Q}_{\text{lo}}(x) + 2\hat{q}$, which varies with $x$ through the learned quantile gap. The conformal correction $\hat{q}$ preserves marginal coverage regardless of quantile regression quality.</p>
+
+          <div class="mermaid">
+            flowchart TD
+              D["Data D"] --> D1["D&#8321;: Training"]
+              D --> D2["D&#8322;: Calibration"]
+              D1 --> QL["Train Q&#770;_lo targeting &alpha;/2"]
+              D1 --> QH["Train Q&#770;_hi targeting 1-&alpha;/2"]
+              QL --> SC["Score: S_i = max(Q&#770;_lo - Y_i, Y_i - Q&#770;_hi)"]
+              QH --> SC
+              D2 --> SC
+              SC --> QT["Quantile q&#770; of scores"]
+              QT --> INT["Interval: [Q&#770;_lo(x) - q&#770;, Q&#770;_hi(x) + q&#770;]"]
+
+              style D fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+              style D1 fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style D2 fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style QL fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style QH fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style SC fill:#fff9c4,stroke:#f9a825,color:#1c1917
+              style QT fill:#fff9c4,stroke:#f9a825,color:#1c1917
+              style INT fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+          </div>
+          <p class="diagram-caption">CQR pipeline: two quantile regressors produce an adaptive interval, corrected by a conformal quantile.</p>
+
+          <h3>Studentized (Normalized) Conformal Prediction</h3>
+
+          <p><strong>Reference:</strong> Papadopoulos et al., 2002; Lei et al., 2018.</p>
+
+          <p>Studentized CP normalizes residuals by an estimated standard deviation, following the classical idea of studentization.</p>
+
+          <p><strong>Step 1: Train the model and a scale estimator.</strong> On $D_1$, train a point prediction model $\hat{f}$ and a scale estimator $\hat{\sigma}(x)$. The scale estimator is typically fit to the absolute training residuals: $\{(X_i, |Y_i - \hat{f}(X_i)|)\}$ for $i \in D_1$.</p>
+
+          <p><strong>Step 2: Compute normalized scores.</strong> On $D_2$:</p>
+
+          $$S_i = \frac{|Y_i - \hat{f}(X_i)|}{\hat{\sigma}(X_i)}$$
+
+          <p><strong>Step 3: Form the interval.</strong></p>
+
+          $$\hat{C}(x) = \left[\hat{f}(x) - \hat{q} \cdot \hat{\sigma}(x), \;\; \hat{f}(x) + \hat{q} \cdot \hat{\sigma}(x)\right]$$
+
+          <p>The width at $x$ is $2\hat{q} \cdot \hat{\sigma}(x)$: wider where $\hat{\sigma}$ predicts large residuals, narrower where it predicts small ones.</p>
+
+          <h4>The Sign Flip in Detail</h4>
+
+          <p>Here is the crux of the issue. The scale estimator $\hat{\sigma}$ is trained on training-set absolute residuals $|Y_i - \hat{f}(X_i)|$. From Part 6, we know:</p>
+
+          <ul>
+            <li><strong>Training residuals:</strong> $\text{Var}(Y_i - \hat{f}(X_i) \mid X_i) = \sigma^2(1 - h_i)$. The hat matrix projects training noise <em>away</em> from the residual.</li>
+            <li><strong>Test/calibration residuals:</strong> $\text{Var}(Y_{\text{new}} - \hat{f}(x) \mid x) = \sigma^2(1 + h(x))$. The estimation error <em>adds</em> to the noise.</li>
+          </ul>
+
+          <p>So $\hat{\sigma}$ learns $\sigma\sqrt{1-h}$, but the interval needs to account for $\sigma\sqrt{1+h}$. At high-leverage points ($h$ large), the estimator predicts <em>small</em> variance when the true prediction variance is <em>large</em>. The adaptation is not just wrong &mdash; it is systematically wrong in the most dangerous direction.</p>
+
+          <div class="mermaid">
+            flowchart TD
+              TR["Training residuals<br/>Var = &sigma;&sup2;(1 - h)"] --> SIGMA["Scale estimator &sigma;&#770;<br/>learns &sigma;&radic;(1-h)"]
+              SIGMA --> NORM["Normalized score<br/>S = |residual| / &sigma;&#770;"]
+              NORM --> PROB["At high-leverage points:<br/>&sigma;&#770; is SMALL<br/>(training residuals were small)"]
+              PROB --> RESULT["Interval is NARROW<br/>when it should be WIDE"]
+
+              REAL["Reality at test time<br/>Var = &sigma;&sup2;(1 + h)"] --> NEED["Need: wide intervals<br/>at high-leverage points"]
+
+              RESULT --> CONFLICT["SIGN FLIP<br/>(1-h) vs (1+h)"]
+              NEED --> CONFLICT
+
+              style TR fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style SIGMA fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style NORM fill:#fff9c4,stroke:#f9a825,color:#1c1917
+              style PROB fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style RESULT fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style REAL fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style NEED fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style CONFLICT fill:#fce4ec,stroke:#c62828,color:#1c1917
+          </div>
+          <p class="diagram-caption">The sign flip in Studentized CP: the scale estimator learns the wrong variance function, leading to systematically incorrect intervals at high-leverage points.</p>
+
+          <h3>Localized Conformal Prediction</h3>
+
+          <p><strong>Reference:</strong> Guan, 2023.</p>
+
+          <p>Localized CP re-weights the calibration set to focus on points similar to the test point, computing a <em>local</em> conformal quantile.</p>
+
+          <p><strong>Kernel weights.</strong> For each test point $x$, assign weights to the calibration points:</p>
+
+          $$w_i(x) = K\!\left(\frac{X_i - x}{\text{bandwidth}}\right)$$
+
+          <p>where $K$ is a kernel function (Gaussian, Epanechnikov, etc.) and the bandwidth controls how "local" the computation is.</p>
+
+          <p><strong>Weighted conformal quantile.</strong> Instead of taking the unweighted quantile of the calibration scores, take the $(1-\alpha)$-quantile of the scores under the kernel weights. Points similar to $x$ receive more influence; dissimilar points receive less.</p>
+
+          <p><strong>Cost.</strong> For each test point, you must evaluate the kernel against every calibration point and compute a weighted quantile. This is $O(n_2)$ per test point, compared to $O(1)$ for vanilla CP, CQR, and Studentized CP (after the training phase). For a test set of 10,000 points and a calibration set of 5,000, this requires 50 million kernel evaluations.</p>
+
+          <h3>Full Comparison</h3>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>Auxiliary models</th>
+                <th>Hyperparameters</th>
+                <th>Cost per test point</th>
+                <th>Sign flip?</th>
+                <th>Adaptation mechanism</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Vanilla CP</td>
+                <td>None</td>
+                <td>None</td>
+                <td>$O(1)$</td>
+                <td>N/A</td>
+                <td>None (constant width)</td>
+              </tr>
+              <tr>
+                <td>CQR</td>
+                <td>2 quantile regressors</td>
+                <td>Model hyperparams ($\times 2$)</td>
+                <td>$O(1)$</td>
+                <td>Partial</td>
+                <td>Learned quantile gap</td>
+              </tr>
+              <tr>
+                <td>Studentized CP</td>
+                <td>1 scale estimator</td>
+                <td>Model hyperparams ($\times 1$)</td>
+                <td>$O(1)$</td>
+                <td>Yes</td>
+                <td>Estimated $\hat{\sigma}(x)$</td>
+              </tr>
+              <tr>
+                <td>Localized CP</td>
+                <td>None</td>
+                <td>Kernel, bandwidth</td>
+                <td>$O(n_2)$</td>
+                <td>No</td>
+                <td>Kernel-weighted quantile</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>Three observations emerge from this table:</p>
+
+          <ol>
+            <li><strong>Every adaptive method involves a trade-off.</strong> Either you train auxiliary models (CQR, Studentized), choose kernel parameters (Localized), or accept constant width (Vanilla). There is no existing method that adapts without introducing additional complexity.</li>
+            <li><strong>Methods that estimate variance from residuals inherit the sign flip.</strong> This includes Studentized CP directly, and CQR partially (whose quantile regressors are trained on $D_1$ and therefore see attenuated residuals at high-leverage points).</li>
+            <li><strong>Computational costs vary dramatically.</strong> Vanilla CP and CQR/Studentized CP have $O(1)$ cost per test point after training. Localized CP has $O(n_2)$ cost per test point, which becomes prohibitive for large calibration or test sets.</li>
+          </ol>
+
+          <div class="mermaid">
+            flowchart TD
+              subgraph CQR_P["CQR Pipeline"]
+                CQR1["D&#8321;"] --> CQR2["Train Q&#770;_lo, Q&#770;_hi"]
+                CQR2 --> CQR3["Scores on D&#8322;"]
+                CQR3 --> CQR4["q&#770;"]
+                CQR4 --> CQR5["Width = Q&#770;_hi - Q&#770;_lo + 2q&#770;"]
+              end
+              subgraph SCP_P["Studentized CP Pipeline"]
+                SCP1["D&#8321;"] --> SCP2["Train f&#770;, &sigma;&#770;"]
+                SCP2 --> SCP3["Normalized scores on D&#8322;"]
+                SCP3 --> SCP4["q&#770;"]
+                SCP4 --> SCP5["Width = 2q&#770;&sigma;&#770;(x)"]
+              end
+              subgraph LCP_P["Localized CP Pipeline"]
+                LCP1["D&#8321;"] --> LCP2["Train f&#770;"]
+                LCP2 --> LCP3["Scores on D&#8322;"]
+                LCP3 --> LCP4["Weighted q&#770;(x)<br/>per test point"]
+                LCP4 --> LCP5["Width = 2q&#770;(x)"]
+              end
+
+              style CQR_P fill:#faf8f5,stroke:#1565c0,color:#1c1917
+              style SCP_P fill:#faf8f5,stroke:#f9a825,color:#1c1917
+              style LCP_P fill:#faf8f5,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">Detailed pipelines for each adaptive method, highlighting where the key design choices differ.</p>
+
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- LEVEL 3: ADVANCED                                            -->
+      <!-- ============================================================ -->
+      <div class="level">
+        <div class="level-header" role="button" aria-expanded="true" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>Theoretical Properties and the Missing Piece</h2>
+          <span class="level-toggle" aria-hidden="true">&#9660;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>CQR: Theoretical Properties</h3>
+
+          <p>CQR inherits the standard split conformal coverage guarantee: $\mathbb{P}(Y_{n+1} \in \hat{C}(X_{n+1})) \geq 1 - \alpha$. This holds for <em>any</em> quality of quantile regression &mdash; the coverage is guaranteed even if $\hat{Q}_{\text{lo}}$ and $\hat{Q}_{\text{hi}}$ are arbitrarily poor estimators.</p>
+
+          <p>However, the <em>adaptation quality</em> depends critically on the calibration of the quantile estimates. If $\hat{Q}_{\alpha/2}(x) \approx Q_{\alpha/2}(x)$ and $\hat{Q}_{1-\alpha/2}(x) \approx Q_{1-\alpha/2}(x)$, then CQR achieves approximate conditional coverage. In the opposite extreme, if both quantile regressors output constants (no adaptation), CQR degenerates to vanilla CP with an offset.</p>
+
+          <p>A subtlety: the conformity score $S_i = \max(\hat{Q}_{\text{lo}}(X_i) - Y_i, Y_i - \hat{Q}_{\text{hi}}(X_i))$ is a <em>one-sided worst-case</em> measure. This means that even if one bound is well-calibrated and the other is not, the conformal correction inflates <em>both</em> sides. CQR cannot exploit partial information about which side is poorly calibrated.</p>
+
+          <h3>Studentized CP: The Score Distribution Problem</h3>
+
+          <p>For Studentized CP in the linear model with homoscedastic noise, the normalized calibration score is:</p>
+
+          $$S_i^{\text{stud}} = \frac{|Y_i - \hat{f}(X_i)|}{\hat{\sigma}(X_i)}$$
+
+          <p>Now consider what $\hat{\sigma}$ has learned. It was trained on training absolute residuals, which have (conditional) mean proportional to $\sigma\sqrt{1 - h_i}$. If $\hat{\sigma}$ is a good estimator of the training residual scale, then $\hat{\sigma}(X_i) \approx c \cdot \sigma\sqrt{1 - h_i}$ for some constant $c$.</p>
+
+          <p>On the calibration set, the numerator $|Y_i - \hat{f}(X_i)|$ has standard deviation $\sigma\sqrt{1 + h_i}$ (calibration points are new data, not training data). So:</p>
+
+          $$S_i^{\text{stud}} \approx \frac{\sigma\sqrt{1 + h_i}}{c \cdot \sigma\sqrt{1 - h_i}} \cdot |\eta_i| = \frac{1}{c}\sqrt{\frac{1 + h_i}{1 - h_i}} \cdot |\eta_i|$$
+
+          <p>where $\eta_i$ is a standard noise variable. The factor $\sqrt{(1+h_i)/(1-h_i)}$ is <strong>not constant</strong> across calibration points &mdash; it depends on the leverage $h_i$. Therefore the studentized scores are <em>not identically distributed</em>. They are inflated at high-leverage points and deflated at low-leverage points.</p>
+
+          <p>The conformal quantile $\hat{q}$ is then a compromise between these heterogeneous score distributions. It overcovers at low-leverage points (where the scores were artificially deflated) and undercovers at high-leverage points (where the scores were artificially inflated). This is precisely the conditional coverage failure described in Part 3, reintroduced by the sign flip.</p>
+
+          <h3>Localized CP: Convergence and the Curse of Dimensionality</h3>
+
+          <p>Under regularity conditions (smooth conditional distribution of $Y \mid X$, appropriate bandwidth decay as $n_2 \to \infty$), the weighted quantile in localized CP converges to the conditional quantile $Q_{1-\alpha}(|Y - \hat{f}(X)| \mid X = x)$. This provides approximate conditional coverage.</p>
+
+          <p>The effective sample size at a test point $x$ is:</p>
+
+          $$n_{\text{eff}}(x) = \frac{\left(\sum_i w_i(x)\right)^2}{\sum_i w_i(x)^2}$$
+
+          <p>In dimension $p$, if the bandwidth scales as $b \sim n_2^{-1/(4+p)}$ (optimal for nonparametric estimation), the effective sample size scales as $n_{\text{eff}} \sim n_2^{4/(4+p)}$. For $p = 30$, this is $n_{\text{eff}} \sim n_2^{4/34} \approx n_2^{0.12}$. With $n_2 = 5000$, the effective sample size is approximately $5000^{0.12} \approx 3.1$ &mdash; barely enough to define a quantile, let alone a reliable one.</p>
+
+          <p>Furthermore, the kernel in Localized CP operates in the <em>original feature space</em>, measuring Euclidean (or Mahalanobis) distance. But in linear regression, the prediction difficulty depends on leverage $h(x) = x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x$ &mdash; a specific quadratic form in the features, not the raw distance. A kernel that localizes in Euclidean distance may assign similar weights to two calibration points that differ dramatically in leverage (if they happen to be equidistant from $x$ but in different directions relative to the training data covariance).</p>
+
+          <h3>Formal Comparison</h3>
+
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <th>CQR</th>
+                <th>Studentized CP</th>
+                <th>Localized CP</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Auxiliary models</strong></td>
+                <td>2 quantile regressors</td>
+                <td>1 scale estimator</td>
+                <td>None</td>
+              </tr>
+              <tr>
+                <td><strong>Hyperparameters</strong></td>
+                <td>QR model hyperparams</td>
+                <td>Scale model hyperparams</td>
+                <td>Kernel, bandwidth</td>
+              </tr>
+              <tr>
+                <td><strong>Cost per test point</strong></td>
+                <td>$O(1)$</td>
+                <td>$O(1)$</td>
+                <td>$O(n_2)$</td>
+              </tr>
+              <tr>
+                <td><strong>Sign flip</strong></td>
+                <td>Partial (QR trained on $D_1$)</td>
+                <td>Full ($\hat{\sigma}$ inverts $h$-dependence)</td>
+                <td>None</td>
+              </tr>
+              <tr>
+                <td><strong>Adaptation source</strong></td>
+                <td>Learned $\hat{Q}_{\text{hi}} - \hat{Q}_{\text{lo}}$</td>
+                <td>Estimated $\hat{\sigma}(x)$</td>
+                <td>Local calibration quantile</td>
+              </tr>
+              <tr>
+                <td><strong>Score exchangeability</strong></td>
+                <td>Exact (by construction)</td>
+                <td>Violated ($h$-dependent inflation)</td>
+                <td>Approximate (weighted)</td>
+              </tr>
+              <tr>
+                <td><strong>High-$p$ behavior</strong></td>
+                <td>Depends on QR model</td>
+                <td>Sign flip worsens ($h$ variation grows)</td>
+                <td>Effective sample size collapses</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>What Is Missing</h3>
+
+          <p>Consider what we know from the leverage and sign-flip analysis of Parts 4&ndash;6:</p>
+
+          <ul>
+            <li><strong>Closed-form:</strong> Leverage $h(x) = x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x$ is a known, closed-form function of the design matrix and test point. No estimation needed.</li>
+            <li><strong>Exact:</strong> The prediction error variance is <em>exactly</em> $\sigma^2(1 + h(x))$ under the linear model. Not an approximation, not an estimate &mdash; an identity.</li>
+            <li><strong>Sign-flip immune:</strong> Leverage is computed from the design matrix $\mathbf{X}$ alone, without looking at any residuals (training or otherwise). It cannot inherit the sign flip.</li>
+            <li><strong>Zero cost:</strong> The leverage computation requires one SVD of the design matrix, which is $O(np^2)$ &mdash; a one-time cost that is often already paid as part of fitting the regression. Per-test-point cost is $O(p^2)$, dominated by a single matrix-vector multiply.</li>
+          </ul>
+
+          <p>No existing adaptive conformal method uses leverage as the adaptation mechanism. CQR and Studentized CP train auxiliary models to <em>learn</em> what leverage already <em>knows</em>. Localized CP uses a kernel to approximate locality, while leverage provides an exact, closed-form measure of feature-space position. The gap in the landscape is a method that is simultaneously:</p>
+
+          <ol>
+            <li>Closed-form (no auxiliary model training)</li>
+            <li>Immune to the sign flip (no residual-based estimation)</li>
+            <li>$O(1)$ per test point (after a one-time SVD)</li>
+            <li>Theoretically exact (under the linear model, the variance function is known)</li>
+          </ol>
+
+          <div class="mermaid">
+            flowchart TD
+              CQR_N["CQR<br/>Learns quantile gap<br/>2 extra models<br/>Partial sign flip"]
+              SCP_N["Studentized CP<br/>Learns &sigma;(x)<br/>1 extra model<br/>Full sign flip"]
+              LCP_N["Localized CP<br/>Kernel weights<br/>No extra models<br/>O(n&#8322;) per test point"]
+              GAP["???<br/>Closed-form from X<br/>No extra models<br/>O(1) per test point<br/>No sign flip"]
+
+              CQR_N --> Q1{"Uses<br/>residuals?"}
+              SCP_N --> Q1
+              LCP_N --> Q2{"Fast at<br/>test time?"}
+              Q1 -->|"Yes"| FLIP["Sign flip risk"]
+              Q2 -->|"No"| CURSE["Curse of<br/>dimensionality"]
+
+              GAP --> Q3{"Uses<br/>residuals?"}
+              Q3 -->|"No"| SAFE["Sign-flip immune"]
+              GAP --> Q4{"Fast at<br/>test time?"}
+              Q4 -->|"Yes"| FAST["O(1) per point"]
+
+              style CQR_N fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style SCP_N fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style LCP_N fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+              style GAP fill:#e8f5e9,stroke:#2e7d32,color:#1c1917,stroke-width:3px
+              style FLIP fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style CURSE fill:#fce4ec,stroke:#c62828,color:#1c1917
+              style SAFE fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+              style FAST fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">The gap in the landscape: existing methods all have at least one major limitation that leverage-based adaptation avoids.</p>
+
+          <p>This gap &mdash; between what existing methods do and what the design matrix geometry already provides &mdash; is the subject of the next two posts.</p>
+
+        </div>
+      </div>
 
     </div>
 
