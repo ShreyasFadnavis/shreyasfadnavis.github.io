@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>From Mixture of Experts to Mixture of Agents &mdash; Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Notes</a>
+      <a href="/links.html">Links</a>
+    </div>
+  </div>
+</nav>
+
+<main class="post-main">
+  <article class="post">
+    <div class="post-header">
+      <h1>From Mixture of Experts to Mixture of Agents</h1>
+      <p class="post-subtitle">Part 2 of a 6-part series on agentic AI, multi-agent architectures, and the theory of LLM collaboration.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/#agentic">Agentic AI</a>.
+      <a href="post17.html" class="prev">Why One Model Isn't Enough</a>
+      <a href="post19.html" class="next">The Aggregation Problem</a>
+    </div>
+
+    <div class="post-body">
+
+      <p>The previous post established the theoretical case for multi-model systems: diversity of error is the resource, aggregation is the mechanism, and covariance is the bottleneck. But it left open a crucial question: <em>how should you actually organize multiple models?</em> Averaging predictions is one answer, but it is a crude one. The history of machine learning offers a far richer set of ideas, and the most important lineage runs through three decades of work on Mixture of Experts.</p>
+
+      <p>This post traces that lineage &mdash; from the original Mixture of Experts model of 1991 through sparse gating, the Switch Transformer, and Mixtral, to the Mixture of Agents architecture proposed by Together AI in 2024. The key conceptual shift is from routing <em>within</em> a single model to collaboration <em>across</em> multiple models. We present the ideas at three levels: the narrative arc, the formal architectures, and the theoretical analysis of why layered aggregation outperforms simple averaging.</p>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 1: INTUITIVE                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>Three Decades of "Which Expert Should Handle This?"</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>The Original Idea: Divide and Conquer</h3>
+
+          <p>In 1991, Robert Jacobs, Michael Jordan, Steven Nowlan, and Geoffrey Hinton published a paper called "Adaptive Mixtures of Local Experts." The idea was elegant: instead of training one large neural network to handle all inputs, train several smaller "expert" networks, each specializing in a different region of the input space. A separate "gating network" looks at each input and decides which expert should handle it.</p>
+
+          <p>Think of it as a hospital. Instead of one doctor who treats everything &mdash; from broken bones to brain tumors &mdash; the hospital routes each patient to the appropriate specialist. The triage nurse (the gating network) examines the patient and sends them to orthopedics, oncology, or neurology. Each specialist (each expert) is very good at their particular type of case. The system as a whole handles a wider range of problems than any individual specialist could.</p>
+
+          <div class="mermaid">
+flowchart LR
+    X["Input x"] --> G["Gating Network\ng(x)"]
+    X --> E1["Expert 1\nf₁(x)"]
+    X --> E2["Expert 2\nf₂(x)"]
+    X --> E3["Expert 3\nf₃(x)"]
+    G -->|"weight g₁"| C["Weighted Sum\ny = &Sigma; gₖ fₖ(x)"]
+    E1 --> C
+    E2 --> C
+    E3 --> C
+    C --> Y["Output"]
+          </div>
+          <p class="diagram-caption">The original Mixture of Experts: a gating network assigns weights to specialized expert networks. The output is a weighted combination.</p>
+
+          <p>The key insight: <strong>specialization through competition</strong>. During training, the gating network and the experts are trained simultaneously. Each expert competes to handle each input. Over time, experts that are good at similar inputs get routed similar inputs, reinforcing their specialization. The gating network learns to send each input to the expert that handles it best.</p>
+
+          <h3>Scaling Up: Sparse Gating</h3>
+
+          <p>For 25 years after the original paper, Mixture of Experts remained a niche idea. Then, in 2017, Noam Shazeer and colleagues at Google published a paper called "Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer." The breakthrough was <strong>sparsity</strong>: instead of sending each input to all experts (which is expensive), send it to only the top-$k$ experts (typically $k = 1$ or $k = 2$). The rest of the experts are not even evaluated for that input.</p>
+
+          <p>This changes the economics of scale completely. You can have thousands of expert sub-networks but activate only a tiny fraction of them for any given input. The total parameter count is enormous &mdash; giving the model vast capacity &mdash; but the computational cost per input is modest, because only a few experts do any work. It is like having a hospital with a thousand specialists but only paging two of them for each patient.</p>
+
+          <h3>The Switch Transformer and Mixtral</h3>
+
+          <p>The sparse MoE idea was refined in the <strong>Switch Transformer</strong> (Fedus, Zoph, and Shazeer, 2022), which simplified the routing to $k = 1$ (each token goes to exactly one expert) and scaled to trillions of parameters. The Switch Transformer showed that MoE layers could be inserted into a standard Transformer architecture, replacing the feedforward layers while keeping the attention mechanism shared. Each token is independently routed to its best expert.</p>
+
+          <p>Mixtral (Jiang et al., 2024), released by Mistral AI, brought MoE to the open-source community. Mixtral 8x7B has 8 expert feedforward networks per layer, with each token routed to the top-2 experts. Despite having 46.7 billion total parameters, it activates only about 12.9 billion per token &mdash; matching the cost of a much smaller dense model while outperforming it.</p>
+
+          <h3>The Conceptual Shift: From Routing to Collaboration</h3>
+
+          <p>All of these developments &mdash; from Jacobs et al. to Mixtral &mdash; share a common feature: the experts are <em>inside</em> a single model, and a router decides which expert handles which input. The experts do not communicate with each other. They do not see each other's outputs. They are sub-networks that are conditionally activated.</p>
+
+          <p>The <strong>Mixture of Agents (MoA)</strong> architecture, proposed by Wang et al. at Together AI (2024), makes a fundamentally different move. Instead of expert sub-networks inside one model, the "experts" are <em>entire LLMs</em> &mdash; separate, pre-trained models like GPT-4, Claude, Gemini, or Llama. And instead of a router that picks one, MoA uses a <strong>layered architecture</strong> where all models contribute at each layer, and each layer's output becomes input for the next layer.</p>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph MoE["Mixture of Experts (inside one model)"]
+      direction LR
+      ME1["Token"] --> MER["Router"]
+      MER -->|"Route"| MEE1["Expert 1"]
+      MER -->|"Route"| MEE2["Expert 2"]
+      MEE1 --> MEO["Output"]
+      MEE2 --> MEO
+    end
+    subgraph MoA["Mixture of Agents (across models)"]
+      direction LR
+      subgraph L1["Layer 1"]
+        MA1["LLM A"]
+        MA2["LLM B"]
+        MA3["LLM C"]
+      end
+      subgraph L2["Layer 2"]
+        MA4["LLM D"]
+        MA5["LLM E"]
+        MA6["LLM F"]
+      end
+      L1 -->|"All outputs\nas context"| L2
+      L2 --> AGG["Aggregator\nLLM"]
+      AGG --> OUT["Final\nOutput"]
+    end
+          </div>
+          <p class="diagram-caption">MoE routes tokens to expert sub-networks inside one model. MoA feeds outputs of entire LLMs as context to the next layer of LLMs.</p>
+
+          <h3>How MoA Works</h3>
+
+          <p>The MoA architecture operates in layers. In the first layer, several diverse LLMs independently generate responses to the input prompt. In the second layer, a (possibly different) set of LLMs each receive the original prompt <em>plus all of the first layer's responses</em> as additional context. They generate new, refined responses that can synthesize, correct, and extend the first-layer outputs. This process can repeat for multiple layers. Finally, an aggregator model takes the last layer's outputs and produces the final response.</p>
+
+          <p>The key is the <strong>auxiliary information</strong> flowing between layers. Each model in layer $l+1$ sees not just the original prompt but also the outputs of all models in layer $l$. This gives later models access to information they would not have generated on their own: different perspectives, different phrasings, different reasoning chains. The analogy is not a committee vote; it is a <em>workshop</em> where experts build on each other's ideas.</p>
+
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p><strong>The jazz ensemble.</strong> A classical Mixture of Experts is like an audition: each musician plays solo, and a judge picks the best. Mixture of Agents is like a jazz session: each musician plays, then they listen to each other and play again, this time responding to what they heard. The first round is individual expression; the second round is collaborative improvisation. The resulting music is richer than any solo could be, not because the musicians got better individually, but because they are now drawing on a shared pool of ideas. MoA works the same way: later layers produce better responses because they have access to the collective output of earlier layers.</p>
+          </div>
+
+          <div class="callout">
+            <div class="callout-label">Key Takeaway</div>
+            <p>The three-decade evolution from MoE to MoA traces a single idea: divide the work among specialized components. MoE divides within a model via routing; MoA divides across models via layered collaboration. The shift from routing to collaboration is what distinguishes a multi-agent system from a multi-expert model. Agents do not just process inputs independently &mdash; they communicate, build on each other's work, and iteratively refine their collective output.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 2: TECHNICAL                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge technical">Technical</span>
+          <h2>Formal Architectures: MoE, Sparse MoE, and MoA</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Mixture of Experts: Formal Specification</h3>
+
+          <p>The MoE model consists of $K$ expert networks $f_1, \ldots, f_K$ and a gating network $g : \mathbb{R}^d \to \Delta^{K-1}$ (where $\Delta^{K-1}$ is the $(K-1)$-simplex). The output for input $x$ is:</p>
+
+          $$y(x) = \sum_{k=1}^{K} g_k(x) \cdot f_k(x)$$
+
+          <p>where $g_k(x) \geq 0$ and $\sum_k g_k(x) = 1$. The gating function is typically a softmax over learned logits:</p>
+
+          $$g_k(x) = \frac{\exp(w_k^\top x)}{\sum_{j=1}^{K} \exp(w_j^\top x)}$$
+
+          <p>Training uses the EM algorithm or backpropagation. The loss for a single example $(x, y^*)$ is the standard supervised loss (e.g., squared error or cross-entropy) of the gated output $y(x)$ relative to the target $y^*$. The gradient flows through both the gating network and the expert networks, creating a competition: each expert receives gradient proportional to its gating weight, so experts that are poorly matched to an input receive negligible updates.</p>
+
+          <h3>Sparse MoE and the Load-Balancing Problem</h3>
+
+          <p>The sparse MoE replaces the dense gating function with a <strong>top-$k$ sparse gate</strong>:</p>
+
+          $$g_k(x) = \begin{cases} \text{Softmax}(w_k^\top x) & \text{if } k \in \text{Top-}k(w^\top x) \\ 0 & \text{otherwise} \end{cases}$$
+
+          <p>Only the top-$k$ experts (by gating logit) are evaluated. This reduces the per-token computation from $O(K \cdot C_{\text{expert}})$ to $O(k \cdot C_{\text{expert}})$, where $C_{\text{expert}}$ is the cost of one expert forward pass. With $K = 64$ experts and $k = 2$, the speedup is $32\times$.</p>
+
+          <p>The sparse gate introduces a <strong>load-balancing problem</strong>. Without regularization, the gating network tends to converge to a degenerate solution where most tokens are routed to a few popular experts while others are starved. The Switch Transformer addresses this with an auxiliary load-balancing loss:</p>
+
+          $$\mathcal{L}_{\text{balance}} = K \sum_{k=1}^{K} \text{frac}_k \cdot P_k$$
+
+          <p>where $\text{frac}_k$ is the fraction of tokens routed to expert $k$ and $P_k$ is the average gating probability for expert $k$. This loss is minimized when the load is uniform across experts.</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Architecture</th>
+                <th>Experts</th>
+                <th>Active per token</th>
+                <th>Total params</th>
+                <th>Active params</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Dense Transformer</td>
+                <td>1 (the FFN)</td>
+                <td>1</td>
+                <td>7B</td>
+                <td>7B</td>
+              </tr>
+              <tr>
+                <td>Switch Transformer</td>
+                <td>128</td>
+                <td>1</td>
+                <td>1.6T</td>
+                <td>~13B</td>
+              </tr>
+              <tr>
+                <td>Mixtral 8x7B</td>
+                <td>8</td>
+                <td>2</td>
+                <td>46.7B</td>
+                <td>12.9B</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Mixture of Agents: Formal Specification</h3>
+
+          <p>Let $\mathcal{M} = \{m_1, \ldots, m_n\}$ be a set of LLMs. The MoA architecture consists of $L$ layers, each containing a subset of models. Denote by $\mathcal{M}_l \subseteq \mathcal{M}$ the models in layer $l$. For input prompt $x$, the processing is:</p>
+
+          <p><strong>Layer 1:</strong> Each model $m \in \mathcal{M}_1$ generates a response independently:</p>
+
+          $$r_m^{(1)} = m(x), \quad \forall m \in \mathcal{M}_1$$
+
+          <p><strong>Layer $l > 1$:</strong> Each model $m \in \mathcal{M}_l$ receives the original prompt concatenated with all responses from the previous layer:</p>
+
+          $$r_m^{(l)} = m\bigl(x \oplus \{r_{m'}^{(l-1)} : m' \in \mathcal{M}_{l-1}\}\bigr), \quad \forall m \in \mathcal{M}_l$$
+
+          <p>where $\oplus$ denotes prompt concatenation (the previous-layer responses are formatted as auxiliary context). <strong>Final aggregation:</strong> A designated aggregator model $m_{\text{agg}}$ produces the final output:</p>
+
+          $$y = m_{\text{agg}}\bigl(x \oplus \{r_{m}^{(L)} : m \in \mathcal{M}_L\}\bigr)$$
+
+          <div class="mermaid">
+flowchart TD
+    X["Prompt x"]
+    subgraph Layer1["Layer 1: Independent Generation"]
+      A1["LLM A\nr_A^(1) = A(x)"]
+      B1["LLM B\nr_B^(1) = B(x)"]
+      C1["LLM C\nr_C^(1) = C(x)"]
+    end
+    subgraph Layer2["Layer 2: Informed Refinement"]
+      A2["LLM D\nr_D^(2) = D(x, r_A^(1), r_B^(1), r_C^(1))"]
+      B2["LLM E\nr_E^(2) = E(x, r_A^(1), r_B^(1), r_C^(1))"]
+    end
+    subgraph Final["Aggregation"]
+      AGG["Aggregator\ny = Agg(x, r_D^(2), r_E^(2))"]
+    end
+    X --> Layer1
+    Layer1 --> Layer2
+    Layer2 --> Final
+          </div>
+          <p class="diagram-caption">The MoA pipeline: Layer 1 generates diverse independent responses. Layer 2 refines using all Layer 1 outputs as context. The aggregator produces the final answer.</p>
+
+          <h3>The Auxiliary Information Hypothesis</h3>
+
+          <p>Wang et al. (2024) propose a specific hypothesis for why MoA works: individual LLMs exhibit an <strong>auxiliary information property</strong> &mdash; the quality of a model's output improves when it has access to other models' outputs, even if those outputs are individually of lower quality.</p>
+
+          <p>They test this empirically. Take a strong model $A$ and a weak model $B$. Generate a response from $B$, then provide that response to $A$ as auxiliary context. In many cases, $A$'s response <em>improves</em> &mdash; not because $B$ had the right answer, but because $B$'s response contained useful fragments: a different framing, a relevant fact, or an alternative approach that $A$ could build on.</p>
+
+          <p>This explains why MoA outperforms simple best-of-$K$ sampling. Best-of-$K$ selects the best individual response; MoA synthesizes a response that is better than any individual's. The improvement comes not from selection but from <em>synthesis</em>: later-layer models can combine the best parts of multiple earlier responses, correct individual errors, and add information that was missing from any single response.</p>
+
+          <h3>MoA Results</h3>
+
+          <p>On the AlpacaEval 2.0 benchmark (a standard measure of LLM response quality), Wang et al. reported the following results:</p>
+
+          <ul>
+            <li>GPT-4o alone: 57.5% win rate (vs. GPT-4 reference)</li>
+            <li>MoA with open-source models only (Llama, Qwen, etc.): 65.1% win rate</li>
+            <li>MoA with GPT-4o as aggregator: 65.8% win rate</li>
+          </ul>
+
+          <p>The MoA system using only open-source models outperformed GPT-4o alone by 7.6 percentage points. This is a striking result: a collection of individually weaker models, when organized into a collaborative architecture, surpasses a single model that is individually stronger than any of them.</p>
+
+          <div class="callout">
+            <div class="callout-label">Why This Matters</div>
+            <p>The MoA result is not about brute-force scaling. It is about architectural leverage. The total compute used by MoA is roughly $K \times L$ forward passes (where $K$ is models per layer and $L$ is number of layers), compared to 1 forward pass for a single model. But the quality improvement is not proportional to compute; it comes from the <em>structure</em> of the collaboration. Each layer adds information that the previous layer could not generate on its own. This is the architectural analogue of the diversity theorem from the previous post: the improvement equals the diversity of the models, mediated by the architecture's ability to harness that diversity.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 3: ADVANCED                                           -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>Theoretical Analysis of Layered Aggregation</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Why Layers Beat Flat Ensembles</h3>
+
+          <p>A flat ensemble averages the outputs of $K$ models. MoA uses $L$ sequential layers. Why should depth help? The answer connects to a fundamental principle in learning theory: <strong>sequential refinement can reduce bias, not just variance.</strong></p>
+
+          <p>Recall from the previous post that a flat ensemble has error:</p>
+
+          $$\text{MSE}_{\text{flat}} = \text{Bias}^2 + \frac{\sigma^2}{K} + \frac{K-1}{K}c$$
+
+          <p>The bias term is immovable. No amount of averaging changes the systematic error shared by all models.</p>
+
+          <p>Now consider a two-layer system. Layer 1 produces $K$ outputs $r_1, \ldots, r_K$. Layer 2 takes these as input and produces a refined output $r^{(2)}$. If the layer-2 model can learn a <em>correction function</em> $g(r_1, \ldots, r_K)$ that maps the ensemble of layer-1 outputs to a better prediction, then:</p>
+
+          $$\text{MSE}_{\text{layered}} = \text{Bias}_g^2 + \text{Var}(g)$$
+
+          <p>where $\text{Bias}_g$ is the bias of the correction function. If $g$ can learn the systematic errors of the layer-1 ensemble and correct them, then $\text{Bias}_g < \text{Bias}$. This is the mechanism by which layering reduces bias: each layer can learn to correct the systematic errors of the previous layer.</p>
+
+          <h3>Formal Model: Iterated Refinement</h3>
+
+          <p>Formalize the MoA process as an iterated map. Let $\mathcal{R}^{(l)} = \{r_1^{(l)}, \ldots, r_K^{(l)}\}$ be the set of responses at layer $l$. Define the quality of a response set as $Q(\mathcal{R}^{(l)}) = \max_k q(r_k^{(l)})$ where $q$ is a quality metric (e.g., factual accuracy, reasoning correctness). The MoA dynamics are:</p>
+
+          $$\mathcal{R}^{(l+1)} = \{m_k(x \oplus \mathcal{R}^{(l)}) : k = 1, \ldots, K\}$$
+
+          <p>Under the auxiliary information hypothesis, we have the condition:</p>
+
+          $$Q(\mathcal{R}^{(l+1)}) \geq Q(\mathcal{R}^{(l)}) + \Delta(\mathcal{R}^{(l)})$$
+
+          <p>where $\Delta(\mathcal{R}^{(l)}) \geq 0$ is the improvement from having auxiliary context. If $\Delta > 0$ whenever $Q < Q^*$ (the optimal quality), the iteration converges to a fixed point. The convergence rate depends on how much useful information the auxiliary context provides at each step.</p>
+
+          <p>This is analogous to <strong>boosting</strong> in classical ML. In boosting, each weak learner is trained on the residuals of the previous ensemble, progressively correcting the bias. In MoA, each layer's models see the previous layer's outputs and can produce responses that correct remaining errors. The parallel is not exact &mdash; MoA models are not explicitly trained on residuals &mdash; but the mechanism is similar: sequential refinement that targets the errors of the previous stage.</p>
+
+          <h3>Information-Theoretic Analysis</h3>
+
+          <p>Let $X$ denote the input, $Y$ the ideal output, and $R^{(l)}$ the response at layer $l$. By the data processing inequality, if layer $l+1$ uses only the output of layer $l$ (ignoring the original input $x$), then:</p>
+
+          $$I(Y; R^{(l+1)}) \leq I(Y; R^{(l)})$$
+
+          <p>Mutual information can only decrease through processing. This would mean layers cannot help &mdash; a contradiction with the empirical results. The resolution is that MoA does not satisfy the assumption: layer $l+1$ receives both $R^{(l)}$ <em>and</em> the original input $x$. Therefore:</p>
+
+          $$I(Y; R^{(l+1)}) \leq I(Y; R^{(l)}, X) = I(Y; R^{(l)}) + I(Y; X \mid R^{(l)})$$
+
+          <p>The second term, $I(Y; X \mid R^{(l)})$, is the <strong>residual information</strong> in $X$ about $Y$ that is not captured by the layer-$l$ responses. This term is positive whenever the previous-layer responses are imperfect. Each layer can extract additional information from the original prompt that the previous layer missed, because it sees both the prompt and the previous responses &mdash; a strictly richer signal than either alone.</p>
+
+          <div class="mermaid">
+flowchart LR
+    subgraph DPI["Data Processing Inequality (violated by MoA)"]
+      direction TB
+      D1["If R^(l+1) depends\nonly on R^(l):"]
+      D2["I(Y; R^(l+1)) &le;\nI(Y; R^(l))"]
+      D3["Layers cannot help"]
+      D1 --> D2 --> D3
+    end
+    subgraph MoAInfo["MoA Information Flow"]
+      direction TB
+      M1["R^(l+1) depends on\nR^(l) AND X"]
+      M2["I(Y; R^(l+1)) &le;\nI(Y; R^(l)) + I(Y; X | R^(l))"]
+      M3["Residual information\nI(Y; X | R^(l)) > 0"]
+      M4["Layers CAN help"]
+      M1 --> M2 --> M3 --> M4
+    end
+    style D3 fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style M4 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">The data processing inequality would prevent layers from helping &mdash; but MoA bypasses it by feeding the original input alongside the previous layer's outputs.</p>
+
+          <h3>The Topology of MoE vs. MoA</h3>
+
+          <p>The structural difference between MoE and MoA can be characterized graph-theoretically. In MoE, the computation graph is a <strong>bipartite graph</strong>: inputs connect to experts via the router, and experts connect to the output via the gating weights. There are no edges between experts. Information flows from input to output through exactly one path per expert, and experts are conditionally independent given the input.</p>
+
+          <p>In MoA, the computation graph is a <strong>directed acyclic graph (DAG)</strong> with multiple layers. Each model in layer $l+1$ has incoming edges from all models in layer $l$ (via the auxiliary context) and from the input. The graph has rich inter-model connectivity: information generated by one model in layer $l$ is visible to all models in layer $l+1$. This connectivity allows for:</p>
+
+          <ul>
+            <li><strong>Error correction.</strong> If model $A$ in layer 1 makes an error, model $B$ in layer 2 can see the error and correct it.</li>
+            <li><strong>Information synthesis.</strong> If models $A$ and $B$ in layer 1 each capture a different aspect of the answer, model $C$ in layer 2 can combine both aspects.</li>
+            <li><strong>Consensus detection.</strong> If all layer-1 models agree on a fact, the layer-2 model can give that fact high confidence. If they disagree, the layer-2 model can flag the uncertainty.</li>
+          </ul>
+
+          <h3>Connection to Boosting</h3>
+
+          <p>The formal connection to boosting clarifies the theoretical power of layered architectures. In AdaBoost (Freund and Schapire, 1997), the $t$-th weak learner is trained on a reweighted version of the data, where examples misclassified by previous learners receive higher weight. The ensemble error decreases exponentially with the number of boosting rounds, provided each weak learner is better than random (on the reweighted distribution).</p>
+
+          <p>MoA does not explicitly reweight examples, but it achieves a similar effect through the auxiliary context. When a model in layer $l$ makes an error on a particular aspect of the input, that error is visible to layer $l+1$ models as part of their context. A well-calibrated layer-$l+1$ model will focus on correcting that error &mdash; implicitly "upweighting" the problematic aspect. This gives MoA a boosting-like character: each layer focuses on the residual errors of the previous layers.</p>
+
+          <p>The AdaBoost theory guarantees that the training error drops as $\exp(-2\gamma^2 T)$ where $\gamma$ is the edge (how much better than random each weak learner is) and $T$ is the number of rounds. Whether an analogous exponential convergence result holds for MoA is an open theoretical question, but the empirical evidence (quality improving with number of layers, then saturating) is consistent with a convergent iterative process.</p>
+
+          <div class="callout">
+            <div class="callout-label">The Big Picture</div>
+            <p>The evolution from MoE to MoA represents a shift from <em>conditional computation</em> (activating different parameters for different inputs) to <em>collaborative computation</em> (different models building on each other's work). The theoretical analysis shows that layered collaboration can reduce bias (via sequential error correction), not just variance (via averaging) &mdash; and that the mechanism is the residual information in the original input that previous layers failed to capture. This is why MoA outperforms flat ensembles: it has access to a richer computational structure that enables progressive refinement.</p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Jacobs, R. A., Jordan, M. I., Nowlan, S. J., &amp; Hinton, G. E. (1991). Adaptive mixtures of local experts. <em>Neural Computation</em>, 3(1), 79&ndash;87.</li>
+        <li>Shazeer, N. et al. (2017). Outrageously large neural networks: The sparsely-gated mixture-of-experts layer. <em>ICLR 2017</em>.</li>
+        <li>Fedus, W., Zoph, B., &amp; Shazeer, N. (2022). Switch Transformers: Scaling to trillion parameter models with simple and efficient sparsity. <em>JMLR</em>, 23(120), 1&ndash;39.</li>
+        <li>Jiang, A. Q. et al. (2024). Mixtral of experts. <em>arXiv:2401.04088</em>.</li>
+        <li>Wang, J. et al. (2024). Mixture-of-Agents enhances large language model capabilities. <em>arXiv:2406.04692</em>.</li>
+        <li>Freund, Y. &amp; Schapire, R. E. (1997). A decision-theoretic generalization of on-line learning and an application to boosting. <em>JCSS</em>, 55(1), 119&ndash;139.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post17.html" class="prev">Why One Model Isn't Enough</a>
+      <a href="post19.html" class="next">The Aggregation Problem</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <div class="footer-nav">
+    <a href="/blog/">Notes</a>
+    <a href="/links.html">Links</a>
+  </div>
+</footer>
+
+<script src="../js/lightbox.js"></script>
+</body>
+</html>

@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Why One Model Isn't Enough &mdash; Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Notes</a>
+      <a href="/links.html">Links</a>
+    </div>
+  </div>
+</nav>
+
+<main class="post-main">
+  <article class="post">
+    <div class="post-header">
+      <h1>Why One Model Isn't Enough</h1>
+      <p class="post-subtitle">Part 1 of a 6-part series on agentic AI, multi-agent architectures, and the theory of LLM collaboration.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/#agentic">Agentic AI</a>.
+      <a href="post18.html" class="next">From Mixture of Experts to Mixture of Agents</a>
+    </div>
+
+    <div class="post-body">
+
+      <p>A single large language model can write code, summarize papers, answer medical questions, and generate poetry. These are impressive feats. They are also misleading, because they suggest that scaling a single model is all you need. It is not. A single model, no matter how large, has systematic failure modes that no amount of additional training data or parameters will fix. This post is about why, and about the ideas &mdash; old and new &mdash; that point toward a different architecture: systems of collaborating agents.</p>
+
+      <p>The argument proceeds at three levels. The first gives the intuition using everyday examples. The second formalizes the argument using ensemble theory and the bias-variance-diversity decomposition. The third goes to the foundations: Condorcet's Jury Theorem, the conditions under which aggregation provably helps, and the limits imposed by correlation.</p>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 1: INTUITIVE                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>The Case for Multiple Minds</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>The Panel of Experts</h3>
+
+          <p>Imagine you are a patient with a complex medical condition. You visit a single specialist. She is brilliant &mdash; trained at the best institution, highly experienced, deeply knowledgeable. She examines you and gives a diagnosis. Do you act on it immediately?</p>
+
+          <p>Most people would not. Most people would seek a second opinion. Not because they doubt the first doctor's competence, but because any single expert, no matter how skilled, has blind spots. She trained in a particular school of thought. She has seen a particular distribution of cases. She has cognitive biases &mdash; anchoring, availability, confirmation bias &mdash; that are invisible to her but systematic in their effects. A second opinion from a doctor with different training, different experience, and different biases can catch errors that the first doctor cannot.</p>
+
+          <p>Large language models are the same. A single LLM is trained on a massive but specific corpus of text. It has absorbed particular patterns, particular biases, particular blind spots. When it hallucinates &mdash; confidently generating factually incorrect information &mdash; it does so systematically, not randomly. The errors are not noise; they are structural artifacts of the training process, the data distribution, and the architecture. A different model, trained on different data with a different architecture, will have <em>different</em> structural blind spots. The errors are correlated within a single model but partially independent across different models.</p>
+
+          <p>This is the fundamental insight: <strong>diversity of error is the raw material of collective intelligence.</strong></p>
+
+          <div class="mermaid">
+flowchart LR
+    subgraph Single["Single Model"]
+      direction TB
+      S1["Query"] --> S2["Model A"]
+      S2 --> S3["Response"]
+      S2 -.->|"Blind spots,\nhallucinations,\nbias"| S4["Undetected\nerrors"]
+    end
+    subgraph Multi["Multi-Agent System"]
+      direction TB
+      M1["Query"] --> M2a["Model A"]
+      M1 --> M2b["Model B"]
+      M1 --> M2c["Model C"]
+      M2a --> M3["Aggregator"]
+      M2b --> M3
+      M2c --> M3
+      M3 --> M4["Response"]
+      M3 -.->|"Cross-checking\ncancels errors"| M5["Errors\ndetected"]
+    end
+    style S4 fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style M5 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">A single model's errors go undetected. Multiple models with diverse errors can cross-check and correct each other.</p>
+
+          <h3>The Wisdom of Crowds</h3>
+
+          <p>The idea that groups outperform individuals is not new. In 1907, Francis Galton attended a county fair where 787 people guessed the weight of an ox. The individual guesses varied wildly &mdash; some were absurdly high, others absurdly low. But the median of all guesses was 1,207 pounds. The actual weight was 1,198 pounds. The crowd was off by less than 1%.</p>
+
+          <p>Galton's observation was not a fluke. The Marquis de Condorcet proved a version of this mathematically in 1785: if each member of a jury is more likely than not to reach the correct verdict, and their votes are independent, then the probability that the majority is correct approaches 1 as the jury grows. This is <strong>Condorcet's Jury Theorem</strong>, and it is one of the oldest and most important results in collective decision theory.</p>
+
+          <p>But the theorem has a crucial condition: <strong>independence</strong>. If every juror copies the same textbook, their errors are perfectly correlated, and adding more jurors does not help at all. The benefit of aggregation comes entirely from the diversity of errors. This is why a panel of specialists from different medical traditions is more informative than three copies of the same specialist.</p>
+
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p><strong>The orchestra.</strong> A single virtuoso violinist can play beautifully, but there are pieces that require an orchestra: a violin alone cannot produce the harmonic richness of a full symphony. The orchestra does not work because each musician is better than the soloist &mdash; in fact, individually, they may be worse. It works because their contributions are <em>complementary</em>. The violin carries the melody, the cello provides the bass, the oboe adds a timbre that no string instrument can produce. The conductor does not play a note; they coordinate the timing and dynamics of the ensemble. A multi-agent AI system is the same: individual models contribute diverse capabilities, and an aggregator coordinates their outputs into something richer than any single model could produce alone.</p>
+          </div>
+
+          <h3>Why LLMs Fail Systematically</h3>
+
+          <p>The failures of a single LLM are not random. They cluster around specific structural weaknesses:</p>
+
+          <ul>
+            <li><strong>Hallucination.</strong> LLMs generate plausible-sounding but factually incorrect statements. This happens because the training objective is next-token prediction, which rewards fluency and pattern-matching, not factual accuracy. A model that has seen "the capital of Australia is Sydney" in enough training contexts will reproduce it confidently, even though the actual capital is Canberra. The hallucination is a deterministic function of the training data and the model's weights &mdash; not noise.</li>
+            <li><strong>Bounded context.</strong> An LLM can only attend to a finite window of tokens. When the relevant information for answering a question is spread across a 100-page document, the model may miss critical passages. This is not a failure of intelligence; it is a failure of architecture.</li>
+            <li><strong>No grounding.</strong> LLMs have no mechanism to verify their outputs against external reality. They cannot query a database, check a fact, or run an experiment. They can only pattern-match against their training data. Any fact not in the training data, or any fact that has changed since training, is invisible to the model.</li>
+            <li><strong>Reasoning brittleness.</strong> While chain-of-thought prompting helps, LLMs still struggle with multi-step logical reasoning, especially when the reasoning chain is long or requires backtracking. A single error early in the chain propagates and corrupts the final answer.</li>
+          </ul>
+
+          <p>Each of these failure modes suggests a different remedy: retrieval systems for grounding, tool use for verification, specialized models for different subtasks, and redundancy for error correction. But no single model can do all of these things well simultaneously. The solution is not a bigger model; it is a <em>system</em> of models that collaborate.</p>
+
+          <div class="callout">
+            <div class="callout-label">Key Takeaway</div>
+            <p>A single LLM's errors are systematic, not random. Different models make different systematic errors. When you aggregate diverse models, their errors partially cancel, producing outputs that are more accurate and more reliable than any individual model. This is the founding principle of multi-agent AI: diversity of error is the resource; aggregation is the mechanism.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 2: TECHNICAL                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge technical">Technical</span>
+          <h2>Ensemble Theory and the Diversity Decomposition</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Setup</h3>
+
+          <p>Consider $K$ models $f_1, \ldots, f_K$ producing outputs for input $x$. For concreteness, think of each $f_k(x)$ as a real-valued prediction (this applies to classification via voting margins, and to language generation via log-probabilities or scalar scores). The ensemble prediction is the average:</p>
+
+          $$\bar{f}(x) = \frac{1}{K}\sum_{k=1}^{K} f_k(x)$$
+
+          <p>Let $y$ be the true target. The squared error of the ensemble is:</p>
+
+          $$\mathcal{L}_{\text{ens}} = (y - \bar{f}(x))^2$$
+
+          <p>The average squared error of the individual models is:</p>
+
+          $$\bar{\mathcal{L}} = \frac{1}{K}\sum_{k=1}^{K} (y - f_k(x))^2$$
+
+          <h3>The Ambiguity Decomposition</h3>
+
+          <p>Krogh and Vedelsby (1995) proved a clean identity relating the ensemble error to the individual errors. Define the <strong>ambiguity</strong> (or diversity) of the ensemble as:</p>
+
+          $$\bar{A} = \frac{1}{K}\sum_{k=1}^{K} (f_k(x) - \bar{f}(x))^2$$
+
+          <p>This measures how much the individual predictions disagree with each other. The identity is:</p>
+
+          $$\boxed{\mathcal{L}_{\text{ens}} = \bar{\mathcal{L}} - \bar{A}}$$
+
+          <p>The ensemble error equals the average individual error <em>minus</em> the ambiguity. This is not an inequality &mdash; it is an exact identity. It says two things simultaneously:</p>
+
+          <ol>
+            <li>The ensemble is <strong>always</strong> at least as good as the average individual (since $\bar{A} \geq 0$).</li>
+            <li>The improvement is exactly equal to the diversity of the ensemble: the more the individual models disagree, the better the ensemble.</li>
+          </ol>
+
+          <div class="mermaid">
+flowchart LR
+    A["Average individual\nerror L&#773;"] --> B["Ensemble error\nL_ens = L&#773; &minus; A&#773;"]
+    C["Ambiguity\n(diversity) A&#773;"] --> B
+    B --> D{"Is A&#773; large?"}
+    D -->|"Yes: models\ndisagree"| E["Big improvement"]
+    D -->|"No: models\nagree"| F["Little improvement"]
+    style E fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style F fill:#fce4ec,stroke:#c62828,color:#1c1917
+          </div>
+          <p class="diagram-caption">The ambiguity decomposition: ensemble error = average individual error minus diversity. More disagreement means more improvement.</p>
+
+          <h3>The Bias-Variance-Covariance Decomposition</h3>
+
+          <p>Taking expectations over the randomness in model training (e.g., different random seeds, different data subsets, or different model architectures), the expected ensemble error decomposes further. Let $\bar{f}(x) = \frac{1}{K}\sum_k f_k(x)$ be the ensemble prediction. The expected squared error of the ensemble is:</p>
+
+          $$\mathbb{E}[(\bar{f}(x) - y)^2] = \text{Bias}^2 + \frac{1}{K}\text{Var} + \frac{K-1}{K}\text{Covar}$$
+
+          <p>where:</p>
+
+          <ul>
+            <li>$\text{Bias}^2 = (\mathbb{E}[\bar{f}(x)] - y)^2$ &mdash; the systematic error, unchanged by averaging.</li>
+            <li>$\text{Var} = \frac{1}{K}\sum_k \mathbb{E}[(f_k(x) - \mathbb{E}[f_k(x)])^2]$ &mdash; the average variance of individual models.</li>
+            <li>$\text{Covar} = \frac{1}{K(K-1)}\sum_{j \neq k} \text{Cov}(f_j(x), f_k(x))$ &mdash; the average pairwise covariance.</li>
+          </ul>
+
+          <p>This reveals the precise mechanism:</p>
+
+          <ul>
+            <li><strong>Bias is untouched.</strong> If all models are wrong in the same direction, averaging does not help. The bias term does not decrease with $K$.</li>
+            <li><strong>Variance decreases as $1/K$.</strong> If the models are independent (zero covariance), the variance of the ensemble shrinks linearly. With $K = 10$ independent models, you get a 10x reduction in variance.</li>
+            <li><strong>Covariance is the bottleneck.</strong> In practice, models are never independent. LLMs trained on overlapping data with similar architectures have high positive covariance. As $K \to \infty$, the variance term vanishes but the covariance term persists: $\lim_{K \to \infty} \frac{K-1}{K}\text{Covar} = \text{Covar}$. The irreducible ensemble error is $\text{Bias}^2 + \text{Covar}$.</li>
+          </ul>
+
+          <p>This is why diversity is essential. The only way to reduce the ensemble error below the individual error is to reduce the covariance between models. And the only way to reduce covariance is to use models that make <em>different</em> errors &mdash; different architectures, different training data, different prompting strategies, or different specializations.</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Component</th>
+                <th>Effect of adding models</th>
+                <th>How to reduce</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>$\text{Bias}^2$</td>
+                <td>Unchanged</td>
+                <td>Better individual models</td>
+              </tr>
+              <tr>
+                <td>$\frac{1}{K}\text{Var}$</td>
+                <td>Decreases as $1/K$</td>
+                <td>More models</td>
+              </tr>
+              <tr>
+                <td>$\frac{K-1}{K}\text{Covar}$</td>
+                <td>Converges to Covar</td>
+                <td>More diverse models</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p><strong>Signal averaging in MRI.</strong> When you take an MRI scan, each acquisition contains the true brain signal plus random thermal noise. If you average $K$ scans, the signal (bias) stays the same, but the noise (variance) drops by $\sqrt{K}$. This works beautifully because thermal noise across scans is independent. But if there is a systematic artifact &mdash; say, a motion ghost &mdash; that appears in every scan, averaging does nothing to remove it. The artifact is the "covariance" term: it is shared across all acquisitions and cannot be averaged away. To remove it, you need a <em>different kind</em> of acquisition (a different pulse sequence, a different head position). In multi-agent AI, the "different kind of acquisition" is a different model with different error patterns.</p>
+          </div>
+
+          <h3>From Regression to Language Generation</h3>
+
+          <p>The decomposition above applies to scalar predictions. For language generation, the output is a sequence of tokens, and "error" is harder to define. But the same principle operates through several mechanisms:</p>
+
+          <ul>
+            <li><strong>Log-probability aggregation.</strong> Given $K$ models, you can average their next-token log-probabilities and sample from the resulting distribution. This is equivalent to a product-of-experts model and directly inherits the variance-reduction property.</li>
+            <li><strong>Best-of-K sampling.</strong> Generate $K$ candidate responses and select the best one (by a scoring model or by majority agreement). If the probability that any single model produces a correct response is $p$, the probability that at least one of $K$ independent models is correct is $1 - (1-p)^K$, which approaches 1 exponentially in $K$.</li>
+            <li><strong>Iterative refinement.</strong> One model generates a draft; another model critiques and revises it; a third model verifies the revision. This is not simple averaging but a <em>sequential</em> aggregation that can reduce both variance and bias, because each stage can catch and correct the errors of the previous one.</li>
+          </ul>
+
+          <div class="callout">
+            <div class="callout-label">The Central Tension</div>
+            <p>Aggregation reduces variance but cannot reduce bias or covariance. The entire research program of multi-agent AI can be understood as a search for architectures that maximize diversity (minimize covariance) while maintaining or improving individual model quality (minimizing bias). The Mixture of Agents architecture (next post) is one such approach: it uses diverse models as "proposers" and a separate model as "aggregator," creating a layered system where each layer can correct the biases of the previous one.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 3: ADVANCED                                           -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>Condorcet, Correlation, and the Limits of Aggregation</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Condorcet's Jury Theorem: Formal Statement</h3>
+
+          <p>Let $V_1, \ldots, V_K$ be binary random variables representing the votes of $K$ jurors, where $V_k = 1$ means juror $k$ votes correctly. The majority decision is:</p>
+
+          $$M_K = \mathbf{1}\left\{\sum_{k=1}^{K} V_k > \frac{K}{2}\right\}$$
+
+          <p><strong>Theorem</strong> (Condorcet, 1785). If the jurors are independent and each has probability $p > 1/2$ of voting correctly ($P(V_k = 1) = p$ for all $k$), then:</p>
+
+          $$P(M_K = 1) \to 1 \quad \text{as } K \to \infty$$
+
+          <p><em>Proof sketch.</em> By the law of large numbers, $\frac{1}{K}\sum_k V_k \to p > 1/2$ almost surely. Therefore $\sum_k V_k > K/2$ with probability approaching 1. More precisely, by Hoeffding's inequality:</p>
+
+          $$P(M_K = 0) = P\left(\frac{1}{K}\sum_k V_k \leq \frac{1}{2}\right) \leq \exp\left(-2K\left(p - \frac{1}{2}\right)^2\right)$$
+
+          <p>The error probability decays <em>exponentially</em> in $K$. With $p = 0.6$ and $K = 100$ jurors, the probability of the majority being wrong is less than $e^{-2} \approx 0.14$. With $K = 1000$, it is less than $e^{-20} \approx 10^{-9}$.</p>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph Conditions["Conditions"]
+      C1["Each model correct\nwith prob p > 1/2"]
+      C2["Models are\nindependent"]
+    end
+    subgraph Result["Result"]
+      R1["Majority vote\ncorrect w.p. &rarr; 1"]
+      R2["Error decays as\nexp&lpar;&minus;2K&lpar;p &minus; 1/2&rpar;&sup2;&rpar;"]
+    end
+    Conditions --> Result
+    subgraph Caveat["The Catch"]
+      X1["If p < 1/2:\nmajority is WRONG\nw.p. &rarr; 1"]
+      X2["If models correlated:\neffective K is much\nsmaller than actual K"]
+    end
+    Result -.-> Caveat
+    style X1 fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style X2 fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style R1 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">Condorcet's Jury Theorem: exponential error decay under independence. Correlation and incompetence both break the guarantee.</p>
+
+          <h3>The Condorcet Converse and the Danger of Correlated Errors</h3>
+
+          <p>The theorem has a devastating converse: if $p < 1/2$ (each juror is more likely wrong than right), the majority is also more likely wrong, and the error probability approaches 1 as $K \to \infty$. Aggregation <em>amplifies</em> systematic incompetence. In the LLM setting, this means: if every model in your ensemble makes the same mistake (e.g., the same hallucination appears in every model's training data), aggregation will reinforce the error, not correct it.</p>
+
+          <p>More subtly, correlation undermines the theorem even when $p > 1/2$. Let $\rho$ denote the average pairwise correlation between models. Berend and Paroush (1998) showed that the effective number of independent models in a correlated ensemble is approximately:</p>
+
+          $$K_{\text{eff}} = \frac{K}{1 + (K-1)\rho}$$
+
+          <p>When $\rho = 0$ (independent models), $K_{\text{eff}} = K$. When $\rho = 1$ (identical models), $K_{\text{eff}} = 1$ &mdash; no benefit from aggregation. For intermediate correlations, the benefit is real but diminished. With $\rho = 0.5$ and $K = 100$, the effective ensemble size is only $K_{\text{eff}} \approx 2$.</p>
+
+          <p>This formula explains a widely observed empirical phenomenon: adding more LLMs to an ensemble quickly saturates. Going from 1 to 3 models helps a lot; going from 10 to 100 helps very little. The marginal value of each additional model decreases rapidly because the correlation with existing models is high.</p>
+
+          <h3>The Bias-Variance-Covariance Derivation</h3>
+
+          <p>We now derive the full decomposition stated in the Technical section. Let $f_k(x)$ denote the prediction of model $k$ on input $x$, where the randomness is over the model training process (different random seeds, data subsets, etc.). Let $\mu_k = \mathbb{E}[f_k(x)]$ and $\bar{\mu} = \frac{1}{K}\sum_k \mu_k$. The ensemble prediction is $\bar{f}(x) = \frac{1}{K}\sum_k f_k(x)$.</p>
+
+          <p>The mean squared error of the ensemble is:</p>
+
+          $$\text{MSE}(\bar{f}) = \mathbb{E}[(\bar{f}(x) - y)^2] = (\bar{\mu} - y)^2 + \text{Var}(\bar{f}(x))$$
+
+          <p>The variance of the ensemble decomposes as:</p>
+
+          $$\text{Var}(\bar{f}) = \text{Var}\left(\frac{1}{K}\sum_k f_k\right) = \frac{1}{K^2}\left(\sum_k \text{Var}(f_k) + \sum_{j \neq k} \text{Cov}(f_j, f_k)\right)$$
+
+          <p>Assuming each model has the same variance $\sigma^2$ and each pair has the same covariance $c$:</p>
+
+          $$\text{Var}(\bar{f}) = \frac{\sigma^2}{K} + \frac{K-1}{K}c$$
+
+          <p>As $K \to \infty$:</p>
+
+          $$\text{Var}(\bar{f}) \to c$$
+
+          <p>The ensemble variance converges to the pairwise covariance. If the models are perfectly correlated ($c = \sigma^2$), the variance never decreases. If they are independent ($c = 0$), the variance vanishes. The entire gain from ensembling is captured by the gap between $\sigma^2$ and $c$ &mdash; that is, by the diversity of the models.</p>
+
+          <h3>PAC-Bayes Bounds for Ensembles</h3>
+
+          <p>The PAC-Bayes framework provides a more general bound on the ensemble error. Let $\pi$ be a prior distribution over models (chosen before seeing data) and $\rho$ be a posterior distribution over models (the ensemble weights). The PAC-Bayes bound (McAllester, 1999; Catoni, 2007) states that with probability at least $1 - \delta$ over the training data:</p>
+
+          $$\mathbb{E}_{f \sim \rho}[\mathcal{L}(f)] \leq \mathbb{E}_{f \sim \rho}[\hat{\mathcal{L}}(f)] + \sqrt{\frac{\text{KL}(\rho \| \pi) + \ln(2n/\delta)}{2n}}$$
+
+          <p>where $\mathcal{L}(f)$ is the population loss, $\hat{\mathcal{L}}(f)$ is the empirical loss, and $\text{KL}(\rho \| \pi)$ is the Kullback-Leibler divergence between the posterior and prior.</p>
+
+          <p>The bound says: the ensemble's true error is close to its empirical error, with a penalty that grows with the complexity of the ensemble (measured by KL divergence from the prior). For a uniform ensemble over $K$ models with a uniform prior over a larger pool of $M$ models, the KL term is $\ln(M/K)$ &mdash; logarithmic in the model pool size. This means you can search over a large space of models and still get tight generalization bounds, provided you select a small, high-quality subset.</p>
+
+          <p>In the context of multi-agent systems, the PAC-Bayes bound justifies a key design principle: <strong>select a diverse subset of high-quality models rather than using all available models</strong>. The ensemble error is controlled by the empirical performance of the selected models plus a complexity penalty that grows slowly with the selection pool size.</p>
+
+          <h3>From Ensembles to Agents</h3>
+
+          <p>Classical ensemble theory assumes a simple aggregation rule (typically averaging or voting). Multi-agent systems go beyond this in three ways:</p>
+
+          <ol>
+            <li><strong>Heterogeneous roles.</strong> Instead of $K$ models doing the same task, different agents specialize in different subtasks. One agent retrieves information, another reasons, a third verifies. This is more like a team than a committee.</li>
+            <li><strong>Sequential interaction.</strong> Instead of parallel aggregation, agents interact sequentially: one agent's output becomes another's input. This allows later agents to correct the errors of earlier ones &mdash; a mechanism that can reduce bias, not just variance.</li>
+            <li><strong>Learned aggregation.</strong> Instead of a fixed aggregation rule, a separate model learns to combine the agents' outputs. This aggregator can learn non-linear, context-dependent weighting &mdash; giving more weight to the agent that is most reliable for the current input.</li>
+          </ol>
+
+          <p>These three extensions &mdash; specialization, sequencing, and learned aggregation &mdash; transform the classical ensemble into a Mixture of Agents architecture, which is the subject of the next post.</p>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph Classical["Classical Ensemble"]
+      direction LR
+      CE1["K models, same task"] --> CE2["Average or vote"] --> CE3["Output"]
+    end
+    subgraph MAS["Multi-Agent System"]
+      direction LR
+      MA1["Specialized agents\ndifferent roles"] --> MA2["Sequential interaction\nrefinement"] --> MA3["Learned aggregator\ncontext-dependent"] --> MA4["Output"]
+    end
+    Classical -->|"Heterogeneous roles"| MAS
+    Classical -->|"Sequential interaction"| MAS
+    Classical -->|"Learned aggregation"| MAS
+          </div>
+          <p class="diagram-caption">Multi-agent systems extend classical ensembles with specialization, sequential refinement, and learned aggregation.</p>
+
+          <div class="callout">
+            <div class="callout-label">The Theoretical Foundation</div>
+            <p>The analysis in this section establishes the theoretical case for multi-agent systems: aggregation provably reduces error, the magnitude of the reduction equals the diversity of the ensemble, and the limits are set by the correlation structure. But the classical theory assumes simple aggregation rules and homogeneous models. The next posts in this series explore what happens when you move beyond these assumptions &mdash; to layered architectures (Post 2), to the problem of optimal aggregation (Post 3), and to systems where agents reason, act, and learn from each other (Posts 4&ndash;6).</p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Condorcet, M. (1785). <em>Essai sur l'application de l'analyse &agrave; la probabilit&eacute; des d&eacute;cisions rendues &agrave; la pluralit&eacute; des voix.</em></li>
+        <li>Krogh, A. &amp; Vedelsby, J. (1995). Neural network ensembles, cross validation, and active learning. <em>Advances in Neural Information Processing Systems</em>, 7.</li>
+        <li>Galton, F. (1907). Vox Populi. <em>Nature</em>, 75, 450&ndash;451.</li>
+        <li>Berend, D. &amp; Paroush, J. (1998). When is Condorcet's Jury Theorem valid? <em>Social Choice and Welfare</em>, 15(4), 481&ndash;488.</li>
+        <li>McAllester, D. A. (1999). PAC-Bayesian model averaging. <em>Proceedings of COLT</em>.</li>
+        <li>Brown, G. et al. (2005). Diversity creation methods: A survey and categorisation. <em>Information Fusion</em>, 6(1), 5&ndash;20.</li>
+        <li>Wang, J. et al. (2024). Mixture-of-Agents enhances large language model capabilities. <em>arXiv:2406.04692</em>.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post18.html" class="next">From Mixture of Experts to Mixture of Agents</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <div class="footer-nav">
+    <a href="/blog/">Notes</a>
+    <a href="/links.html">Links</a>
+  </div>
+</footer>
+
+<script src="../js/lightbox.js"></script>
+</body>
+</html>

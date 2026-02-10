@@ -24,12 +24,14 @@
   <section class="notes-hero">
     <div class="notes-hero-inner">
       <h1 class="notes-page-title">Notes</h1>
-      <p class="notes-page-desc">On prediction intervals, uncertainty quantification, and the geometry of regression.</p>
+      <p class="notes-page-desc">On prediction intervals, uncertainty quantification, the geometry of regression, and multi-agent AI.</p>
       <p class="notes-page-intro">Each note has three levels of depth &mdash; <em>intuitive</em>, <em>technical</em>, and <em>advanced</em> &mdash; so you can read at whatever level matches your background.</p>
       <div class="notes-topic-nav">
         <a href="#conformal" class="notes-topic-link active" onclick="smoothScroll(event, 'conformal')">Conformal Prediction</a>
         <span class="notes-topic-sep">&middot;</span>
         <a href="#leverage" class="notes-topic-link" onclick="smoothScroll(event, 'leverage')">Leverage Scores</a>
+        <span class="notes-topic-sep">&middot;</span>
+        <a href="#agentic" class="notes-topic-link" onclick="smoothScroll(event, 'agentic')">Agentic AI</a>
       </div>
     </div>
   </section>
@@ -149,6 +151,58 @@
             <a href="post16.html" class="note-link">
               <span class="note-link-title">Leverage in High Dimensions</span>
               <span class="note-link-summary">Ridge leverage, kernel leverage, and neural tangent leverage &mdash; extending the hat matrix beyond classical OLS to modern high-dimensional models.</span>
+            </a>
+          </li>
+        </ol>
+      </div>
+
+      <!-- Divider -->
+      <div class="notes-divider">
+        <div class="notes-divider-line"></div>
+      </div>
+
+      <!-- Column 3: Agentic AI -->
+      <div class="notes-column" id="agentic">
+        <div class="notes-column-header">
+          <span class="notes-column-number">III</span>
+          <h2 class="notes-column-title">Agentic AI</h2>
+          <p class="notes-column-desc">Multi-agent architectures, ensemble theory, and the mathematics of LLM collaboration &mdash; from Condorcet's Jury Theorem to Mixture of Agents and beyond.</p>
+        </div>
+        <ol class="notes-column-list">
+          <li>
+            <a href="post17.html" class="note-link">
+              <span class="note-link-title">Why One Model Isn't Enough</span>
+              <span class="note-link-summary">Ensemble theory, the bias-variance-diversity decomposition, and Condorcet's Jury Theorem &mdash; the theoretical case for multi-agent systems.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post18.html" class="note-link">
+              <span class="note-link-title">From Mixture of Experts to Mixture of Agents</span>
+              <span class="note-link-summary">Three decades from MoE through sparse gating and Switch Transformers to Together AI's layered MoA architecture.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post19.html" class="note-link">
+              <span class="note-link-title">The Aggregation Problem</span>
+              <span class="note-link-summary">Arrow's impossibility theorem, Condorcet cycles, LLM-as-Judge, and why synthesis sidesteps social choice impossibilities.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post20.html" class="note-link">
+              <span class="note-link-title">Reasoning Architectures</span>
+              <span class="note-link-summary">Chain-of-Thought, ReAct, Tree of Thoughts, Graph of Thoughts, and GPTSwarm &mdash; the progression from linear to graph-structured reasoning.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post21.html" class="note-link">
+              <span class="note-link-title">Agentic RAG</span>
+              <span class="note-link-summary">Self-RAG, Corrective RAG, Adaptive-RAG, and KARMA &mdash; turning retrieval from a one-shot lookup into an active research process.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post22.html" class="note-link">
+              <span class="note-link-title">Scaling Laws for Multi-Agent Systems</span>
+              <span class="note-link-summary">When more agents help, when they don't, communication topologies, the efficiency frontier, and the open problems ahead.</span>
             </a>
           </li>
         </ol>

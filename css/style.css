@@ -361,7 +361,7 @@ nav {
   max-width: var(--max-w-hero);
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--grid-gap);
 }
 
@@ -661,7 +661,7 @@ nav {
   user-select: none;
 }
 
-/* Two-column grid */
+/* Three-column grid */
 .notes-grid {
   padding: 0 2rem 5rem;
 }
@@ -670,7 +670,7 @@ nav {
   max-width: var(--max-w-hero);
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
   gap: 0;
 }
 

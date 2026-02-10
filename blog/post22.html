@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scaling Laws for Multi-Agent Systems &mdash; Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Notes</a>
+      <a href="/links.html">Links</a>
+    </div>
+  </div>
+</nav>
+
+<main class="post-main">
+  <article class="post">
+    <div class="post-header">
+      <h1>Scaling Laws for Multi-Agent Systems</h1>
+      <p class="post-subtitle">Part 6 of a 6-part series on agentic AI, multi-agent architectures, and the theory of LLM collaboration.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/#agentic">Agentic AI</a>.
+      <a href="post21.html" class="prev">Agentic RAG</a>
+    </div>
+
+    <div class="post-body">
+
+      <p>The previous five posts established the building blocks of multi-agent AI systems: diversity as the engine of ensemble improvement, the MoA architecture, aggregation theory, reasoning architectures, and agentic retrieval. A natural question emerges: <em>how does performance scale with the number of agents?</em> Adding more agents costs more compute. Does the quality improvement justify the cost? Is there a point of diminishing returns, or worse, a point where more agents actively hurt?</p>
+
+      <p>This post examines the scaling behavior of multi-agent systems. The answers are nuanced: scaling helps under specific conditions (diversity, communication efficiency, task decomposability) and fails under others (high correlation, communication bottlenecks, coordination overhead). Understanding when and why scaling works &mdash; and when it does not &mdash; is essential for designing practical multi-agent systems.</p>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 1: INTUITIVE                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>When More Agents Help (and When They Don't)</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>The Mythical Man-Month of AI</h3>
+
+          <p>In 1975, Fred Brooks published <em>The Mythical Man-Month</em>, one of the most influential books in software engineering. His central insight: adding more programmers to a late software project makes it later. The reason is <strong>communication overhead</strong>. If $K$ programmers need to coordinate, there are $\binom{K}{2} = K(K-1)/2$ communication channels. With 5 programmers, there are 10 channels. With 50, there are 1,225. The work that goes into keeping everyone aligned grows quadratically, eventually consuming more resources than the actual programming.</p>
+
+          <p>Multi-agent AI systems face the same challenge. Each agent added to the system increases the total compute, the amount of information flowing between agents, and the complexity of coordination. If the task does not benefit from additional agents &mdash; or if the communication overhead exceeds the benefit &mdash; adding agents makes the system slower and worse, not better.</p>
+
+          <div class="mermaid">
+flowchart LR
+    subgraph Good["Scaling Works"]
+      direction TB
+      G1["Task is decomposable\ninto independent subtasks"]
+      G2["Agents are diverse\n(different errors)"]
+      G3["Communication is\nefficient (sparse)"]
+    end
+    subgraph Bad["Scaling Fails"]
+      direction TB
+      B1["Task requires tight\ncoordination"]
+      B2["Agents are similar\n(correlated errors)"]
+      B3["Communication is\nexpensive (dense)"]
+    end
+    Good --> WIN["More agents =\nbetter + faster"]
+    Bad --> LOSE["More agents =\nworse + slower"]
+    style WIN fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style LOSE fill:#fce4ec,stroke:#c62828,color:#1c1917
+          </div>
+          <p class="diagram-caption">Scaling helps when tasks are decomposable, agents are diverse, and communication is sparse. It hurts when tasks require coordination, agents are similar, and communication is expensive.</p>
+
+          <h3>Three Regimes of Scaling</h3>
+
+          <p>Empirically, multi-agent systems exhibit three distinct scaling regimes:</p>
+
+          <ol>
+            <li><strong>Early gains (K = 1 to 3&ndash;5 agents).</strong> The biggest improvements come from the first few agents. Going from 1 to 3 models in an ensemble or MoA system typically produces the largest quality jump. This is because the first additional models introduce the most diversity: any second model is likely to have very different error patterns from the first.</li>
+            <li><strong>Diminishing returns (K = 5 to 10&ndash;20).</strong> Each additional agent still helps, but less and less. The marginal diversity of each new model decreases because the model space has limited diversity: most LLMs are trained on similar data with similar architectures. The quality curve flattens.</li>
+            <li><strong>Saturation or degradation (K > 20).</strong> Beyond a certain point, adding agents provides negligible benefit and may actually hurt. The communication overhead grows, the aggregation becomes harder (more opinions to reconcile), and the marginal diversity of each new agent approaches zero. In some cases, additional agents introduce noise that degrades the consensus.</li>
+          </ol>
+
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p><strong>The kitchen problem.</strong> One cook makes a meal. Two cooks can divide the work and make a better meal, faster. Five cooks, each handling a different dish, can produce a feast. But fifty cooks in one kitchen? They bump into each other, argue about seasoning, use the same oven at the same time, and spend more time coordinating than cooking. The food is not fifty times better than what one cook produces &mdash; it might actually be worse, because coordination failures introduce errors that individual cooks would never make. The optimal number of cooks depends on the size of the kitchen (communication bandwidth), the complexity of the meal (task decomposability), and how different their culinary traditions are (diversity).</p>
+          </div>
+
+          <h3>Communication Topology</h3>
+
+          <p>How agents are connected matters as much as how many there are. The main topologies are:</p>
+
+          <ul>
+            <li><strong>Star (centralized).</strong> All agents communicate with a central coordinator, but not with each other. Communication cost: $O(K)$. The coordinator is a bottleneck but prevents the quadratic overhead of all-to-all communication.</li>
+            <li><strong>Chain (sequential).</strong> Agent 1's output goes to Agent 2, whose output goes to Agent 3, and so on. Communication cost: $O(K)$. Good for sequential refinement (like MoA layers) but the last agent has no direct access to the first agent's output.</li>
+            <li><strong>Fully connected (all-to-all).</strong> Every agent sees every other agent's output. Communication cost: $O(K^2)$. Maximizes information sharing but is the most expensive. This is the topology of multi-agent debate.</li>
+            <li><strong>Tree (hierarchical).</strong> Agents are organized in a hierarchy: leaf agents generate, intermediate agents aggregate, and the root produces the final output. Communication cost: $O(K)$. Good for decomposable tasks where subtasks have natural hierarchical structure.</li>
+          </ul>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph Star["Star"]
+      SC["Coordinator"]
+      SA1["A1"] --> SC
+      SA2["A2"] --> SC
+      SA3["A3"] --> SC
+      SA4["A4"] --> SC
+    end
+    subgraph Chain["Chain"]
+      CA1["A1"] --> CA2["A2"] --> CA3["A3"] --> CA4["A4"]
+    end
+    subgraph FullC["Fully Connected"]
+      FA1["A1"] <--> FA2["A2"]
+      FA1 <--> FA3["A3"]
+      FA2 <--> FA3
+    end
+    subgraph Tree["Tree"]
+      TR["Root"]
+      TM1["M1"] --> TR
+      TM2["M2"] --> TR
+      TL1["L1"] --> TM1
+      TL2["L2"] --> TM1
+      TL3["L3"] --> TM2
+      TL4["L4"] --> TM2
+    end
+          </div>
+          <p class="diagram-caption">Four communication topologies. Star and chain scale linearly. Fully connected scales quadratically. Tree scales linearly with logarithmic depth.</p>
+
+          <div class="callout">
+            <div class="callout-label">Key Takeaway</div>
+            <p>Scaling multi-agent systems is not about maximizing the number of agents. It is about finding the optimal tradeoff between diversity (more agents with different capabilities), communication efficiency (sparse topologies that avoid quadratic overhead), and task fit (matching the architecture to the problem's decomposition structure). The best systems use 3&ndash;10 diverse agents in a carefully chosen topology, not 100 homogeneous agents in a fully connected graph.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 2: TECHNICAL                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge technical">Technical</span>
+          <h2>Formal Scaling Analysis</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Ensemble Scaling Law</h3>
+
+          <p>Recall from Post 1 the ensemble error decomposition for $K$ models with average variance $\sigma^2$ and average pairwise covariance $c$:</p>
+
+          $$\text{MSE}(K) = \text{Bias}^2 + \frac{\sigma^2}{K} + \frac{K-1}{K}c$$
+
+          <p>As $K$ increases, the second term ($\sigma^2/K$) decreases but the third term ($\frac{K-1}{K}c$) increases monotonically toward $c$. The total error converges to:</p>
+
+          $$\text{MSE}(\infty) = \text{Bias}^2 + c$$
+
+          <p>The improvement from $K = 1$ to $K = \infty$ is $\sigma^2 - c$, which equals the expected disagreement between a single model and the ensemble average. The <strong>rate of diminishing returns</strong> is governed by the derivative:</p>
+
+          $$\frac{d}{dK}\text{MSE}(K) = -\frac{\sigma^2 - c}{K^2}$$
+
+          <p>The marginal improvement from adding the $K$-th model decreases as $1/K^2$ &mdash; very fast. The first few models capture most of the benefit. With $\rho = c/\sigma^2$ as the average correlation:</p>
+
+          <ul>
+            <li>$K = 2$ captures $\frac{1}{2}(1 - \rho)$ of the total possible improvement.</li>
+            <li>$K = 5$ captures $\frac{4}{5}(1 - \rho)$ of the improvement.</li>
+            <li>$K = 10$ captures $\frac{9}{10}(1 - \rho)$ of the improvement.</li>
+          </ul>
+
+          <p>For $\rho = 0.8$ (high correlation, typical for LLMs from the same family), the total possible improvement is only $20\%$ of the individual variance, and 90% of that is captured with just $K = 10$ models. Beyond 10, additional models provide negligible benefit.</p>
+
+          <h3>Collaborative Scaling Laws</h3>
+
+          <p>Qian et al. (2025) studied scaling laws specifically for multi-agent collaborative systems, examining how performance scales with the number of agents, the number of interaction rounds, and the communication topology. Their key findings:</p>
+
+          <p><strong>Agent scaling.</strong> For a fixed number of interaction rounds $T$, performance as a function of agent count $K$ follows:</p>
+
+          $$P(K) = P_{\max} - \alpha K^{-\beta}$$
+
+          <p>where $P_{\max}$ is the asymptotic performance, $\alpha$ captures the initial gap, and $\beta$ is the scaling exponent. They found $\beta \approx 0.3$&ndash;$0.7$ depending on the task, meaning performance improves sublinearly in $K$ (consistent with the diminishing returns predicted by ensemble theory).</p>
+
+          <p><strong>Round scaling.</strong> For a fixed number of agents $K$, performance as a function of interaction rounds $T$ follows:</p>
+
+          $$P(T) = P_{\max}(K) \cdot (1 - e^{-\gamma T})$$
+
+          <p>Performance approaches a $K$-dependent ceiling exponentially in $T$. More agents raise the ceiling ($P_{\max}(K)$ increases with $K$); more rounds approach the ceiling faster. This suggests an optimal allocation: given a fixed compute budget $C = K \times T$, the optimal split depends on whether the task is more "diversity-limited" (invest in $K$) or "refinement-limited" (invest in $T$).</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Scaling dimension</th>
+                <th>Law</th>
+                <th>Typical exponent</th>
+                <th>Implication</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Agents $K$</td>
+                <td>Power law: $\alpha K^{-\beta}$</td>
+                <td>$\beta \approx 0.3$&ndash;$0.7$</td>
+                <td>Sublinear gains; 3&ndash;7 agents capture most benefit</td>
+              </tr>
+              <tr>
+                <td>Rounds $T$</td>
+                <td>Exponential: $1 - e^{-\gamma T}$</td>
+                <td>$\gamma \approx 0.5$&ndash;$1.5$</td>
+                <td>Rapid saturation; 2&ndash;4 rounds usually enough</td>
+              </tr>
+              <tr>
+                <td>Compute $C = KT$</td>
+                <td>Jointly concave</td>
+                <td>&mdash;</td>
+                <td>Optimal allocation depends on task type</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Communication Cost Analysis</h3>
+
+          <p>The total communication cost of a multi-agent system depends on the topology. For $K$ agents, each producing outputs of length $L$ tokens:</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Topology</th>
+                <th>Edges</th>
+                <th>Total tokens communicated</th>
+                <th>Context per agent</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Star</td>
+                <td>$K$</td>
+                <td>$K \cdot L$</td>
+                <td>$K \cdot L$ (coordinator only)</td>
+              </tr>
+              <tr>
+                <td>Chain</td>
+                <td>$K - 1$</td>
+                <td>$(K-1) \cdot L$</td>
+                <td>$L$ per agent (previous only)</td>
+              </tr>
+              <tr>
+                <td>Fully connected</td>
+                <td>$K(K-1)$</td>
+                <td>$K(K-1) \cdot L$</td>
+                <td>$(K-1) \cdot L$ per agent</td>
+              </tr>
+              <tr>
+                <td>MoA (layered)</td>
+                <td>$K_l \cdot K_{l+1}$ per layer</td>
+                <td>$\sum_l K_l \cdot K_{l+1} \cdot L$</td>
+                <td>$K_{l-1} \cdot L$ per agent</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>The practical bottleneck is often not the total communication but the <strong>context window size</strong> per agent. In a fully connected topology with $K = 10$ agents each producing $L = 1000$ tokens, each agent must process a context of 9,000 tokens from other agents plus the original prompt. With $K = 100$, the per-agent context is 99,000 tokens &mdash; pushing the limits of even long-context models. This context pressure is a hard scaling barrier that favors sparse topologies.</p>
+
+          <h3>The Efficiency Frontier</h3>
+
+          <p>Define the <strong>efficiency</strong> of a multi-agent system as the quality per unit of compute:</p>
+
+          $$E(K, T) = \frac{P(K, T)}{C(K, T)}$$
+
+          <p>where $P$ is performance and $C$ is total compute (proportional to $K \times T$ for a fixed model size). The efficiency frontier is the set of $(K, T)$ pairs that maximize quality for each compute budget.</p>
+
+          <p>Given the scaling laws above, the efficiency frontier has a characteristic shape:</p>
+
+          <ul>
+            <li>At low compute budgets: $K = 1$, $T = 1$ (single model, no multi-agent overhead).</li>
+            <li>At moderate budgets: $K = 3$&ndash;$5$, $T = 2$&ndash;$3$ (diverse ensemble with a few refinement rounds).</li>
+            <li>At high budgets: the optimal $K$ grows slowly while $T$ grows faster (increasing refinement rounds has better marginal returns than adding more agents, once diversity is saturated).</li>
+          </ul>
+
+          <div class="mermaid">
+flowchart LR
+    subgraph Frontier["Efficiency Frontier"]
+      direction TB
+      L["Low budget:\nK=1, T=1\nSingle model"]
+      M["Medium budget:\nK=3-5, T=2-3\nDiverse MoA"]
+      H["High budget:\nK=5-10, T=3-5\nRefined MoA"]
+      L --> M --> H
+    end
+    subgraph Diminishing["Above frontier"]
+      D1["K=50, T=1\nToo many agents,\ntoo little refinement"]
+      D2["K=2, T=20\nToo few agents,\ntoo much refinement"]
+    end
+    style L fill:#f3f0ec,stroke:#a0522d,color:#1c1917
+    style M fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style H fill:#e3f2fd,stroke:#1565c0,color:#1c1917
+    style D1 fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style D2 fill:#fce4ec,stroke:#c62828,color:#1c1917
+          </div>
+          <p class="diagram-caption">The efficiency frontier: optimal (K, T) combinations at each compute budget. Off-frontier configurations waste compute on too many agents or too many rounds.</p>
+
+          <div class="callout">
+            <div class="callout-label">Practical Guidelines</div>
+            <p>Based on the scaling analysis: (1) Start with 3 diverse models and 2 interaction rounds &mdash; this captures most of the benefit at modest cost. (2) Use sparse topologies (star or layered) rather than fully connected. (3) Add agents only if they bring genuine diversity; adding another version of GPT-4 helps less than adding Llama or Claude. (4) Increase rounds before increasing agents once you have 5&ndash;7 models. (5) Monitor the quality-per-compute ratio and stop scaling when it drops below a threshold.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 3: ADVANCED                                           -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>Graph Theory, Coordination Games, and Open Problems</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Graph-Theoretic Bounds on Communication Efficiency</h3>
+
+          <p>Model the multi-agent system as a directed communication graph $G = (V, E)$ where vertices are agents and edges are communication channels. The <strong>information capacity</strong> of the graph is bounded by its graph-theoretic properties.</p>
+
+          <p>Let $\lambda_2(G)$ denote the second-smallest eigenvalue of the graph Laplacian (the <strong>algebraic connectivity</strong> or Fiedler value). For consensus problems (all agents converging to the same value), the convergence rate is $O(e^{-\lambda_2 t})$ where $t$ is the number of communication rounds. Graphs with high algebraic connectivity converge faster.</p>
+
+          <p>For a fully connected graph on $K$ vertices: $\lambda_2 = K$ (fastest convergence). For a chain: $\lambda_2 = 2(1 - \cos(\pi/K)) \approx \pi^2/K^2$ (slowest convergence among connected graphs). For a star: $\lambda_2 = 1$ (independent of $K$, moderate convergence).</p>
+
+          <p>The tradeoff: fully connected graphs converge fastest but have $O(K^2)$ edges (expensive). Expander graphs provide a middle ground: $O(K)$ edges but $\lambda_2 = \Omega(1)$ (constant algebraic connectivity independent of $K$). Random $d$-regular graphs with $d \geq 3$ are expanders with high probability, and achieve near-optimal convergence with linear communication cost.</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Graph</th>
+                <th>Edges</th>
+                <th>$\lambda_2$</th>
+                <th>Convergence</th>
+                <th>Communication cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Complete $K_K$</td>
+                <td>$O(K^2)$</td>
+                <td>$K$</td>
+                <td>$O(e^{-Kt})$</td>
+                <td>$O(K^2 L)$</td>
+              </tr>
+              <tr>
+                <td>Star</td>
+                <td>$O(K)$</td>
+                <td>$1$</td>
+                <td>$O(e^{-t})$</td>
+                <td>$O(KL)$</td>
+              </tr>
+              <tr>
+                <td>Chain</td>
+                <td>$O(K)$</td>
+                <td>$O(1/K^2)$</td>
+                <td>$O(e^{-t/K^2})$</td>
+                <td>$O(KL)$</td>
+              </tr>
+              <tr>
+                <td>Random 3-regular</td>
+                <td>$O(K)$</td>
+                <td>$\Omega(1)$</td>
+                <td>$O(e^{-\Omega(t)})$</td>
+                <td>$O(KL)$</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>This suggests that multi-agent systems should use <strong>expander-like topologies</strong> rather than chains or fully connected graphs. Expanders provide the convergence speed of dense graphs at the communication cost of sparse graphs. In practice, this can be approximated by randomly connecting each agent to $d = 3$&ndash;$5$ other agents.</p>
+
+          <h3>Coordination Games and the Price of Anarchy</h3>
+
+          <p>Multi-agent collaboration can be modeled as a coordination game. Each agent $k$ chooses an effort level $e_k \in [0, 1]$ representing how much compute it allocates to the joint task. The payoff depends on both individual effort and the coordination of efforts:</p>
+
+          $$u_k(e_k, e_{-k}) = v\left(\frac{1}{K}\sum_j e_j\right) - c_k \cdot e_k$$
+
+          <p>where $v(\cdot)$ is the value of the collective output (increasing and concave in average effort) and $c_k$ is agent $k$'s cost per unit of effort. The social optimum maximizes total welfare:</p>
+
+          $$\sum_k u_k = K \cdot v\left(\frac{1}{K}\sum_j e_j\right) - \sum_k c_k e_k$$
+
+          <p>At the Nash equilibrium, each agent equates marginal benefit to marginal cost:</p>
+
+          $$\frac{1}{K} v'\left(\frac{1}{K}\sum_j e_j\right) = c_k$$
+
+          <p>But the social optimum requires:</p>
+
+          $$v'\left(\frac{1}{K}\sum_j e_j\right) = c_k$$
+
+          <p>The Nash equilibrium effort is $K$ times too low &mdash; this is the classic <strong>free-rider problem</strong>. Each agent underinvests because it bears the full cost of its effort but receives only $1/K$ of the benefit. The price of anarchy for this game is:</p>
+
+          $$\text{PoA} = \frac{v(\bar{e}_{\text{NE}})}{v(\bar{e}_{\text{OPT}})} \leq \frac{v(c/K)}{v(c)}$$
+
+          <p>For concave $v$, this ratio approaches 0 as $K$ grows &mdash; larger systems have worse equilibria relative to the optimum, because the free-rider problem intensifies.</p>
+
+          <p>In the context of multi-agent AI, the "effort" is the quality of each agent's output. If agents are rewarded based on the collective output (not their individual contribution), they may produce lower-quality responses &mdash; the AI analogue of social loafing. Mechanism design (tying individual rewards to individual contributions, as in Shapley value attribution) can mitigate this, but at the cost of additional evaluation complexity.</p>
+
+          <h3>Optimal Topology Discovery</h3>
+
+          <p>Given a task and a set of available agents, what is the optimal communication topology? This is a combinatorial optimization problem:</p>
+
+          $$G^* = \arg\max_{G \in \mathcal{G}_K} \frac{P(G)}{C(G)}$$
+
+          <p>where $P(G)$ is the performance of the multi-agent system with topology $G$ and $C(G)$ is its compute cost. The search space $\mathcal{G}_K$ contains all directed graphs on $K$ vertices, which is $2^{K(K-1)}$ &mdash; doubly exponential in $K$.</p>
+
+          <p>GPTSwarm (Zhuge et al., 2024) approaches this via continuous relaxation: instead of discrete edge inclusion/exclusion, each edge has a continuous weight $w_{ij} \in [0, 1]$ representing the strength of information flow from agent $i$ to agent $j$. The weights are optimized via gradient descent on the task performance. After optimization, low-weight edges are pruned, yielding a sparse graph.</p>
+
+          <p>The theoretical question is whether this continuous relaxation preserves the optimality gap. For convex objective functions, the relaxation is tight (the optimal continuous solution can be rounded to an optimal discrete solution with constant loss). For non-convex objectives (typical in multi-agent systems), the gap can be arbitrary. Understanding this gap is an open problem.</p>
+
+          <h3>Open Problems</h3>
+
+          <p>The theory of multi-agent scaling is in its infancy. Several fundamental questions remain open:</p>
+
+          <ol>
+            <li><strong>Theory of agent composition.</strong> When two agents are composed (one's output feeds into the other), what is the resulting system's capability? Is there a "composition theorem" that predicts the quality of a composed system from the qualities of its components? For simple averaging, the Krogh-Vedelsby decomposition provides this. For sequential composition with learned aggregation, no analogous result exists.</li>
+            <li><strong>Optimal agent specialization.</strong> Given a compute budget and a distribution of tasks, how should you divide the budget between having more general agents and fewer specialized ones? This is an exploration-exploitation tradeoff: general agents are safe (they handle any task) but mediocre; specialized agents are excellent at their specialty but useless outside it.</li>
+            <li><strong>Emergent capabilities.</strong> Single LLMs exhibit emergent capabilities &mdash; abilities that appear suddenly at a certain scale. Do multi-agent systems exhibit analogous emergent behaviors? Are there capabilities that only emerge when $K$ agents interact that no single agent possesses? The existence of such emergent multi-agent capabilities would fundamentally change how we think about scaling.</li>
+            <li><strong>Formal scaling laws.</strong> The Chinchilla scaling laws (Hoffmann et al., 2022) precisely characterize how single-model performance scales with parameters and data. No analogous law exists for multi-agent systems. A "multi-agent Chinchilla law" that predicts performance as a function of number of agents, agent size, communication topology, and interaction rounds would be transformative for system design.</li>
+            <li><strong>Robust aggregation.</strong> Current aggregation methods (voting, synthesis, debate) assume benign agents. In adversarial settings &mdash; where some agents may be compromised, biased, or malicious &mdash; robust aggregation that tolerates a fraction of adversarial agents is needed. Byzantine fault tolerance from distributed systems provides a starting point ($f < K/3$ adversarial agents can be tolerated), but the connection to LLM-based systems is unexplored.</li>
+          </ol>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph Known["What We Know"]
+      K1["Diversity reduces ensemble error\n(Krogh-Vedelsby)"]
+      K2["Diminishing returns with K\n(1/K² marginal improvement)"]
+      K3["Correlation is the bottleneck\n(effective K depends on &rho;)"]
+      K4["Topology affects convergence\n(algebraic connectivity)"]
+    end
+    subgraph Open["What We Don't Know"]
+      O1["Composition theorems\nfor sequential agents"]
+      O2["Multi-agent scaling laws\n(the Chinchilla for agents)"]
+      O3["Emergent multi-agent\ncapabilities"]
+      O4["Optimal specialization\nvs. generalization"]
+      O5["Robust aggregation\nunder adversarial agents"]
+    end
+    Known --> Bridge["Current frontier"]
+    Bridge --> Open
+    style Open fill:#faf8f5,stroke:#a0522d,color:#1c1917
+          </div>
+          <p class="diagram-caption">The theory of multi-agent scaling: established results on diversity and diminishing returns, alongside major open questions about composition, emergence, and robustness.</p>
+
+          <h3>Where This Is Going</h3>
+
+          <p>The trajectory of multi-agent AI research is toward systems that are simultaneously more powerful and more principled. The first wave (2023&ndash;2024) was empirical: researchers discovered that multi-agent systems work well and catalogued which architectures perform best on which benchmarks. The second wave (2024&ndash;2025) is beginning to develop theory: scaling laws, convergence analyses, and game-theoretic models that explain <em>why</em> these systems work. The third wave, still ahead, will need to solve the open problems listed above &mdash; and will likely discover new ones.</p>
+
+          <p>The deepest question is whether multi-agent collaboration exhibits <em>genuine emergence</em> &mdash; capabilities of the collective that cannot be predicted from the capabilities of the individuals. If so, the analogy to human teams is apt: a well-organized team is not just faster than individuals; it can solve problems that no individual, given unlimited time, could solve alone. Whether this holds for AI agents is an empirical and theoretical question that the next generation of research will need to answer.</p>
+
+          <div class="callout">
+            <div class="callout-label">Series Summary</div>
+            <p>This series has traced a single thread through the theory and practice of multi-agent AI: from the ensemble error decomposition that explains <em>why</em> multiple models help (Post 1), through the MoE-to-MoA architectural evolution that shows <em>how</em> to organize them (Post 2), the social choice theory that governs <em>how to aggregate</em> their outputs (Post 3), the reasoning architectures that structure <em>how agents think</em> (Post 4), the agentic RAG systems that ground agents in <em>external knowledge</em> (Post 5), and finally the scaling laws that determine <em>how many agents</em> to use and how to connect them (this post). The unifying theme: multi-agent AI is not about making bigger models. It is about making models work together, and the mathematics of collaboration &mdash; from Condorcet to Arrow to graph theory &mdash; tells us both the promise and the limits of that approach.</p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Brooks, F. P. (1975). <em>The Mythical Man-Month.</em> Addison-Wesley.</li>
+        <li>Qian, C. et al. (2025). Scaling large-language-model-based multi-agent collaboration. <em>ICLR 2025</em>.</li>
+        <li>Zhuge, M. et al. (2024). GPTSwarm: Language agents as optimizable graphs. <em>ICML 2024</em>.</li>
+        <li>Hoffmann, J. et al. (2022). Training compute-optimal large language models. <em>NeurIPS 2022</em>.</li>
+        <li>Fiedler, M. (1973). Algebraic connectivity of graphs. <em>Czechoslovak Mathematical Journal</em>, 23(2), 298&ndash;305.</li>
+        <li>Roughgarden, T. (2005). Selfish routing and the price of anarchy. <em>MIT Press</em>.</li>
+        <li>Hong, S. et al. (2024). MetaGPT: Meta programming for a multi-agent collaborative framework. <em>ICLR 2024</em>.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post21.html" class="prev">Agentic RAG</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <div class="footer-nav">
+    <a href="/blog/">Notes</a>
+    <a href="/links.html">Links</a>
+  </div>
+</footer>
+
+<script src="../js/lightbox.js"></script>
+</body>
+</html>

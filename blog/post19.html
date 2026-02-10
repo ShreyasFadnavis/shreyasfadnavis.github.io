@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Aggregation Problem &mdash; Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Notes</a>
+      <a href="/links.html">Links</a>
+    </div>
+  </div>
+</nav>
+
+<main class="post-main">
+  <article class="post">
+    <div class="post-header">
+      <h1>The Aggregation Problem</h1>
+      <p class="post-subtitle">Part 3 of a 6-part series on agentic AI, multi-agent architectures, and the theory of LLM collaboration.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/#agentic">Agentic AI</a>.
+      <a href="post18.html" class="prev">From Mixture of Experts to Mixture of Agents</a>
+      <a href="post20.html" class="next">Reasoning Architectures</a>
+    </div>
+
+    <div class="post-body">
+
+      <p>Multiple agents have produced their outputs. Now what? The aggregation step &mdash; combining multiple responses into a single final answer &mdash; is where the entire multi-agent enterprise succeeds or fails. Get it wrong and you have not built collective intelligence; you have built a committee that produces compromises worse than any individual opinion.</p>
+
+      <p>The aggregation problem is far older than AI. It is the central question of social choice theory, a branch of economics and political science that studies how to combine individual preferences into a group decision. Arrow's impossibility theorem (1951) shows that no aggregation rule can satisfy a small set of reasonable properties simultaneously. This impossibility has direct consequences for multi-agent AI systems: there is no universally "correct" way to aggregate LLM outputs, and every aggregation strategy involves tradeoffs.</p>
+
+      <p>This post explores the aggregation problem at three levels: the practical strategies used in multi-agent systems, the formal theory from social choice, and the game-theoretic analysis of what happens when agents are not just passive contributors but strategic actors.</p>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 1: INTUITIVE                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>How Do You Combine Multiple Opinions?</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Four Ways to Aggregate</h3>
+
+          <p>Suppose three friends recommend restaurants for dinner. Alice says Italian, Bob says Japanese, Carol says Italian. How do you decide? There are at least four natural approaches:</p>
+
+          <ul>
+            <li><strong>Majority vote.</strong> Italian wins 2&ndash;1. Simple, fast, democratic. But what if the question was "write a paragraph about Italian food"? You cannot vote on paragraphs.</li>
+            <li><strong>Best-of-K.</strong> You read all three recommendations and pick the one you find most compelling. This works for open-ended generation &mdash; you get the best individual response &mdash; but you ignore the potentially useful information in the other responses.</li>
+            <li><strong>Synthesis.</strong> You read all three recommendations and write your own, incorporating the best ideas from each. This is the most powerful approach, but it requires someone (or something) capable of synthesis. In multi-agent AI, this "someone" is the aggregator model.</li>
+            <li><strong>Debate.</strong> The three friends argue their cases, respond to each other's objections, and iterate until they converge on an answer. This is the approach used in multi-agent debate systems.</li>
+          </ul>
+
+          <div class="mermaid">
+flowchart TD
+    R["Multiple agent\nresponses"]
+    R --> V["Majority Vote\n(classification only)"]
+    R --> B["Best-of-K\n(selection)"]
+    R --> S["Synthesis\n(LLM aggregator)"]
+    R --> D["Debate\n(iterative refinement)"]
+    V --> O1["Discrete answer"]
+    B --> O2["Best individual\nresponse"]
+    S --> O3["New response better\nthan any individual"]
+    D --> O4["Consensus after\nmultiple rounds"]
+    style O3 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">Four aggregation strategies: voting (for classification), selection (best individual), synthesis (new combined response), and debate (iterative convergence).</p>
+
+          <h3>Why Voting Fails for Generation</h3>
+
+          <p>Majority vote works beautifully for classification: each model outputs a class label, and you take the most common one. Condorcet's Jury Theorem guarantees that the majority is increasingly likely to be correct as the number of models grows (given independence and individual competence).</p>
+
+          <p>But most interesting tasks in LLM-based AI are not classification. They are generation: write an essay, summarize a document, answer a complex question in natural language. For generation, there is no natural "vote." Three models might produce three different but equally valid paragraphs. You cannot count which paragraph got the most votes, because no two responses are identical.</p>
+
+          <p>This is where synthesis and debate become essential. An aggregator model reads all three responses and produces a fourth response that is better than any individual &mdash; drawing on the strengths of each, correcting individual errors, and filling gaps that no single response covered. This is exactly what the Mixture of Agents architecture does: the aggregator in the final layer is performing synthesis.</p>
+
+          <h3>The LLM-as-Judge Paradigm</h3>
+
+          <p>A widely adopted approach to aggregation is <strong>LLM-as-Judge</strong>: use a (typically strong) language model to evaluate and rank the outputs of other models. This was formalized by Zheng et al. (2023) in the MT-Bench and Chatbot Arena framework. The judge model receives a prompt, the competing responses, and a rubric, and outputs a ranking or a pairwise preference.</p>
+
+          <p>LLM-as-Judge enables best-of-K selection without human evaluation: generate $K$ responses, have the judge rank them, and return the top-ranked response. It also enables tournament-style aggregation: run pairwise comparisons between responses, and use the tournament winner.</p>
+
+          <p>But LLM-as-Judge has known biases:</p>
+
+          <ul>
+            <li><strong>Position bias.</strong> Judges tend to prefer the response presented first (or last, depending on the model). The order of presentation affects the ranking.</li>
+            <li><strong>Verbosity bias.</strong> Longer responses are rated higher, even when the additional length adds no information. Judges confuse length with quality.</li>
+            <li><strong>Self-preference.</strong> A model used as both generator and judge tends to prefer its own outputs. This creates a feedback loop that reinforces the model's biases rather than correcting them.</li>
+          </ul>
+
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p><strong>The peer review problem.</strong> Scientific peer review is a form of LLM-as-Judge: expert reviewers evaluate papers written by other experts. And it suffers from the same biases. Reviewers are influenced by prestige (position bias), paper length (verbosity bias), and whether the paper agrees with their prior work (self-preference). The solution in science is not to eliminate peer review but to use multiple reviewers, blind the review process, and have an editor synthesize the reviews. Multi-agent AI systems face the same challenge and are converging on the same solution: multiple judges, de-biasing techniques, and a meta-aggregator.</p>
+          </div>
+
+          <div class="callout">
+            <div class="callout-label">Key Takeaway</div>
+            <p>Aggregation is not a solved problem. Voting works for classification but not for generation. Selection (best-of-K) captures the best individual but wastes the information in other responses. Synthesis is the most powerful approach but requires a capable aggregator. And every aggregation strategy has biases that must be actively managed. The next sections formalize these tradeoffs using social choice theory.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 2: TECHNICAL                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge technical">Technical</span>
+          <h2>Social Choice Theory Meets Multi-Agent AI</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Condorcet's Jury Theorem: The Formal Guarantee</h3>
+
+          <p>We state the theorem precisely and then examine its extensions to heterogeneous agents. Let $V_1, \ldots, V_K \in \{0, 1\}$ be independent binary votes with $P(V_k = 1) = p_k$. The <strong>homogeneous</strong> version assumes $p_k = p > 1/2$ for all $k$. The majority decision is $M = \mathbf{1}\{\sum_k V_k > K/2\}$.</p>
+
+          <p><strong>Theorem (Heterogeneous Condorcet).</strong> If the votes are independent and $\bar{p} = \frac{1}{K}\sum_k p_k > 1/2$, then:</p>
+
+          $$P(M = 1) \geq 1 - \exp\left(-2K\left(\bar{p} - \frac{1}{2}\right)^2\right)$$
+
+          <p>This generalization (via Hoeffding's inequality) shows that even with heterogeneous competence, the majority is reliable as long as the <em>average</em> competence exceeds $1/2$. Some agents can be below $1/2$ (worse than random) and the majority can still converge to the correct answer, as long as the strong agents compensate for the weak ones.</p>
+
+          <p>For weighted voting, where agent $k$ has weight $w_k$ and the decision is $\mathbf{1}\{\sum_k w_k V_k > \sum_k w_k / 2\}$, the optimal weights are $w_k^* = \log\frac{p_k}{1 - p_k}$ &mdash; the log-odds of each agent's competence. This gives more weight to more competent agents and effectively zero weight to agents at the chance level ($p_k = 1/2$). In practice, the competence levels $p_k$ are unknown and must be estimated, which introduces the additional challenge of learning the weights from data.</p>
+
+          <h3>Arrow's Impossibility Theorem</h3>
+
+          <p>Kenneth Arrow (1951) proved a fundamental impossibility result for aggregation of ranked preferences. Let $\mathcal{A}$ be a set of alternatives (e.g., candidate responses). Each of $K$ agents has a complete ranking of $\mathcal{A}$. A <strong>social welfare function</strong> $F$ maps $K$ individual rankings to a single group ranking. Arrow showed that no $F$ can simultaneously satisfy:</p>
+
+          <ol>
+            <li><strong>Unrestricted domain.</strong> $F$ works for any combination of individual rankings.</li>
+            <li><strong>Pareto efficiency.</strong> If every agent prefers $a$ to $b$, then the group ranking has $a$ above $b$.</li>
+            <li><strong>Independence of irrelevant alternatives (IIA).</strong> The group's relative ranking of $a$ and $b$ depends only on the individuals' relative rankings of $a$ and $b$, not on how they rank other alternatives.</li>
+            <li><strong>Non-dictatorship.</strong> No single agent's ranking always determines the group ranking.</li>
+          </ol>
+
+          <p><strong>Theorem (Arrow, 1951).</strong> With $|\mathcal{A}| \geq 3$, no social welfare function satisfies all four conditions. Any function satisfying 1&ndash;3 is a dictatorship.</p>
+
+          <div class="mermaid">
+flowchart TD
+    A["Arrow's 4 Conditions"]
+    A --> C1["Unrestricted Domain"]
+    A --> C2["Pareto Efficiency"]
+    A --> C3["IIA"]
+    A --> C4["Non-Dictatorship"]
+    C1 --> R["IMPOSSIBLE to\nsatisfy all four"]
+    C2 --> R
+    C3 --> R
+    C4 --> R
+    R --> I1["Must drop IIA:\nBorda count, Copeland"]
+    R --> I2["Must accept limited domain:\nSingle-peaked preferences"]
+    R --> I3["Must allow randomization:\nRandom dictator"]
+    style R fill:#fce4ec,stroke:#c62828,color:#1c1917
+          </div>
+          <p class="diagram-caption">Arrow's impossibility: you must sacrifice at least one desirable property. Different aggregation rules sacrifice different properties.</p>
+
+          <h3>Implications for Multi-Agent AI</h3>
+
+          <p>Arrow's theorem has direct consequences for multi-agent AI systems. Consider $K$ LLMs that each produce a ranking of candidate responses. Arrow's theorem says there is no "perfect" way to aggregate these rankings into a single group ranking &mdash; every method violates at least one reasonable property. In practice, this manifests as specific failure modes:</p>
+
+          <ul>
+            <li><strong>Majority cycles.</strong> Agent 1 prefers $a > b > c$. Agent 2 prefers $b > c > a$. Agent 3 prefers $c > a > b$. The majority prefers $a$ over $b$ (agents 1 and 3), $b$ over $c$ (agents 1 and 2), and $c$ over $a$ (agents 2 and 3). The majority preference is intransitive: $a > b > c > a$. There is no Condorcet winner.</li>
+            <li><strong>Manipulation.</strong> The Gibbard-Satterthwaite theorem (1973, 1975) extends Arrow's result: any non-dictatorial voting rule over three or more alternatives is susceptible to strategic manipulation. An agent can misreport its preferences to achieve a more favorable outcome. In multi-agent AI, this corresponds to the possibility that an agent might generate a strategically suboptimal response in order to influence the final aggregation in its favor.</li>
+          </ul>
+
+          <h3>Practical Aggregation Strategies</h3>
+
+          <p>Given Arrow's impossibility, practical systems must choose which properties to sacrifice. Here are the main strategies:</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Strategy</th>
+                <th>How it works</th>
+                <th>Violates</th>
+                <th>Best for</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Majority vote</td>
+                <td>Each agent votes; plurality wins</td>
+                <td>IIA (susceptible to spoilers)</td>
+                <td>Classification tasks</td>
+              </tr>
+              <tr>
+                <td>Borda count</td>
+                <td>Points based on rank position</td>
+                <td>IIA</td>
+                <td>Ranking tasks</td>
+              </tr>
+              <tr>
+                <td>Best-of-K + Judge</td>
+                <td>Judge model selects the best</td>
+                <td>Non-dictatorship (judge is dictator)</td>
+                <td>Open-ended generation</td>
+              </tr>
+              <tr>
+                <td>LLM synthesis</td>
+                <td>Aggregator generates new response from all inputs</td>
+                <td>Not a ranking method (sidesteps Arrow)</td>
+                <td>Complex generation</td>
+              </tr>
+              <tr>
+                <td>Multi-agent debate</td>
+                <td>Iterative argument and counter-argument</td>
+                <td>Not a ranking method</td>
+                <td>Reasoning tasks</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>The most interesting observation is that <strong>synthesis sidesteps Arrow's theorem entirely</strong>. Arrow's theorem applies to aggregation of rankings. When the aggregator generates a <em>new</em> response by reading and synthesizing all agent outputs, it is not selecting from a fixed set of alternatives or producing a ranking. It is producing a new alternative that may be better than any individual response. This is why the MoA architecture's synthesis-based aggregation is fundamentally more powerful than voting or selection: it operates outside the domain where Arrow's impossibility applies.</p>
+
+          <h3>Multi-Agent Debate</h3>
+
+          <p>Du et al. (2024) proposed <strong>multi-agent debate</strong> as an aggregation mechanism. The protocol is:</p>
+
+          <ol>
+            <li>Each of $K$ agents generates an initial response to the prompt.</li>
+            <li>Each agent reads all other agents' responses and generates a revised response.</li>
+            <li>Repeat step 2 for $T$ rounds.</li>
+            <li>After $T$ rounds, take the majority answer (for factual questions) or the response of a designated aggregator.</li>
+          </ol>
+
+          <p>Empirically, debate improves factual accuracy and reasoning quality. The mechanism is iterative error correction: in each round, agents that gave incorrect answers see the correct reasoning from other agents and can self-correct. Du et al. showed that on mathematical reasoning and factual QA benchmarks, 3 agents debating for 3 rounds outperformed a single model by a significant margin, and even outperformed more expensive chain-of-thought prompting.</p>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph R1["Round 1"]
+      A1["Agent A:\nAnswer = 42"]
+      B1["Agent B:\nAnswer = 37"]
+      C1["Agent C:\nAnswer = 42"]
+    end
+    subgraph R2["Round 2"]
+      A2["Agent A: sees B=37, C=42\nRevised answer = 42"]
+      B2["Agent B: sees A=42, C=42\nRevised answer = 42"]
+      C2["Agent C: sees A=42, B=37\nRevised answer = 42"]
+    end
+    subgraph R3["Consensus"]
+      F["All agents agree:\nAnswer = 42"]
+    end
+    R1 --> R2 --> R3
+    style F fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">Multi-agent debate: agents iteratively revise their answers after seeing others' responses. Convergence to the correct answer happens when the majority is initially correct.</p>
+
+          <div class="callout">
+            <div class="callout-label">The Aggregation Landscape</div>
+            <p>Arrow's theorem tells us there is no perfect aggregation rule. But this does not mean all aggregation is hopeless &mdash; it means we must choose our tradeoffs wisely. For classification, Condorcet-style voting is near-optimal. For generation, synthesis-based aggregation (as in MoA) sidesteps Arrow's impossibility entirely by generating new alternatives rather than ranking existing ones. For reasoning, iterative debate combines elements of both. The choice of aggregation strategy should match the task structure.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 3: ADVANCED                                           -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>Game Theory, Strategic Agents, and Equilibria</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>When Agents Are Strategic</h3>
+
+          <p>The analysis so far assumes that agents are <em>honest</em>: they generate their best response and report it truthfully. But in multi-agent systems, agents may have incentives to be strategic. If an agent knows how its output will be aggregated, it may modify its output to influence the final result. This is precisely the setting studied in mechanism design.</p>
+
+          <p>Consider a concrete scenario. A multi-agent system uses best-of-K selection via LLM-as-Judge. Agent $A$ knows that the judge has a verbosity bias (longer responses are rated higher). Agent $A$ can improve its chances of being selected by padding its response with extra detail, even if that detail is irrelevant or redundant. The result: the aggregation mechanism incentivizes a specific kind of suboptimal behavior, and the equilibrium output is worse than it would be under honest reporting.</p>
+
+          <h3>Mechanism Design for LLM Aggregation</h3>
+
+          <p>Mechanism design asks: can we design the aggregation rule so that honest reporting is the optimal strategy for each agent? The Vickrey-Clarke-Groves (VCG) mechanism achieves this for certain utility structures, but it requires monetary transfers &mdash; not directly applicable to LLM systems.</p>
+
+          <p>For multi-agent LLM systems, the relevant mechanism design question is: <strong>can we design an aggregation protocol under which each agent's best strategy is to generate its highest-quality response?</strong></p>
+
+          <p>One approach is the <strong>peer prediction</strong> framework. Instead of evaluating each agent's response against the true answer (which may not be available), evaluate it against the <em>other agents' responses</em>. Specifically, score agent $k$'s response $r_k$ using:</p>
+
+          $$S_k = \frac{1}{K-1}\sum_{j \neq k} \text{sim}(r_k, r_j) + \lambda \cdot \text{novelty}(r_k, \{r_j\}_{j \neq k})$$
+
+          <p>The first term rewards agreement with other agents (encouraging accuracy). The second term rewards information not present in other responses (encouraging diversity). The balance parameter $\lambda$ controls the tradeoff. Under certain conditions on the similarity metric and the agents' information structure, honest reporting is a Nash equilibrium of this scoring rule.</p>
+
+          <h3>Nash Equilibria in Multi-Agent Debate</h3>
+
+          <p>Multi-agent debate introduces a dynamic game. At each round, each agent chooses a response (action). The payoff depends on the final consensus (if the debate protocol rewards agents whose position becomes the consensus) or on a judge's evaluation. We can analyze this as a repeated game.</p>
+
+          <p>Define the debate game $\Gamma = (K, \mathcal{A}, u, T)$ where $K$ is the number of agents, $\mathcal{A}$ is the action space (possible responses), $u_k : \mathcal{A}^K \to \mathbb{R}$ is agent $k$'s utility, and $T$ is the number of rounds. At each round $t$, each agent observes the previous round's actions $a^{(t-1)} = (a_1^{(t-1)}, \ldots, a_K^{(t-1)})$ and chooses $a_k^{(t)}$.</p>
+
+          <p>A <strong>truthful equilibrium</strong> is a strategy profile where each agent's best response at every round is to report its genuine belief. The key question: under what conditions on $u$ does a truthful equilibrium exist?</p>
+
+          <p><strong>Proposition.</strong> If the utility function rewards agents for being in the majority consensus <em>and</em> the consensus is more likely to be correct than incorrect (i.e., the Condorcet condition holds), then reporting the truth is a Nash equilibrium of the one-shot game. In the repeated game, truth-telling is a subgame-perfect equilibrium if agents use <em>trigger strategies</em> (punish observed dishonesty by reverting to a less cooperative equilibrium).</p>
+
+          <p>The proof follows from the fact that, under the Condorcet condition, an agent that reports truthfully is more likely to end up in the winning majority than one that deviates. The utility from being in the majority exceeds the utility from any alternative strategy. However, this breaks down when:</p>
+
+          <ul>
+            <li>The Condorcet condition fails (agents are more likely wrong than right).</li>
+            <li>Agents can coordinate to form a bloc (collusion).</li>
+            <li>The debate protocol has asymmetric information (some agents know more than others).</li>
+          </ul>
+
+          <h3>Convergence of Iterative Debate</h3>
+
+          <p>Does multi-agent debate converge? And if so, to what? Model the debate as a dynamical system. Let $\mu^{(t)} \in \Delta(\mathcal{A})$ be the empirical distribution of agents' responses at round $t$. The debate dynamics can be modeled as:</p>
+
+          $$\mu^{(t+1)} = F(\mu^{(t)})$$
+
+          <p>where $F$ represents the aggregate effect of all agents updating their responses based on the current distribution. If $F$ is a <strong>contraction mapping</strong> (i.e., $\|F(\mu) - F(\nu)\| \leq \gamma \|\mu - \nu\|$ for some $\gamma < 1$), then by the Banach fixed-point theorem, the dynamics converge to a unique fixed point $\mu^*$.</p>
+
+          <p>When is $F$ a contraction? If each agent updates by moving toward the consensus (e.g., adopting the majority position with high probability), then $F$ is contractive. The contraction rate $\gamma$ depends on how "stubborn" agents are: agents that give high weight to their own prior opinion produce a $\gamma$ close to 1 (slow convergence); agents that fully adopt the majority produce $\gamma$ close to 0 (fast convergence, but susceptible to cascade effects).</p>
+
+          <p>The fixed point $\mu^*$ is not necessarily the correct answer. It is the <strong>consensus</strong> &mdash; the point where agents stop changing their responses. If the initial majority is correct (Condorcet condition), the consensus is likely correct. If the initial majority is wrong (e.g., all models share the same hallucination), the consensus reinforces the error. This is the multi-agent analogue of groupthink: convergence to a wrong answer that appears unanimous.</p>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph Convergence["Debate Convergence"]
+      direction TB
+      I["Initial distribution\n&mu;^(0)"]
+      U["Update: &mu;^(t+1) = F(&mu;^(t))"]
+      C{"Is F contractive?"}
+      C -->|"Yes"| FP["Converges to\nfixed point &mu;*"]
+      C -->|"No"| OSC["May oscillate\nor diverge"]
+    end
+    subgraph Quality["Fixed Point Quality"]
+      direction TB
+      FP --> Q1{"Initial majority\ncorrect?"}
+      Q1 -->|"Yes"| GOOD["&mu;* = correct answer\n(Condorcet)"]
+      Q1 -->|"No"| BAD["&mu;* = shared error\n(groupthink)"]
+    end
+    style GOOD fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style BAD fill:#fce4ec,stroke:#c62828,color:#1c1917
+          </div>
+          <p class="diagram-caption">Debate converges under contraction conditions, but the fixed point may be correct or incorrect depending on the initial distribution of correct answers.</p>
+
+          <h3>The Price of Anarchy</h3>
+
+          <p>The <strong>price of anarchy</strong> (Koutsoupias and Papadimitriou, 1999) measures how much worse the equilibrium outcome is compared to the social optimum. For multi-agent debate, define:</p>
+
+          $$\text{PoA} = \frac{\text{Quality at worst Nash equilibrium}}{\text{Quality at social optimum}}$$
+
+          <p>where quality is the accuracy or relevance of the final output. A PoA of 1 means the equilibrium is optimal; a PoA of 0 means the equilibrium is arbitrarily bad.</p>
+
+          <p>For simple majority voting with $K$ honest agents, the PoA is 1 (the equilibrium is truth-telling, which is optimal). For debate with strategic agents, the PoA depends on the reward structure. If agents are rewarded for accuracy (e.g., their response matches the ground truth), the PoA is close to 1. If agents are rewarded for agreement (e.g., being in the majority regardless of correctness), the PoA can be much less than 1 &mdash; the equilibrium may be consensus on a wrong answer.</p>
+
+          <p>This analysis has practical implications for multi-agent system design: <strong>the reward signal for the aggregation mechanism determines whether the system converges to truth or to groupthink</strong>. Rewarding accuracy incentivizes honest reporting; rewarding agreement incentivizes conformity. Real systems should reward accuracy whenever ground truth is available, and fall back on diversity-encouraging mechanisms (like the peer prediction score above) when it is not.</p>
+
+          <div class="callout">
+            <div class="callout-label">The Deeper Point</div>
+            <p>The aggregation problem in multi-agent AI is not merely a technical design choice. It is a fundamental constraint, governed by the same impossibility theorems that constrain voting systems, markets, and democracies. Arrow's theorem says no aggregation rule is universally optimal. The Gibbard-Satterthwaite theorem says any rule is susceptible to strategic manipulation. The price of anarchy measures the cost of strategic behavior. Understanding these results does not solve the problem, but it clarifies what is possible: we can design systems that are good for specific task structures and incentive environments, but we cannot design a universal aggregator that is optimal for all tasks and immune to all manipulation. The best we can do is match the aggregation mechanism to the task, encourage diversity, and reward accuracy.</p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Arrow, K. J. (1951). <em>Social Choice and Individual Values.</em> Wiley.</li>
+        <li>Condorcet, M. (1785). <em>Essai sur l'application de l'analyse &agrave; la probabilit&eacute; des d&eacute;cisions rendues &agrave; la pluralit&eacute; des voix.</em></li>
+        <li>Gibbard, A. (1973). Manipulation of voting schemes: A general result. <em>Econometrica</em>, 41(4), 587&ndash;601.</li>
+        <li>Satterthwaite, M. A. (1975). Strategy-proofness and Arrow's conditions. <em>Journal of Economic Theory</em>, 10(2), 187&ndash;217.</li>
+        <li>Zheng, L. et al. (2023). Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena. <em>NeurIPS 2023</em>.</li>
+        <li>Du, Y. et al. (2024). Improving factuality and reasoning in language models through multiagent debate. <em>ICML 2024</em>.</li>
+        <li>Koutsoupias, E. &amp; Papadimitriou, C. (1999). Worst-case equilibria. <em>STACS 1999</em>.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post18.html" class="prev">From Mixture of Experts to Mixture of Agents</a>
+      <a href="post20.html" class="next">Reasoning Architectures</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <div class="footer-nav">
+    <a href="/blog/">Notes</a>
+    <a href="/links.html">Links</a>
+  </div>
+</footer>
+
+<script src="../js/lightbox.js"></script>
+</body>
+</html>

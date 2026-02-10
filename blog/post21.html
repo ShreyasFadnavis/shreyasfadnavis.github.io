@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agentic RAG &mdash; Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Notes</a>
+      <a href="/links.html">Links</a>
+    </div>
+  </div>
+</nav>
+
+<main class="post-main">
+  <article class="post">
+    <div class="post-header">
+      <h1>Agentic RAG</h1>
+      <p class="post-subtitle">Part 5 of a 6-part series on agentic AI, multi-agent architectures, and the theory of LLM collaboration.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/#agentic">Agentic AI</a>.
+      <a href="post20.html" class="prev">Reasoning Architectures</a>
+      <a href="post22.html" class="next">Scaling Laws for Multi-Agent Systems</a>
+    </div>
+
+    <div class="post-body">
+
+      <p>Retrieval-Augmented Generation (RAG) was supposed to solve the hallucination problem. Give the model access to a knowledge base, retrieve relevant documents at query time, and ground the model's response in real information rather than memorized patterns. In practice, standard RAG is fragile: it retrieves the wrong documents, includes irrelevant passages, ignores relevant ones, and the model sometimes hallucinates <em>despite</em> having the correct information in its context window.</p>
+
+      <p>Agentic RAG addresses these failures by replacing the rigid retrieve-then-generate pipeline with an agent that can reason about <em>whether</em> to retrieve, <em>what</em> to retrieve, <em>whether</em> the retrieved information is relevant, and <em>whether</em> the final answer is consistent with the evidence. The progression from standard RAG to agentic RAG mirrors the progression from direct prompting to ReAct: adding a reasoning loop around the retrieval process turns a pipeline into a problem solver.</p>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 1: INTUITIVE                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>From Librarian to Research Team</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>What RAG Gets Wrong</h3>
+
+          <p>Standard RAG works like a simple library catalog. You type a query, the system returns the most similar documents, and the model reads them and generates an answer. This works well when the query is simple and the relevant information is contained in a single document. It fails in several ways:</p>
+
+          <ul>
+            <li><strong>Wrong retrieval.</strong> The query is about "Python exceptions" and the retriever returns documents about "Python snakes." The model diligently reads about snake biology and generates a confident but useless answer.</li>
+            <li><strong>Partial retrieval.</strong> The answer requires information from three different documents, but the retriever only returns one. The model answers based on incomplete evidence, with no awareness that it is missing information.</li>
+            <li><strong>Unnecessary retrieval.</strong> The query is "What is 2 + 2?" and the system retrieves ten documents about arithmetic before answering. This wastes compute and can even <em>hurt</em> performance if the retrieved documents contain confusing or contradictory information.</li>
+            <li><strong>No verification.</strong> The model generates an answer that contradicts the retrieved evidence. Standard RAG has no mechanism to detect or correct this.</li>
+          </ul>
+
+          <div class="mermaid">
+flowchart LR
+    subgraph Standard["Standard RAG"]
+      Q1["Query"] --> R1["Retrieve\ntop-k docs"]
+      R1 --> G1["Generate\nanswer"]
+      R1 -.->|"Wrong docs?\nIncomplete?\nUnnecessary?"| X1["No check"]
+    end
+    subgraph Agentic["Agentic RAG"]
+      Q2["Query"] --> T["Think:\nDo I need\nretrieval?"]
+      T -->|"Yes"| R2["Retrieve"]
+      T -->|"No"| G2a["Answer\ndirectly"]
+      R2 --> E["Evaluate:\nAre these docs\nrelevant?"]
+      E -->|"Yes"| G2["Generate\nanswer"]
+      E -->|"No"| R3["Re-retrieve\nwith better query"]
+      G2 --> V["Verify:\nDoes answer\nmatch evidence?"]
+      V -->|"Yes"| OUT["Final answer"]
+      V -->|"No"| G2
+    end
+    style X1 fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style OUT fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">Standard RAG always retrieves and never checks. Agentic RAG reasons about whether to retrieve, evaluates relevance, and verifies consistency.</p>
+
+          <h3>Self-RAG: The Model That Reflects</h3>
+
+          <p>Asai et al. (2024) proposed <strong>Self-RAG</strong> (ICLR 2024), a model that generates special "reflection tokens" alongside its regular text output. These tokens are not part of the response shown to the user &mdash; they are internal signals that control the generation process. There are three types:</p>
+
+          <ul>
+            <li><strong>Retrieve token</strong>: "Do I need to retrieve information to answer this?" (Yes/No)</li>
+            <li><strong>Relevance token</strong>: "Is this retrieved passage relevant to the question?" (Relevant/Irrelevant)</li>
+            <li><strong>Support token</strong>: "Does my generated response actually follow from the retrieved evidence?" (Fully supported/Partially supported/Not supported)</li>
+          </ul>
+
+          <p>The model is trained to generate these tokens through a combination of supervised learning (using GPT-4 to generate ground-truth reflection tokens on a training set) and reinforcement learning (rewarding generations that are factual and useful). At inference time, the model uses its own reflection tokens to decide whether to retrieve, which passages to use, and whether to regenerate if the response is not supported by the evidence.</p>
+
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p><strong>The metacognitive student.</strong> A standard RAG system is like a student who, for every homework question, goes to the library, grabs the first book on the shelf, and writes an answer based on whatever is in that book. Self-RAG is a student who first asks, "Do I already know the answer?" If yes, she writes it directly. If not, she goes to the library, evaluates whether the book she found is actually relevant, and after writing her answer, re-reads the source to make sure she is not making things up. The key capability is not retrieval &mdash; it is <em>knowing when you do not know</em>.</p>
+          </div>
+
+          <h3>Adaptive-RAG and CRAG</h3>
+
+          <p><strong>Adaptive-RAG</strong> (Jeong et al., 2024) takes the Self-RAG idea further: instead of a binary retrieve/don't-retrieve decision, it classifies queries into three complexity levels and routes them to different strategies:</p>
+
+          <ul>
+            <li><strong>Simple queries</strong>: Answer directly, no retrieval needed.</li>
+            <li><strong>Moderate queries</strong>: Single-step retrieval followed by generation.</li>
+            <li><strong>Complex queries</strong>: Multi-step retrieval with iterative refinement (retrieve, generate a partial answer, retrieve again based on the partial answer, and repeat).</li>
+          </ul>
+
+          <p><strong>Corrective RAG (CRAG)</strong> (Yan et al., 2024) focuses specifically on the evaluation step. After retrieval, a separate evaluator assesses the quality of the retrieved documents. If the documents are good, they are used directly. If they are ambiguous, a refinement step extracts only the relevant passages. If they are bad, the system falls back to web search or alternative knowledge sources.</p>
+
+          <h3>KARMA: A Multi-Agent Knowledge System</h3>
+
+          <p><strong>KARMA</strong> (NeurIPS 2025) is a multi-agent system for knowledge graph enrichment that exemplifies the agentic RAG philosophy at scale. Instead of a single model handling retrieval and generation, KARMA uses nine specialized agents, each responsible for a different aspect of the knowledge enrichment pipeline:</p>
+
+          <ol>
+            <li>An agent that identifies gaps in the existing knowledge graph.</li>
+            <li>An agent that formulates queries to fill those gaps.</li>
+            <li>An agent that retrieves candidate information from multiple sources.</li>
+            <li>An agent that evaluates the quality and reliability of retrieved information.</li>
+            <li>An agent that resolves conflicts between retrieved facts and existing knowledge.</li>
+            <li>An agent that formats new knowledge into the graph's schema.</li>
+            <li>An agent that verifies the consistency of the updated graph.</li>
+            <li>An agent that identifies second-order implications of new knowledge (what else changes?).</li>
+            <li>A coordinator agent that orchestrates the pipeline and handles errors.</li>
+          </ol>
+
+          <p>The nine agents communicate through a shared state (the evolving knowledge graph) and a message-passing protocol. Each agent is specialized and relatively simple, but the system as a whole performs a complex knowledge management task that would be far beyond any single model.</p>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph KARMA["KARMA: 9-Agent Pipeline"]
+      KG["Knowledge\nGraph"]
+      A1["Gap Finder"]
+      A2["Query\nFormulator"]
+      A3["Retriever"]
+      A4["Quality\nEvaluator"]
+      A5["Conflict\nResolver"]
+      A6["Formatter"]
+      A7["Consistency\nChecker"]
+      A8["Implication\nFinder"]
+      A9["Coordinator"]
+      KG --> A1
+      A1 --> A2
+      A2 --> A3
+      A3 --> A4
+      A4 --> A5
+      A5 --> A6
+      A6 --> A7
+      A7 --> A8
+      A8 --> KG
+      A9 -.->|"orchestrates"| A1
+      A9 -.->|"orchestrates"| A3
+      A9 -.->|"orchestrates"| A5
+      A9 -.->|"orchestrates"| A7
+    end
+          </div>
+          <p class="diagram-caption">KARMA's nine agents form a pipeline that identifies knowledge gaps, retrieves and evaluates new information, resolves conflicts, and updates the knowledge graph with consistency checking.</p>
+
+          <div class="callout">
+            <div class="callout-label">Key Takeaway</div>
+            <p>Agentic RAG replaces the rigid retrieve-then-generate pipeline with an agent (or system of agents) that reasons about the retrieval process itself. The key capabilities are: (1) deciding when retrieval is needed, (2) evaluating retrieved information before using it, (3) iteratively refining retrieval queries, and (4) verifying that the final response is grounded in evidence. These capabilities transform RAG from a one-shot lookup into an active research process.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 2: TECHNICAL                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge technical">Technical</span>
+          <h2>Architectures for Agentic RAG</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Standard RAG: The Pipeline</h3>
+
+          <p>Standard RAG consists of three components. A <strong>retriever</strong> $R$ maps a query $q$ to a set of $k$ documents: $\mathcal{D}_q = R(q) = \{d_1, \ldots, d_k\}$. Retrieval typically uses dense embeddings: $R(q) = \text{top-}k_{d \in \mathcal{C}} \;\text{sim}(E_q(q), E_d(d))$, where $E_q$ and $E_d$ are query and document encoders and $\text{sim}$ is cosine similarity. A <strong>generator</strong> $G$ produces the answer conditioned on both the query and the retrieved documents: $a = G(q, \mathcal{D}_q)$. The generator is an LLM that receives the query and retrieved passages in its context window.</p>
+
+          <p>The retriever and generator are typically trained independently. The retriever optimizes for recall (retrieving relevant documents), and the generator optimizes for answer quality conditioned on having the right documents. This decoupled training creates a fundamental problem: the retriever does not know what the generator needs, and the generator cannot tell the retriever what to look for.</p>
+
+          <h3>Self-RAG: Architecture and Training</h3>
+
+          <p>Self-RAG addresses this by training the generator to include <em>control tokens</em> in its output vocabulary. Formally, the model $G_\theta$ generates a sequence:</p>
+
+          $$y = (t_1, t_2, \ldots, t_T)$$
+
+          <p>where each $t_i$ is either a regular text token or a special reflection token from the set $\{\texttt{[Retrieve]}, \texttt{[Relevant]}, \texttt{[Supported]}, \texttt{[Useful]}\}$. The generation process is:</p>
+
+          <ol>
+            <li>Generate text until producing a $\texttt{[Retrieve]}$ token.</li>
+            <li>If $\texttt{[Retrieve]} = \text{Yes}$: invoke the retriever, obtain passages.</li>
+            <li>For each passage, generate $\texttt{[Relevant]}$. Keep only relevant passages.</li>
+            <li>Generate the response segment.</li>
+            <li>Generate $\texttt{[Supported]}$. If not supported, regenerate.</li>
+            <li>Repeat until the response is complete.</li>
+          </ol>
+
+          <p>Training uses a two-phase procedure:</p>
+
+          <ol>
+            <li><strong>Critic training.</strong> A critic model (GPT-4) annotates a training corpus with reflection tokens. For each (query, passage, response) triple, the critic determines whether retrieval was needed, whether the passage was relevant, and whether the response was supported.</li>
+            <li><strong>Generator training.</strong> The generator is fine-tuned on the annotated corpus to produce both text and reflection tokens. The loss includes both the standard language modeling loss and a reward signal for producing correct reflection tokens.</li>
+          </ol>
+
+          <p>At inference, the model's own reflection tokens control the generation process. No external retrieval controller is needed &mdash; the model itself decides when and how to use retrieval.</p>
+
+          <h3>Adaptive-RAG: Complexity-Based Routing</h3>
+
+          <p>Adaptive-RAG adds a <strong>query complexity classifier</strong> $C$ that routes queries to different processing strategies:</p>
+
+          $$C(q) \in \{\text{simple}, \text{moderate}, \text{complex}\}$$
+
+          <p>The classifier is a small model trained on a dataset of queries labeled by the complexity of the retrieval needed to answer them. The routing is:</p>
+
+          <ul>
+            <li>$C(q) = \text{simple}$: $a = G(q)$ (no retrieval)</li>
+            <li>$C(q) = \text{moderate}$: $a = G(q, R(q))$ (single-step RAG)</li>
+            <li>$C(q) = \text{complex}$: iterative RAG with query decomposition</li>
+          </ul>
+
+          <p>For complex queries, the iterative process is:</p>
+
+          <ol>
+            <li>Decompose $q$ into sub-queries $q_1, \ldots, q_m$.</li>
+            <li>For each $q_i$: retrieve $\mathcal{D}_{q_i} = R(q_i)$, generate partial answer $a_i = G(q_i, \mathcal{D}_{q_i})$.</li>
+            <li>Synthesize: $a = G(q, a_1, \ldots, a_m)$.</li>
+          </ol>
+
+          <div class="mermaid">
+flowchart TD
+    Q["Query q"]
+    Q --> C["Classifier\nC(q)"]
+    C -->|"Simple"| G1["Generate\ndirectly"]
+    C -->|"Moderate"| R1["Retrieve"] --> G2["Generate\nwith context"]
+    C -->|"Complex"| D["Decompose into\nsub-queries"]
+    D --> Q1["q₁"] --> R2["Retrieve\nfor q₁"]
+    D --> Q2["q₂"] --> R3["Retrieve\nfor q₂"]
+    D --> Q3["q₃"] --> R4["Retrieve\nfor q₃"]
+    R2 --> A1["Answer a₁"]
+    R3 --> A2["Answer a₂"]
+    R4 --> A3["Answer a₃"]
+    A1 --> S["Synthesize\nfinal answer"]
+    A2 --> S
+    A3 --> S
+          </div>
+          <p class="diagram-caption">Adaptive-RAG routes queries to no-retrieval, single-step, or iterative multi-step strategies based on estimated complexity.</p>
+
+          <h3>CRAG: Corrective Retrieval</h3>
+
+          <p>CRAG adds a retrieval evaluator $E$ that assesses retrieved documents before they reach the generator:</p>
+
+          $$E(q, d) \in \{\text{Correct}, \text{Ambiguous}, \text{Incorrect}\}$$
+
+          <p>The evaluator is a fine-tuned model that assesses whether a document actually contains the information needed to answer the query. The evaluation triggers different actions:</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Evaluation</th>
+                <th>Action</th>
+                <th>Rationale</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Correct</td>
+                <td>Use documents, apply knowledge refinement</td>
+                <td>Extract only relevant passages</td>
+              </tr>
+              <tr>
+                <td>Ambiguous</td>
+                <td>Combine refined documents with web search</td>
+                <td>Hedge by using multiple sources</td>
+              </tr>
+              <tr>
+                <td>Incorrect</td>
+                <td>Discard documents, use web search only</td>
+                <td>Retrieved docs would mislead the model</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>The "knowledge refinement" step is critical: even when documents are relevant, they may contain irrelevant sentences that dilute the model's attention. CRAG uses a decompose-then-recompose strategy: split each document into sentences, filter out irrelevant sentences, and concatenate only the relevant ones. This gives the generator a focused, noise-free context.</p>
+
+          <h3>Multi-Agent RAG Architectures</h3>
+
+          <p>In multi-agent RAG, the retrieval, evaluation, and generation steps are handled by separate specialized agents. A typical architecture:</p>
+
+          <ul>
+            <li><strong>Query planner agent</strong>: analyzes the query, determines what information is needed, and formulates retrieval queries.</li>
+            <li><strong>Retrieval agent</strong>: executes retrieval across multiple knowledge sources (vector store, web search, structured databases).</li>
+            <li><strong>Evaluator agent</strong>: assesses retrieved information for relevance, accuracy, and recency.</li>
+            <li><strong>Synthesis agent</strong>: generates the final response from the curated evidence.</li>
+            <li><strong>Verification agent</strong>: checks the response against the evidence and flags unsupported claims.</li>
+          </ul>
+
+          <p>This decomposition has several advantages over monolithic Self-RAG: each agent can be a different model (e.g., a specialized retrieval model for the retriever, a strong reasoning model for the synthesizer), agents can be updated independently, and the pipeline can be monitored at each stage.</p>
+
+          <div class="callout">
+            <div class="callout-label">The Design Principle</div>
+            <p>Agentic RAG systems all share a common design principle: <strong>close the loop between generation and evidence</strong>. Standard RAG has an open loop: retrieve once, generate once, hope for the best. Agentic RAG closes the loop with evaluation, verification, and iterative refinement. Each closing of the loop adds compute cost but dramatically improves reliability. The cost-quality tradeoff is the central engineering decision in agentic RAG design.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 3: ADVANCED                                           -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>Information Theory and Verification</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>When Does Retrieval Help?</h3>
+
+          <p>An information-theoretic framework clarifies when retrieval adds value. Let $Q$ be the query, $A$ the target answer, $M$ the model's internal knowledge, and $D$ the retrieved documents. The model's generation quality is a function of the mutual information between its total context and the answer:</p>
+
+          $$\text{Quality} \propto I(A; M, D \mid Q)$$
+
+          <p>By the chain rule of mutual information:</p>
+
+          $$I(A; M, D \mid Q) = I(A; M \mid Q) + I(A; D \mid M, Q)$$
+
+          <p>The first term is the information the model already has about the answer (from its training data). The second term is the <strong>novel information</strong> in the retrieved documents &mdash; information about the answer that the model does not already possess. Retrieval helps if and only if $I(A; D \mid M, Q) > 0$.</p>
+
+          <p>When is this term zero (retrieval does not help)?</p>
+
+          <ul>
+            <li>The model already knows the answer: $I(A; M \mid Q) = H(A \mid Q)$, so $I(A; D \mid M, Q) = 0$. Self-RAG's retrieve token captures this: don't retrieve if the model is already confident.</li>
+            <li>The retrieved documents are irrelevant: $D \perp A \mid Q, M$, so $I(A; D \mid M, Q) = 0$. CRAG's evaluator captures this: discard irrelevant documents.</li>
+          </ul>
+
+          <p>When is this term large (retrieval helps a lot)?</p>
+
+          <ul>
+            <li>The model lacks knowledge: $I(A; M \mid Q)$ is small. Retrieval can provide the missing information.</li>
+            <li>The answer requires recent information: the model's knowledge is outdated ($M$ does not contain recent facts), but the retrieved documents do.</li>
+            <li>The answer requires specific details: the model has vague knowledge ($I(A; M \mid Q)$ is moderate but $H(A \mid Q)$ is high), and retrieval provides the precise details.</li>
+          </ul>
+
+          <h3>Multi-Agent Verification as Hypothesis Testing</h3>
+
+          <p>The verification step in agentic RAG can be formalized as a hypothesis test. Given a generated response $a$ and a set of evidence documents $\mathcal{D}$, we test:</p>
+
+          <ul>
+            <li>$H_0$: The response $a$ is supported by the evidence $\mathcal{D}$ (grounded).</li>
+            <li>$H_1$: The response $a$ contains claims not supported by $\mathcal{D}$ (hallucinated).</li>
+          </ul>
+
+          <p>A single verification model has some error rate: false positive rate $\alpha$ (accepting a hallucinated response) and false negative rate $\beta$ (rejecting a grounded response). With $K$ independent verifiers, the aggregate error rates can be reduced:</p>
+
+          <p><strong>Majority vote verification.</strong> If each verifier independently detects hallucination with probability $1 - \beta$ (and falsely flags grounded responses with probability $\alpha$), then majority vote among $K$ verifiers has:</p>
+
+          $$\alpha_K = \sum_{j > K/2} \binom{K}{j} \alpha^j (1-\alpha)^{K-j}$$
+
+          <p>For $\alpha = 0.1$ and $K = 5$: $\alpha_5 \approx 0.001$. The false positive rate drops dramatically with the number of verifiers. The analysis parallels Condorcet's Jury Theorem applied to verification rather than generation.</p>
+
+          <h3>Convergence of Iterative Retrieval-Refinement</h3>
+
+          <p>Iterative RAG (as in the complex query path of Adaptive-RAG) can be modeled as a fixed-point iteration. Define the state $s_t = (q_t, \mathcal{D}_t, a_t)$ (current query, current documents, current partial answer) at iteration $t$. The update rule is:</p>
+
+          $$q_{t+1} = \text{Refine}(q, a_t) \quad \text{(refine query based on partial answer)}$$
+          $$\mathcal{D}_{t+1} = R(q_{t+1}) \quad \text{(retrieve with refined query)}$$
+          $$a_{t+1} = G(q, \mathcal{D}_{t+1}, a_t) \quad \text{(generate updated answer)}$$
+
+          <p>Convergence holds if the composition $F = G \circ R \circ \text{Refine}$ is a contraction in an appropriate metric space. Define the quality metric $d(a_t, a^*)$ as the distance between the current answer and the optimal answer. If:</p>
+
+          $$d(a_{t+1}, a^*) \leq \gamma \cdot d(a_t, a^*) + \epsilon$$
+
+          <p>for some $\gamma < 1$ and error floor $\epsilon \geq 0$, then the iteration converges to a fixed point within $\epsilon / (1 - \gamma)$ of the optimum. The error floor $\epsilon$ represents the irreducible error from imperfect retrieval and generation. The contraction rate $\gamma$ depends on how effectively each iteration improves the answer.</p>
+
+          <p>In practice, iterative RAG typically converges in 2&ndash;4 iterations: the first retrieval provides the bulk of the information, the second fills in gaps, and subsequent iterations show diminishing returns. This is consistent with a contraction rate $\gamma \approx 0.3$&ndash;$0.5$.</p>
+
+          <h3>The Retrieval-Computation Tradeoff</h3>
+
+          <p>There is a fundamental tradeoff between retrieval (bringing in external information) and computation (reasoning about existing information). Define the total cost of answering a query as:</p>
+
+          $$\text{Cost} = c_R \cdot n_R + c_G \cdot n_G$$
+
+          <p>where $c_R$ is the cost per retrieval operation, $n_R$ is the number of retrievals, $c_G$ is the cost per generation step, and $n_G$ is the number of generation steps. The quality is a concave function of both:</p>
+
+          $$\text{Quality}(n_R, n_G) = Q_{\max}\left(1 - e^{-\alpha n_R} \cdot e^{-\beta n_G}\right)$$
+
+          <p>This model captures several empirical observations: quality increases with both retrieval and computation but with diminishing returns; there is an interaction effect (retrieval helps more when paired with sufficient computation to use it, and vice versa); and the optimal allocation depends on the relative costs $c_R/c_G$ and the problem's information requirements (captured by $\alpha$ and $\beta$).</p>
+
+          <p>For knowledge-intensive tasks ($\alpha$ large): invest heavily in retrieval. For reasoning-intensive tasks ($\beta$ large): invest in computation. For tasks requiring both: the optimal allocation gives roughly equal marginal returns to the last unit of retrieval and computation.</p>
+
+          <div class="mermaid">
+flowchart LR
+    subgraph Tradeoff["Retrieval-Computation Tradeoff"]
+      direction TB
+      T1["Knowledge-intensive\ntask (e.g., factual QA)"]
+      T2["Reasoning-intensive\ntask (e.g., math)"]
+      T3["Both (e.g., scientific\nquestion answering)"]
+      T1 --> S1["Invest in retrieval\nmore docs, better retriever"]
+      T2 --> S2["Invest in computation\nlonger CoT, more agents"]
+      T3 --> S3["Balance both:\niterative retrieval + reasoning"]
+    end
+          </div>
+          <p class="diagram-caption">The optimal allocation between retrieval and computation depends on whether the task is knowledge-intensive, reasoning-intensive, or both.</p>
+
+          <div class="callout">
+            <div class="callout-label">The Theoretical Picture</div>
+            <p>Agentic RAG is, at its core, an <strong>active information acquisition</strong> problem. The agent decides what information to gather (retrieval), how much to gather (adaptive complexity routing), how to assess its quality (evaluation), and when to stop gathering and start producing the answer (convergence criterion). The information-theoretic analysis shows that retrieval helps exactly when the model lacks relevant knowledge, and multi-agent verification reduces hallucination rates exponentially with the number of verifiers. The practical design question is not whether to use agentic RAG, but how to balance the cost of additional retrieval and verification against the quality improvement it provides.</p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Lewis, P. et al. (2020). Retrieval-augmented generation for knowledge-intensive NLP tasks. <em>NeurIPS 2020</em>.</li>
+        <li>Asai, A. et al. (2024). Self-RAG: Learning to retrieve, generate, and critique through self-reflection. <em>ICLR 2024</em>.</li>
+        <li>Yan, S.-Q. et al. (2024). Corrective retrieval augmented generation. <em>arXiv:2401.15884</em>.</li>
+        <li>Jeong, S. et al. (2024). Adaptive-RAG: Learning to adapt retrieval-augmented large language models through question complexity. <em>NAACL 2024</em>.</li>
+        <li>Gao, Y. et al. (2024). Retrieval-augmented generation for large language models: A survey. <em>arXiv:2312.10997</em>.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post20.html" class="prev">Reasoning Architectures</a>
+      <a href="post22.html" class="next">Scaling Laws for Multi-Agent Systems</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <div class="footer-nav">
+    <a href="/blog/">Notes</a>
+    <a href="/links.html">Links</a>
+  </div>
+</footer>
+
+<script src="../js/lightbox.js"></script>
+</body>
+</html>

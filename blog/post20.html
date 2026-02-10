@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reasoning Architectures &mdash; Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({startOnLoad: true, theme: 'base', themeVariables: {primaryColor: '#f3f0ec', primaryTextColor: '#1c1917', primaryBorderColor: '#a0522d', lineColor: '#a0522d', secondaryColor: '#faf8f5', tertiaryColor: '#e5e0da'}});</script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/" class="active">Notes</a>
+      <a href="/links.html">Links</a>
+    </div>
+  </div>
+</nav>
+
+<main class="post-main">
+  <article class="post">
+    <div class="post-header">
+      <h1>Reasoning Architectures</h1>
+      <p class="post-subtitle">Part 4 of a 6-part series on agentic AI, multi-agent architectures, and the theory of LLM collaboration.</p>
+    </div>
+
+    <div class="series-banner">
+      This is part of the series <a href="/blog/#agentic">Agentic AI</a>.
+      <a href="post19.html" class="prev">The Aggregation Problem</a>
+      <a href="post21.html" class="next">Agentic RAG</a>
+    </div>
+
+    <div class="post-body">
+
+      <p>A standard LLM takes a prompt and produces a response in a single forward pass. This works well for simple tasks, but it is a severe architectural limitation for complex reasoning. Consider a math problem that requires five sequential deductions, each depending on the previous one. A single forward pass must get all five steps right simultaneously. If any step is wrong, the answer is wrong, and the model has no mechanism to detect or correct the error.</p>
+
+      <p>The reasoning architectures described in this post address this limitation by giving models the ability to think step-by-step, explore alternatives, use tools, and &mdash; in multi-agent settings &mdash; argue with each other. The progression is from linear reasoning (Chain-of-Thought) to branching (Tree of Thoughts) to graph-structured reasoning (Graph of Thoughts) to multi-agent systems where reasoning is distributed across specialized agents. Each step adds computational structure that enables more complex problem-solving.</p>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 1: INTUITIVE                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge intuitive">Intuitive</span>
+          <h2>From Thinking to Acting to Searching</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>Chain-of-Thought: Show Your Work</h3>
+
+          <p>In 2022, Wei et al. discovered something remarkable: if you ask a language model to "think step by step" before answering, its accuracy on reasoning tasks improves dramatically. A model that gets 17% on a grade-school math benchmark without prompting gets 58% when asked to show its work. The model already knew how to reason; it just needed to be told to do so explicitly.</p>
+
+          <p>This is <strong>Chain-of-Thought (CoT)</strong> prompting. Instead of producing the final answer directly, the model generates a sequence of intermediate reasoning steps. Each step builds on the previous one, creating a chain from question to answer.</p>
+
+          <div class="mermaid">
+flowchart LR
+    Q["Question:\nRoger has 5 balls.\nHe buys 2 cans of 3.\nHow many balls?"]
+    subgraph Direct["Direct Answer"]
+      D["Answer: 11"]
+    end
+    subgraph CoT["Chain-of-Thought"]
+      S1["Step 1:\n2 cans &times; 3 balls = 6"]
+      S2["Step 2:\n5 + 6 = 11"]
+      S3["Answer: 11"]
+      S1 --> S2 --> S3
+    end
+    Q --> Direct
+    Q --> CoT
+          </div>
+          <p class="diagram-caption">Direct prompting produces the answer in one step. Chain-of-Thought breaks the reasoning into explicit intermediate steps.</p>
+
+          <p>Why does this work? The intuition is that each token a model generates is one "step" of computation. A direct answer gets only a handful of tokens to think. CoT gives the model hundreds of tokens to think &mdash; a much longer computational chain. The intermediate steps serve as a <em>scratchpad</em> where the model can store and manipulate intermediate results, effectively extending its working memory.</p>
+
+          <h3>ReAct: Think, Then Act</h3>
+
+          <p>Chain-of-Thought is internal: the model reasons about what it already knows. But what if the answer requires information the model does not have? A model asked "What is the current population of Tokyo?" cannot reason its way to the answer &mdash; it needs to look it up.</p>
+
+          <p>Yao et al. (2023) proposed <strong>ReAct</strong> (Reasoning + Acting): the model alternates between reasoning steps (thinking about what to do) and action steps (using tools like search engines, calculators, or databases). The cycle is: <em>think &rarr; act &rarr; observe &rarr; think &rarr; act &rarr; observe &rarr; ...</em></p>
+
+          <div class="mermaid">
+flowchart TD
+    Q["Question:\nWhat is the GDP per capita\nof the country where\nthe Eiffel Tower is located?"]
+    T1["Thought: The Eiffel Tower\nis in France. I need\nFrance's GDP per capita."]
+    A1["Action: Search\n'France GDP per capita 2024'"]
+    O1["Observation: France GDP\nper capita is $44,408"]
+    T2["Thought: I have the answer."]
+    ANS["Answer: $44,408"]
+    Q --> T1 --> A1 --> O1 --> T2 --> ANS
+          </div>
+          <p class="diagram-caption">ReAct interleaves reasoning (thought) with tool use (action) and information gathering (observation).</p>
+
+          <p>ReAct is the foundation of most modern AI agents. It turns a language model from a passive text generator into an active problem solver that can gather information, take actions, and adapt its strategy based on what it observes. The key insight is that reasoning and acting are complementary: reasoning without acting is limited by what the model already knows; acting without reasoning is unfocused and wasteful.</p>
+
+          <h3>Tree of Thoughts: Exploring Alternatives</h3>
+
+          <p>Chain-of-Thought produces a single reasoning chain. But what if the first approach is wrong? A human problem-solver might try one approach, realize it leads to a dead end, backtrack, and try a different approach. CoT cannot do this &mdash; the reasoning chain is linear and irreversible.</p>
+
+          <p><strong>Tree of Thoughts (ToT)</strong> (Yao et al., 2023) addresses this by generating multiple partial reasoning chains and evaluating which ones are most promising. At each step, the model generates several possible next steps. A heuristic evaluator (which can be the same model) scores each partial chain. The search proceeds by expanding the most promising branches &mdash; a process analogous to the search algorithms (BFS, DFS) used in classical AI.</p>
+
+          <div class="mermaid">
+flowchart TD
+    P["Problem"]
+    P --> A["Approach A"]
+    P --> B["Approach B"]
+    P --> C["Approach C"]
+    A --> A1["Step A.1"]
+    A --> A2["Step A.2"]
+    B --> B1["Step B.1\n(promising)"]
+    B --> B2["Step B.2"]
+    C --> C1["Step C.1\n(dead end)"]
+    B1 --> B1a["Step B.1.1"]
+    B1 --> B1b["Step B.1.2\n(solution!)"]
+    style C1 fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style B1b fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">Tree of Thoughts explores multiple reasoning paths simultaneously, pruning dead ends and expanding promising branches.</p>
+
+          <h3>The Progression: Linear to Graph to Multi-Agent</h3>
+
+          <p>The evolution of reasoning architectures follows a clear trajectory:</p>
+
+          <ul>
+            <li><strong>Chain-of-Thought</strong> &mdash; linear reasoning. One path, no backtracking.</li>
+            <li><strong>Tree of Thoughts</strong> &mdash; branching reasoning. Multiple paths, pruning, backtracking.</li>
+            <li><strong>Graph of Thoughts</strong> (Besta et al., 2024) &mdash; graph-structured reasoning. Nodes can merge (combining insights from different branches) and loop (refining an idea iteratively). The reasoning structure is a directed acyclic graph (DAG), not just a tree.</li>
+            <li><strong>Multi-agent reasoning</strong> &mdash; distributed reasoning across specialized agents. Each agent handles a sub-problem, and the results are aggregated. The reasoning structure is a graph of communicating processes.</li>
+          </ul>
+
+          <div class="analogy">
+            <div class="analogy-label">Analogy</div>
+            <p><strong>From solo hike to expedition.</strong> CoT is a solo hiker following one trail. ToT is a hiker at a fork who sends scouts down each path and follows the most promising. GoT is an explorer who can combine information from multiple scouts ("the left path has water but the right path has a bridge &mdash; so go left to the water, then cut right to the bridge"). Multi-agent reasoning is a full expedition team with a navigator, a geologist, and a medic, each covering their specialty while the team leader coordinates.</p>
+          </div>
+
+          <div class="callout">
+            <div class="callout-label">Key Takeaway</div>
+            <p>Each reasoning architecture adds a new kind of computational structure: CoT adds sequential depth, ToT adds breadth and pruning, GoT adds merging and cycles, and multi-agent adds specialization and communication. The progression mirrors the evolution of algorithms in classical computer science: from sequential to parallel to distributed.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 2: TECHNICAL                                          -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge technical">Technical</span>
+          <h2>Formal Models of Reasoning</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>CoT as Extended Computation</h3>
+
+          <p>A Transformer with $L$ layers and hidden dimension $d$ performs a fixed amount of computation per input token: $O(L \cdot d^2)$ operations. For a direct answer of $T_{\text{ans}}$ tokens, the total computation is $O(T_{\text{ans}} \cdot L \cdot d^2)$. For a Chain-of-Thought answer with $T_{\text{cot}}$ intermediate tokens plus $T_{\text{ans}}$ answer tokens, the total computation is $O((T_{\text{cot}} + T_{\text{ans}}) \cdot L \cdot d^2)$.</p>
+
+          <p>The crucial observation: CoT tokens are not just output &mdash; they are <strong>additional computation</strong>. Each intermediate token produced by the model passes through all $L$ Transformer layers, performing $O(L \cdot d^2)$ operations. A CoT chain of 200 tokens gives the model $200 \times$ more computation than a direct 1-token answer. The intermediate tokens serve as external memory: results that cannot be held in the model's fixed-size hidden state are written to the token sequence and can be attended to in subsequent steps.</p>
+
+          <p>Feng et al. (2023) formalized this: they showed that Transformers with CoT can simulate any polynomial-time Turing machine, whereas Transformers without CoT are limited to the complexity class $\text{TC}^0$ (constant-depth threshold circuits). In other words, CoT does not just help with easier problems &mdash; it provably expands the class of problems the model can solve.</p>
+
+          <h3>The ReAct Framework</h3>
+
+          <p>Formalize ReAct as a partially observable Markov decision process (POMDP). The state $s_t$ includes the current question, the accumulated reasoning trace, and the results of any tool calls. The action space $\mathcal{A} = \mathcal{A}_{\text{think}} \cup \mathcal{A}_{\text{act}}$ consists of:</p>
+
+          <ul>
+            <li><strong>Think actions</strong> $\mathcal{A}_{\text{think}}$: generate a reasoning step (appended to the trace).</li>
+            <li><strong>Act actions</strong> $\mathcal{A}_{\text{act}}$: execute a tool call (search, calculate, retrieve) and observe the result.</li>
+          </ul>
+
+          <p>The policy $\pi(a_t \mid s_t)$ is parameterized by the LLM. The trace $\tau = (a_1, o_1, a_2, o_2, \ldots)$ is the interleaved sequence of actions and observations. The terminal action is producing a final answer.</p>
+
+          <p>The key property of ReAct is that the observation space is <strong>open-ended</strong>: tool outputs can contain arbitrary new information that was not in the original prompt. This breaks the data processing inequality that would otherwise limit sequential processing (as discussed in the MoA analysis in Post 2). Each tool call can introduce new information, giving the system access to knowledge not present in the model's parameters.</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Architecture</th>
+                <th>Computation structure</th>
+                <th>External info?</th>
+                <th>Backtracking?</th>
+                <th>Merging?</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Direct</td>
+                <td>Single pass</td>
+                <td>No</td>
+                <td>No</td>
+                <td>No</td>
+              </tr>
+              <tr>
+                <td>CoT</td>
+                <td>Linear chain</td>
+                <td>No</td>
+                <td>No</td>
+                <td>No</td>
+              </tr>
+              <tr>
+                <td>ReAct</td>
+                <td>Linear chain</td>
+                <td>Yes (tools)</td>
+                <td>No</td>
+                <td>No</td>
+              </tr>
+              <tr>
+                <td>ToT</td>
+                <td>Tree</td>
+                <td>No</td>
+                <td>Yes</td>
+                <td>No</td>
+              </tr>
+              <tr>
+                <td>GoT</td>
+                <td>DAG</td>
+                <td>Optional</td>
+                <td>Yes</td>
+                <td>Yes</td>
+              </tr>
+              <tr>
+                <td>Multi-agent</td>
+                <td>Graph of processes</td>
+                <td>Yes</td>
+                <td>Yes</td>
+                <td>Yes</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Tree of Thoughts: Search Algorithms for Reasoning</h3>
+
+          <p>ToT formulates reasoning as a search problem. The search space is a tree where:</p>
+
+          <ul>
+            <li><strong>Nodes</strong> represent partial solutions (reasoning traces up to some point).</li>
+            <li><strong>Edges</strong> represent single reasoning steps.</li>
+            <li><strong>Leaf nodes</strong> represent complete solutions or dead ends.</li>
+          </ul>
+
+          <p>The search algorithm has three components:</p>
+
+          <ol>
+            <li><strong>Generator $G(\text{node})$</strong>: produces $b$ candidate next steps from a given partial solution. This is the LLM prompted to generate possible continuations.</li>
+            <li><strong>Evaluator $V(\text{node})$</strong>: scores a partial solution. This is the LLM prompted to assess how promising the current trace is. The evaluator can use several strategies: value estimation ("rate this partial solution from 1 to 10"), vote ("which of these partial solutions is most likely to lead to the correct answer?"), or simulation (continue the trace to completion and check the answer).</li>
+            <li><strong>Search algorithm</strong>: BFS or DFS with pruning. BFS explores all nodes at depth $d$ before moving to depth $d+1$, ensuring breadth. DFS goes deep first, which is cheaper but may miss better alternatives.</li>
+          </ol>
+
+          <p>The computational cost is $O(b^d)$ LLM calls for a tree of branching factor $b$ and depth $d$, plus evaluation calls for pruning. With $b = 3$ and $d = 5$, this is 243 LLM calls &mdash; expensive but tractable for problems where the reasoning depth is moderate and the per-call cost is low.</p>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph BFS["BFS Strategy"]
+      direction TB
+      BN1["Level 0: Root"]
+      BN2a["Level 1: a"]
+      BN2b["Level 1: b"]
+      BN2c["Level 1: c"]
+      BN3a["Level 2: a.1"]
+      BN3b["Level 2: b.1 &check;"]
+      BN1 --> BN2a
+      BN1 --> BN2b
+      BN1 --> BN2c
+      BN2a --> BN3a
+      BN2b --> BN3b
+    end
+    subgraph DFS["DFS Strategy"]
+      direction TB
+      DN1["Root"]
+      DN2["a"]
+      DN3["a.1"]
+      DN4["a.1.1 &cross;"]
+      DN5["Backtrack to a"]
+      DN6["a.2 &check;"]
+      DN1 --> DN2 --> DN3 --> DN4
+      DN4 -.-> DN5
+      DN5 --> DN6
+    end
+    style BN3b fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+    style DN4 fill:#fce4ec,stroke:#c62828,color:#1c1917
+    style DN6 fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
+          </div>
+          <p class="diagram-caption">BFS explores breadth-first (good for finding the best shallow solution). DFS explores depth-first with backtracking (good for deep reasoning chains).</p>
+
+          <h3>Graph of Thoughts: Merging and Refining</h3>
+
+          <p>Besta et al. (2024) extended ToT to the <strong>Graph of Thoughts (GoT)</strong> framework, where the reasoning structure is a directed acyclic graph rather than a tree. The key new operation is <strong>merging</strong>: combining partial solutions from different branches into a single, improved partial solution.</p>
+
+          <p>For example, consider a text summarization task. Branch A identifies the key points of paragraphs 1&ndash;3. Branch B identifies the key points of paragraphs 4&ndash;6. A merge operation combines both into a comprehensive summary. In a tree, these two branches would develop independently and you would have to choose one. In a DAG, you can combine them.</p>
+
+          <p>GoT defines four primitive operations on the reasoning graph:</p>
+
+          <ol>
+            <li><strong>Generate</strong>: create child nodes (same as ToT).</li>
+            <li><strong>Aggregate</strong>: merge multiple nodes into a single node (the new operation).</li>
+            <li><strong>Refine</strong>: improve a node's content without creating new branches (in-place editing).</li>
+            <li><strong>Score</strong>: evaluate a node's quality (same as ToT evaluator).</li>
+          </ol>
+
+          <h3>GPTSwarm: Optimizing Agent Graphs</h3>
+
+          <p>Zhuge et al. (2024) proposed <strong>GPTSwarm</strong> (ICML 2024), which takes the graph perspective further. Instead of manually designing the reasoning graph, GPTSwarm optimizes it automatically. The system models the multi-agent workflow as a computational graph where:</p>
+
+          <ul>
+            <li><strong>Nodes</strong> are LLM agents with specific prompts and capabilities.</li>
+            <li><strong>Edges</strong> represent information flow between agents.</li>
+            <li>Edge weights determine how much information flows along each connection.</li>
+          </ul>
+
+          <p>The optimization uses gradient-based methods to tune the edge weights and graph structure, maximizing performance on a training set of tasks. The result is an automatically discovered agent topology that can outperform hand-designed multi-agent systems.</p>
+
+          <div class="callout">
+            <div class="callout-label">The Unifying View</div>
+            <p>All reasoning architectures can be viewed as different graph topologies for the flow of intermediate computation. CoT is a path graph (linear chain). ToT is a tree. GoT is a DAG. Multi-agent debate is a complete bipartite graph (all agents communicate with all others at each round). GPTSwarm is a learned graph optimized for the task. The research program of reasoning architectures is, at its core, a search for the right computational graph topology for each class of problems.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =========================================================== -->
+      <!-- LEVEL 3: ADVANCED                                           -->
+      <!-- =========================================================== -->
+      <div class="level">
+        <div class="level-header" onclick="this.parentElement.querySelector('.level-content').classList.toggle('collapsed'); this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true');" aria-expanded="true">
+          <span class="level-badge advanced">Advanced</span>
+          <h2>Computational Complexity and Automated Design</h2>
+          <span class="level-toggle">&#9662;</span>
+        </div>
+        <div class="level-content">
+
+          <h3>The Computational Power of Chain-of-Thought</h3>
+
+          <p>Feng et al. (2023) proved a precise characterization of what CoT adds to Transformer computation. The result connects to circuit complexity theory.</p>
+
+          <p><strong>Theorem (Feng et al., 2023).</strong> A constant-depth, polynomial-width Transformer (without CoT) can compute exactly the functions in $\text{TC}^0$ &mdash; the class of functions computable by constant-depth threshold circuits of polynomial size. With CoT (i.e., the ability to generate $T$ intermediate tokens before producing the answer), a Transformer can simulate any computation running in time $O(T)$ on a Turing machine.</p>
+
+          <p>The practical implication: without CoT, Transformers cannot solve problems that require more than $O(1)$ sequential reasoning steps (relative to the number of layers). Problems like multi-digit multiplication, graph reachability, and multi-step logical deduction require $\Omega(\log n)$ or more sequential steps, placing them outside $\text{TC}^0$. CoT provides the missing sequential depth.</p>
+
+          <p>Merrill and Sabharwal (2024) refined this result further, showing that CoT enables Transformers to simulate <em>any</em> polynomial-time computation, provided the chain is long enough. Specifically, a Transformer generating $T$ CoT tokens can simulate $O(T)$ steps of a Turing machine. This means CoT-augmented Transformers are Turing complete in the limit of unbounded chain length.</p>
+
+          <h3>ToT and the Complexity of Search</h3>
+
+          <p>Tree of Thoughts maps reasoning to a combinatorial search problem. The computational complexity depends on the branching factor $b$, the depth $d$, and the accuracy of the evaluation function.</p>
+
+          <p>If the evaluator is <em>perfect</em> (it always correctly identifies whether a partial solution leads to a correct answer), then the optimal search algorithm is A* with the evaluator as the heuristic. The complexity is $O(b \cdot d)$ &mdash; linear in depth, because the evaluator prunes all wrong branches immediately.</p>
+
+          <p>If the evaluator is <em>noisy</em> (it has error probability $\epsilon$ per evaluation), the effective branching factor increases. With error probability $\epsilon$, each level has $(1-\epsilon)b$ correctly pruned branches and $\epsilon b$ incorrectly retained wrong branches, plus $(1-\epsilon)$ correctly retained right branches and $\epsilon$ incorrectly pruned right branches. The probability of finding the correct solution decreases exponentially with depth: $P(\text{success}) \leq (1-\epsilon)^d$.</p>
+
+          <p>This analysis reveals a fundamental tradeoff: <strong>deeper reasoning requires more accurate evaluation</strong>. A 10-step chain with a 95% accurate evaluator has a success probability of $(0.95)^{10} \approx 0.60$. A 20-step chain drops to $(0.95)^{20} \approx 0.36$. To maintain high success probability for deep reasoning, the evaluator's per-step accuracy must scale as $1 - O(1/d)$.</p>
+
+          <h3>ADAS: Automated Design of Agent Systems</h3>
+
+          <p>Hu et al. (2025) proposed <strong>Automated Design of Agentic Systems (ADAS)</strong>, also called <strong>Meta Agent Search</strong>, which appeared at ICLR 2025. The central idea: instead of manually designing multi-agent architectures, use a <em>meta-agent</em> (an LLM) to search the space of possible architectures.</p>
+
+          <p>The search space is defined by a <em>domain-specific language</em> (DSL) for agent architectures. The DSL primitives include:</p>
+
+          <ul>
+            <li><strong>Agent nodes</strong>: LLMs with specific system prompts, tools, and capabilities.</li>
+            <li><strong>Edges</strong>: information flow between agents (which agent's output goes to which agent's input).</li>
+            <li><strong>Control flow</strong>: sequential, parallel, conditional (if-else on agent output), and iterative (repeat until convergence) execution.</li>
+            <li><strong>Aggregation</strong>: how to combine multiple agent outputs (vote, select, synthesize).</li>
+          </ul>
+
+          <p>The meta-agent searches this space using a <strong>code-generation approach</strong>: it generates Python code that defines the agent architecture, executes the architecture on a validation set of tasks, evaluates performance, and iterates. The search uses an archive of previously discovered architectures to guide exploration &mdash; a form of quality-diversity optimization.</p>
+
+          <div class="mermaid">
+flowchart TD
+    subgraph MetaSearch["Meta Agent Search"]
+      direction TB
+      M1["Meta-agent proposes\nnew architecture A"]
+      M2["A is executed on\nvalidation tasks"]
+      M3["Performance\nevaluated"]
+      M4["Archive updated\nwith A if novel + good"]
+      M5["Meta-agent reads\narchive for inspiration"]
+      M1 --> M2 --> M3 --> M4 --> M5 --> M1
+    end
+    subgraph Archive["Architecture Archive"]
+      AR1["Arch 1: score 0.72"]
+      AR2["Arch 2: score 0.81"]
+      AR3["Arch 3: score 0.79"]
+    end
+    M4 --> Archive
+    Archive --> M5
+          </div>
+          <p class="diagram-caption">ADAS uses a meta-agent to generate, evaluate, and iteratively improve multi-agent architectures. An archive of diverse high-performing architectures guides the search.</p>
+
+          <p>ADAS discovered several non-obvious architectural patterns that outperformed hand-designed systems:</p>
+
+          <ul>
+            <li><strong>Dynamic role assignment</strong>: agents change roles depending on the task (e.g., the same agent acts as a coder for programming tasks and as a writer for essay tasks).</li>
+            <li><strong>Asymmetric debate</strong>: instead of symmetric multi-agent debate (all agents have equal standing), ADAS discovered that assigning one agent as a "devil's advocate" who always argues against the current consensus improved accuracy on reasoning tasks.</li>
+            <li><strong>Iterative self-refinement with early stopping</strong>: an agent refines its output iteratively, but a separate evaluator agent decides when to stop (preventing over-refinement that degrades quality).</li>
+          </ul>
+
+          <h3>The Agent Architecture Search Problem</h3>
+
+          <p>ADAS can be formalized as a combinatorial optimization problem. Let $\mathcal{G}$ be the space of directed graphs over a set of agent types, with edges representing information flow and nodes representing agent configurations (system prompt, tools, temperature). The objective is:</p>
+
+          $$G^* = \arg\max_{G \in \mathcal{G}} \mathbb{E}_{x \sim \mathcal{D}}[\text{Quality}(G(x))]$$
+
+          <p>subject to a compute budget constraint $\text{Cost}(G) \leq B$, where $\text{Cost}(G)$ is the total number of LLM forward passes per input.</p>
+
+          <p>The space $\mathcal{G}$ is combinatorially large: with $n$ agent types and up to $d$ layers, the number of possible architectures is super-exponential. Exhaustive search is impossible. The meta-agent approach uses LLM-based heuristic search, which has no optimality guarantees but empirically finds high-quality architectures efficiently.</p>
+
+          <p>A formal connection exists to <strong>Neural Architecture Search (NAS)</strong>, which searches over neural network architectures. Both NAS and ADAS search over graph structures, use performance on a validation set as the objective, and rely on heuristic search algorithms. The key difference is the unit of computation: in NAS, the nodes are neural network layers; in ADAS, the nodes are entire LLMs. This makes ADAS search more expensive per evaluation but operates over a coarser and more interpretable search space.</p>
+
+          <h3>Self-Play and Iterated Amplification</h3>
+
+          <p>A more theoretically grounded approach to automated agent improvement comes from the <strong>iterated amplification</strong> framework (Christiano et al., 2018). The idea: given a model $M_0$, create an "amplified" version $M_1$ by using multiple copies of $M_0$ in a multi-agent architecture. Then train a new model to imitate $M_1$. This gives a better single model, which can then be amplified again, creating $M_2$, and so on.</p>
+
+          <p>The formal guarantee: if each amplification step improves quality by a factor of $\alpha > 1$, and the distillation step preserves quality within a factor of $\beta < \alpha$, then the iterated process converges to a model of quality:</p>
+
+          $$Q_\infty = Q_0 \cdot \frac{\alpha}{\alpha - \beta}$$
+
+          <p>which is bounded and finite but potentially much larger than $Q_0$. The condition $\beta < \alpha$ requires that the distillation step does not lose too much of the amplification's gains &mdash; a condition that is plausible when the amplified system uses simple, learnable patterns (e.g., "check your work" or "consider alternative approaches") that a single model can internalize.</p>
+
+          <div class="callout">
+            <div class="callout-label">The Big Picture</div>
+            <p>Reasoning architectures are converging on a unified framework: <strong>search over a graph of computational processes, where the nodes are LLM calls and the edges are information flow</strong>. CoT, ToT, GoT, multi-agent debate, and ADAS are all instances of this framework with different graph topologies. The theoretical results show that deeper and wider computation graphs can solve strictly harder problems, but at the cost of more LLM calls and higher sensitivity to evaluation errors. The frontier of research is automating the design of these graphs (ADAS) and understanding the fundamental tradeoffs between graph complexity, compute cost, and solution quality.</p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div class="further-reading">
+      <h3>Further Reading</h3>
+      <ul>
+        <li>Wei, J. et al. (2022). Chain-of-thought prompting elicits reasoning in large language models. <em>NeurIPS 2022</em>.</li>
+        <li>Yao, S. et al. (2023). ReAct: Synergizing reasoning and acting in language models. <em>ICLR 2023</em>.</li>
+        <li>Yao, S. et al. (2023). Tree of Thoughts: Deliberate problem solving with large language models. <em>NeurIPS 2023</em>.</li>
+        <li>Besta, M. et al. (2024). Graph of Thoughts: Solving elaborate problems with large language models. <em>AAAI 2024</em>.</li>
+        <li>Feng, G. et al. (2023). Towards revealing the mystery behind chain of thought. <em>NeurIPS 2023</em>.</li>
+        <li>Zhuge, M. et al. (2024). GPTSwarm: Language agents as optimizable graphs. <em>ICML 2024</em>.</li>
+        <li>Hu, S. et al. (2025). Automated design of agentic systems. <em>ICLR 2025</em>.</li>
+        <li>Christiano, P. et al. (2018). Supervising strong learners by amplifying weak experts. <em>arXiv:1810.08575</em>.</li>
+      </ul>
+    </div>
+
+    <div class="post-nav">
+      <a href="post19.html" class="prev">The Aggregation Problem</a>
+      <a href="post21.html" class="next">Agentic RAG</a>
+    </div>
+
+  </article>
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <div class="footer-nav">
+    <a href="/blog/">Notes</a>
+    <a href="/links.html">Links</a>
+  </div>
+</footer>
+
+<script src="../js/lightbox.js"></script>
+</body>
+</html>
