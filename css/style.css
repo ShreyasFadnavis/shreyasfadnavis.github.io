@@ -416,71 +416,94 @@ nav {
   border-radius: 2px;
 }
 
-.track-desc {
+/* Track: large faded numeral */
+.track-number {
   font-family: var(--serif);
+  font-size: var(--text-4xl);
+  font-weight: 300;
+  color: var(--accent);
+  opacity: 0.15;
+  line-height: 1;
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+/* Track: narrative paragraph */
+.track-narrative {
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  color: var(--text);
+  line-height: 1.75;
+  margin-bottom: 1.5rem;
+}
+
+/* Track: metadata line (count + range) */
+.track-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  font-family: var(--sans);
   font-size: var(--text-sm);
-  font-style: italic;
   color: var(--text-secondary);
-  margin-bottom: 1.8rem;
-  line-height: 1.6;
 }
 
-.track-list {
-  list-style: none;
-  counter-reset: track-num;
-  padding: 0;
-  margin: 0 0 1.5rem;
+.track-count {
+  font-weight: 600;
+  color: var(--accent);
 }
 
-.track-list li {
-  counter-increment: track-num;
-  position: relative;
-  padding: 0.65rem 0 0.65rem 2.2rem;
-  border-bottom: 1px solid var(--border-light);
-  transition: background 0.2s, padding 0.2s, margin 0.2s;
+.track-meta-sep {
+  color: var(--border);
+  font-size: 0.7rem;
+  user-select: none;
 }
 
-.track-list li:first-child {
-  border-top: 1px solid var(--border-light);
+.track-range {
+  font-style: italic;
 }
 
-.track-list li::before {
-  content: counter(track-num, decimal-leading-zero);
-  position: absolute;
-  left: 0;
-  top: 0.7rem;
+/* Track: "Start here" entry point */
+.track-entry {
+  background: var(--bg);
+  border: 1px solid var(--border-light);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  padding: 0.8rem 1.2rem;
+  margin-bottom: 1.5rem;
+  transition: all 0.25s ease;
+}
+
+.track-entry:hover {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  transform: translateX(3px);
+  box-shadow: 0 3px 12px rgba(160, 82, 45, 0.08);
+}
+
+.track-entry-label {
+  display: block;
   font-family: var(--sans);
   font-size: var(--text-xs);
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
   color: var(--accent);
-  opacity: 0.35;
-  letter-spacing: 0.02em;
+  margin-bottom: 0.25rem;
+  opacity: 0.7;
 }
 
-.track-list li a {
+.track-entry-link {
   font-family: var(--serif);
   font-size: var(--text-base);
   font-weight: 500;
   color: var(--text);
-  line-height: 1.4;
-  transition: color 0.2s, transform 0.2s;
-  display: inline-block;
+  line-height: 1.35;
+  transition: color 0.2s;
 }
 
-.track-list li a:hover {
+.track-entry:hover .track-entry-link {
   color: var(--accent);
-}
-
-.track-list li:hover {
-  background: var(--accent-wash);
-  margin: 0 -0.8rem;
-  padding-left: calc(2.2rem + 0.8rem);
-  padding-right: 0.8rem;
-  border-radius: 4px;
-}
-
-.track-list li:hover a {
-  transform: translateX(3px);
 }
 
 .track-cta {
