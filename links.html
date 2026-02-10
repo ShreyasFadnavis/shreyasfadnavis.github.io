@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Useful Links &mdash; Shreyas Fadnavis</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <div class="nav-links">
+      <a href="/">About</a>
+      <a href="/blog/">Notes</a>
+      <a href="/links.html" class="active">Links</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+
+  <div class="blog-header">
+    <h1>Useful Links</h1>
+    <p class="blog-desc">People, papers, and rabbit holes that shaped how I think about all this.</p>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- HOW I GOT HERE                               -->
+  <!-- ============================================ -->
+  <section class="links-section">
+    <h2 class="links-heading">How I Ended Up Here</h2>
+    <div class="links-prose">
+      <p>
+        None of the notes on this site would exist if my PhD advisor,
+        <a href="https://garyfallidis.github.io/">Eleftherios Garyfallidis</a>,
+        hadn't handed me a problem about noise in diffusion MRI. Diffusion MRI measures how water molecules
+        move through the brain &mdash; and the signal is <em>noisy</em>. Really noisy.
+        Eleftherios is the creator of <a href="https://dipy.org/">DIPY</a>,
+        the largest open-source project for diffusion imaging, and he had me working at
+        Indiana University on understanding what that noise does to downstream estimates.
+      </p>
+      <p>
+        Studying noise means studying variance. Studying variance in regression means
+        studying leverage. And once you see leverage scores, you start seeing them everywhere
+        &mdash; in randomized algorithms, in classical diagnostics, in prediction intervals.
+        One thing led to another, and here we are: a series of tutorial notes about
+        conformal prediction and leverage scores, born from trying to figure out why brain
+        images are so noisy.
+      </p>
+      <p>
+        The path was: denoising &rarr; residual variance &rarr; leverage &rarr; conformal prediction.
+        I would not have walked it without Eleftherios.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- CONFORMAL PREDICTION                         -->
+  <!-- ============================================ -->
+  <section class="links-section">
+    <h2 class="links-heading">Conformal Prediction</h2>
+    <div class="links-prose">
+      <p>
+        If you want to learn conformal prediction from scratch, start here. I did.
+      </p>
+    </div>
+
+    <div class="link-card">
+      <h3 class="link-card-title">
+        <a href="https://people.eecs.berkeley.edu/~angelopoulos/blog/posts/gentle-intro/">A Gentle Introduction to Conformal Prediction</a>
+      </h3>
+      <p class="link-card-meta">Anastasios Angelopoulos &amp; Stephen Bates &mdash; UC Berkeley</p>
+      <p class="link-card-desc">
+        The single best starting point. Angelopoulos and Bates wrote a tutorial that is genuinely gentle
+        &mdash; clear writing, concrete examples, and Python code you can run.
+        It started as an <a href="https://arxiv.org/abs/2107.07511">arXiv paper</a>,
+        grew into a <a href="https://www.nowpublishers.com/article/Details/MAL-101">Foundations &amp; Trends monograph</a>,
+        and now lives as a living document. This is where I first understood why conformal prediction works.
+      </p>
+    </div>
+
+    <div class="link-card">
+      <h3 class="link-card-title">
+        <a href="https://youtube.com/playlist?list=PLBa0oe-LYIHa68NOJbMxDTMMjT8Is4WkI">Conformal Prediction Video Tutorials</a>
+      </h3>
+      <p class="link-card-meta">Anastasios Angelopoulos &mdash; YouTube</p>
+      <p class="link-card-desc">
+        Three-part video series accompanying the tutorial above. If you prefer watching over reading,
+        these are excellent. Part 1 covers the basics, Part 2 dives into conditional coverage,
+        and Part 3 goes beyond vanilla conformal prediction.
+      </p>
+      <ul class="link-card-list">
+        <li><a href="https://www.youtube.com/watch?v=nql000Lu_iE">Part 1: A Tutorial on Conformal Prediction</a></li>
+        <li><a href="https://www.youtube.com/watch?v=TRx4a2u-j7M">Part 2: Conditional Coverage</a></li>
+        <li><a href="https://www.youtube.com/watch?v=37HKrmA5gJE">Part 3: Beyond Conformal Prediction</a></li>
+      </ul>
+    </div>
+
+    <div class="link-card">
+      <h3 class="link-card-title">
+        <a href="https://github.com/aangelopoulos/conformal-prediction">Conformal Prediction GitHub Repository</a>
+      </h3>
+      <p class="link-card-meta">Anastasios Angelopoulos</p>
+      <p class="link-card-desc">
+        Lightweight, runnable implementations with Colab notebooks. Good for getting your hands dirty after watching the videos.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- LEVERAGE SCORES                              -->
+  <!-- ============================================ -->
+  <section class="links-section">
+    <h2 class="links-heading">Leverage Scores &amp; Randomized Linear Algebra</h2>
+    <div class="links-prose">
+      <p>
+        Most of what I know about leverage scores, I learned from
+        <a href="https://www.cs.purdue.edu/homes/pdrineas/">Petros Drineas</a>.
+        I started working with him during my PhD, and he opened up an entire world
+        of randomized numerical linear algebra that I didn't know existed. Petros is currently
+        the Head of the Department of Computer Science at Purdue University and a SIAM Fellow.
+        His work on fast approximation of statistical leverage &mdash; the idea that you can
+        sketch a matrix and still know which rows matter &mdash; is foundational.
+      </p>
+      <p>
+        A lot of the leverage scores literature I absorbed came through working alongside
+        <a href="https://agnivac.github.io/">Agniva Chowdhury</a>, who was Petros's PhD student
+        at Purdue (2017&ndash;2021) and is now an AI Research Scientist at Intel. Agniva's
+        thesis work on randomized algorithms for ridge regression and matrix factorization
+        was where I first saw leverage scores used as a computational tool, not just a diagnostic.
+      </p>
+    </div>
+
+    <div class="link-card">
+      <h3 class="link-card-title">
+        <a href="https://www.cs.purdue.edu/homes/pdrineas/">Petros Drineas</a>
+      </h3>
+      <p class="link-card-meta">Professor &amp; Head of CS, Purdue University &mdash; SIAM Fellow</p>
+      <p class="link-card-desc">
+        Petros's research page. Start with his work on randomized matrix algorithms and leverage score sampling.
+        The <a href="https://www.jmlr.org/papers/v13/drineas12a.html">JMLR 2012 paper</a> on fast
+        approximation of statistical leverage is a great entry point.
+      </p>
+    </div>
+
+    <div class="link-card">
+      <h3 class="link-card-title">
+        <a href="https://agnivac.github.io/">Agniva Chowdhury</a>
+      </h3>
+      <p class="link-card-meta">AI Research Scientist, Intel &mdash; PhD Purdue (advised by Drineas)</p>
+      <p class="link-card-desc">
+        Agniva's work bridges the gap between randomized linear algebra theory and practical machine learning.
+        Check out his papers on randomized algorithms for ridge regression and Fisher discriminant analysis.
+      </p>
+    </div>
+
+    <div class="link-card">
+      <h3 class="link-card-title">
+        <a href="https://users.soe.ucsc.edu/~sesh/">C. Seshadhri (Sesh)</a>
+      </h3>
+      <p class="link-card-meta">Professor of CS, UC Santa Cruz &amp; Amazon Scholar</p>
+      <p class="link-card-desc">
+        Sesh works on sublinear algorithms, graph algorithms, and the theoretical foundations
+        of big data. He also has a
+        <a href="https://www.youtube.com/channel/UCQLbCMJdEYvWmpCqp5VK2mg">YouTube channel</a>
+        with lecture videos that are worth watching if you care about algorithms and randomization.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- STATISTICS NOTES                             -->
+  <!-- ============================================ -->
+  <section class="links-section">
+    <h2 class="links-heading">Statistics Notes Worth Bookmarking</h2>
+    <div class="links-prose">
+      <p>
+        <a href="https://www.stat.cmu.edu/~cshalizi/">Cosma Shalizi</a> is a professor
+        of Statistics at Carnegie Mellon, and his freely available notes are some of the best
+        technical writing in statistics I have ever read. Rigorous, opinionated, and somehow entertaining.
+        If you bookmark nothing else from this page, bookmark these.
+      </p>
+    </div>
+
+    <div class="link-card">
+      <h3 class="link-card-title">
+        <a href="https://www.stat.cmu.edu/~cshalizi/ADAfaEPoV/">Advanced Data Analysis from an Elementary Point of View</a>
+      </h3>
+      <p class="link-card-meta">Cosma Shalizi &mdash; Carnegie Mellon University</p>
+      <p class="link-card-desc">
+        A draft textbook that covers regression, smoothing, causal inference, and much more.
+        It started as lecture notes for a one-semester course and grew into something extraordinary.
+        The writing is clear, the math is honest, and the point of view is refreshingly direct.
+        Freely available as a PDF.
+      </p>
+    </div>
+
+    <div class="link-card">
+      <h3 class="link-card-title">
+        <a href="https://www.stat.cmu.edu/~cshalizi/almost-none/">Almost None of the Theory of Stochastic Processes</a>
+      </h3>
+      <p class="link-card-meta">Cosma Shalizi &mdash; Carnegie Mellon University</p>
+      <p class="link-card-desc">
+        Graduate-level lecture notes on stochastic processes from a measure-theoretic perspective.
+        The title alone tells you something about the author's sense of humor. Dense but rewarding.
+      </p>
+    </div>
+
+    <div class="link-card">
+      <h3 class="link-card-title">
+        <a href="http://bactra.org/notebooks/">Cosma Shalizi's Notebooks</a>
+      </h3>
+      <p class="link-card-meta">bactra.org</p>
+      <p class="link-card-desc">
+        Shalizi maintains a sprawling collection of notebooks on topics ranging from information theory
+        to complex systems to the philosophy of science. These are less polished than his textbooks
+        but often more interesting &mdash; think of them as a professor's reading notes made public.
+        A wonderful place to get lost.
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <span>Shreyas Fadnavis</span>
+  <span><a href="/">About</a></span>
+</footer>
+
+</body>
+</html>

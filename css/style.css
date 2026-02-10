@@ -970,6 +970,160 @@ footer a:hover { color: var(--accent); }
   max-width: 80vw;
 }
 
+/* --- Links Page --- */
+.links-section {
+  margin-bottom: 3.5rem;
+}
+
+.links-heading {
+  font-family: var(--serif);
+  font-size: 1.4rem;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  margin-top: 0;
+  margin-bottom: 0.6em;
+  position: relative;
+  display: inline-block;
+}
+
+.links-heading::after {
+  content: '';
+  display: block;
+  width: 2em;
+  height: 2px;
+  background: var(--accent);
+  margin-top: 0.3em;
+  border-radius: 2px;
+  opacity: 0.5;
+}
+
+.links-prose {
+  margin-bottom: 1.5rem;
+  line-height: 1.8;
+}
+
+.links-prose p {
+  font-size: 0.95rem;
+}
+
+.link-card {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 1.3em 1.5em;
+  margin-bottom: 1rem;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.link-card:hover {
+  box-shadow: 0 3px 15px rgba(0, 0, 0, 0.05);
+  border-color: var(--border);
+}
+
+.link-card-title {
+  font-family: var(--serif);
+  font-size: 1.08rem;
+  font-weight: 500;
+  margin: 0 0 0.2em;
+}
+
+.link-card-title a {
+  color: var(--text);
+  transition: color 0.2s;
+}
+
+.link-card-title a:hover {
+  color: var(--accent);
+}
+
+.link-card-meta {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.6em;
+}
+
+.link-card-desc {
+  font-size: 0.9rem;
+  line-height: 1.7;
+  margin-bottom: 0;
+}
+
+.link-card-desc a {
+  color: var(--accent);
+}
+
+.link-card-list {
+  margin-top: 0.6em;
+  margin-bottom: 0;
+  padding-left: 1.2em;
+}
+
+.link-card-list li {
+  font-size: 0.88rem;
+  margin-bottom: 0.3em;
+}
+
+/* --- Quick Links (About page) --- */
+.quick-links {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.quick-links-label {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+.quick-links-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.8rem;
+}
+
+.quick-link-item {
+  display: block;
+  padding: 0.9em 1.1em;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.quick-link-item:hover {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(160, 82, 45, 0.1);
+}
+
+.quick-link-item .ql-title {
+  font-family: var(--serif);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+  display: block;
+  margin-bottom: 0.15em;
+  transition: color 0.2s;
+}
+
+.quick-link-item:hover .ql-title {
+  color: var(--accent);
+}
+
+.quick-link-item .ql-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
 /* --- Collapsible Notes Section --- */
 .section-toggle {
   display: flex;
