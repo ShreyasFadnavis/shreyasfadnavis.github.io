@@ -39,7 +39,7 @@
 
       <p>In Part 4, we defined leverage scores as the diagonal of the hat matrix and showed that they measure how far each point sits from the center of the training data in Mahalanobis distance. In this post, we explore the classical use of leverage in regression diagnostics -- a rich tradition dating back to the late 1970s that the machine learning community has largely overlooked.</p>
 
-      <p>The concepts here are foundational: leverage, influence, and Cook's distance together form a diagnostic toolkit that remains one of the most powerful ways to understand <em>which data points matter most</em> and <em>why</em>. We present this material at three levels of depth.</p>
+      <p>The concepts here are classical but important: leverage, influence, and Cook's distance together form a diagnostic toolkit that provides a clear way to understand <em>which data points matter most</em> and <em>why</em>. We present this material at three levels of depth.</p>
 
       <!-- ============================================================
            LEVEL 1: INTUITIVE
@@ -54,11 +54,11 @@
 
           <h3>Two Types of Unusual Data Points</h3>
 
-          <p>Not all unusual data points are created equal. There are two fundamentally different ways a data point can be "unusual," and confusing them is one of the most common mistakes in data analysis.</p>
+          <p>There are two distinct ways a data point can be "unusual," and it is worth separating them carefully. Confusing the two is a common source of error in regression diagnostics.</p>
 
-          <p><strong>Type 1: The Leverage Point.</strong> This is a point that sits in a weird <em>location</em> in feature space but has a perfectly normal outcome. It is "different" in where it lives, not in what it does. Think of it as someone who lives in a remote area but behaves like everyone else. Their <em>position</em> is unusual, but their <em>behavior</em> is not.</p>
+          <p><strong>Type 1: The Leverage Point.</strong> This is a point that sits in an unusual <em>location</em> in feature space but has a normal outcome. It is "different" in where it lives, not in what it does. Think of it as someone who lives in a remote area but behaves like everyone else. Their <em>position</em> is unusual, but their <em>behavior</em> is not. In a regression setting, such a point lies far from the centroid of the training features, yet its response falls right on (or near) the fitted line.</p>
 
-          <p><strong>Type 2: The Influential Point.</strong> This is a point that sits in a weird location <em>and</em> has a weird outcome. Because of its unusual position, it has the power to actually <em>change the model</em>. Remove it, and the model shifts noticeably. This is the dangerous one.</p>
+          <p><strong>Type 2: The Influential Point.</strong> This is a point that sits in an unusual location <em>and</em> has an unusual outcome. Because of its position, it has the ability to <em>change the fitted model</em>. Remove it, and the fitted coefficients shift noticeably. This is the case that warrants closer inspection. A concrete example: if a dataset of house prices has one mansion priced well below market value, that single data point can tilt the entire regression surface because there are few other data points nearby to counterbalance it.</p>
 
           <div class="analogy">
             <div class="analogy-label">Analogy: The City Council Vote</div>
@@ -67,7 +67,7 @@
 
           <h3>The 2x2 Grid</h3>
 
-          <p>Every data point falls into one of four categories, based on two questions: Is its position unusual? Is its outcome unusual?</p>
+          <p>Every data point falls into one of four categories, based on two questions: Is its position unusual? Is its outcome unusual? The following table summarizes the four cases. In practice, most points land in the upper-left cell; the lower-right cell is the one that demands attention.</p>
 
           <table>
             <thead>
@@ -80,13 +80,13 @@
             <tbody>
               <tr>
                 <td><strong>Low Leverage</strong> (normal position)</td>
-                <td><strong>Normal.</strong> Typical point, well-fit by the model. The bread and butter of your dataset.</td>
-                <td><strong>Outlier.</strong> Unusual response, but its position gives it little power to distort the model. Noisy, but not dangerous.</td>
+                <td><strong>Normal.</strong> Typical point, well-fit by the model. These make up the bulk of most datasets.</td>
+                <td><strong>Outlier.</strong> Unusual response, but its position gives it little power to distort the fit. Worth noting, but typically harmless to the overall model.</td>
               </tr>
               <tr>
                 <td><strong>High Leverage</strong> (unusual position)</td>
                 <td><strong>Leverage Point.</strong> Unusual features, but the model fits it well. Potentially helpful -- it provides information in a sparse region.</td>
-                <td><strong>Influential Point.</strong> Unusual features AND unusual response. This point pulls the model toward itself. <em>Dangerous.</em></td>
+                <td><strong>Influential Point.</strong> Unusual features AND unusual response. This point pulls the fitted surface toward itself and merits careful examination.</td>
               </tr>
             </tbody>
           </table>
@@ -96,7 +96,7 @@
             title Data Point Classification
             x-axis "Low Leverage" --> "High Leverage"
             y-axis "Low Residual" --> "High Residual"
-            quadrant-1 "INFLUENTIAL (Dangerous!)"
+            quadrant-1 "INFLUENTIAL (Investigate)"
             quadrant-2 "Outlier (Noisy)"
             quadrant-3 "Normal (Typical)"
             quadrant-4 "Leverage Point (Unusual but OK)"
@@ -105,9 +105,9 @@
 
           <h3>Cook's Distance in Plain English</h3>
 
-          <p><strong>Cook's distance</strong> answers a simple question: "If we removed this one data point and retrained the model from scratch, how much would all the predictions change?"</p>
+          <p><strong>Cook's distance</strong> answers a natural question: "If we removed this one data point and refitted the model, how much would all the predictions change?" It quantifies the total shift in the vector of fitted values when a single observation is left out.</p>
 
-          <p>A point with high Cook's distance is one whose removal substantially alters the model. A point with low Cook's distance can be removed without anyone noticing. The beauty of Cook's distance is that it captures <em>both</em> leverage and residual in a single number -- you need both an unusual position and an unusual outcome to have high influence.</p>
+          <p>A point with high Cook's distance is one whose removal noticeably alters the fitted model. A point with low Cook's distance can be removed with negligible effect. What makes Cook's distance useful is that it captures <em>both</em> leverage and residual in a single number -- you need both an unusual position and an unusual outcome to have high influence. In practice, a common rule of thumb is that a Cook's distance exceeding $4/n$ deserves a closer look; values above 1 indicate that the point is shifting the fitted surface by roughly the width of a joint confidence region for the coefficients.</p>
 
           <h3>How a Data Point Gets Classified</h3>
 
@@ -132,7 +132,7 @@
 
           <h3>A Brief History</h3>
 
-          <p>These ideas have a surprisingly long lineage. The key milestones:</p>
+          <p>These ideas have a long history. The key milestones:</p>
 
           <div class="mermaid">
           timeline
@@ -151,19 +151,19 @@
           <p>The machine learning community largely set aside leverage and influence diagnostics starting in the 1990s. There are understandable reasons:</p>
 
           <ul>
-            <li><strong>Nonlinear models.</strong> The hat matrix is defined for linear regression. Random forests and neural networks do not have one, and many practitioners assumed leverage was therefore irrelevant.</li>
+            <li><strong>Nonlinear models.</strong> The hat matrix is defined for linear regression. Random forests and neural networks do not have one, and many practitioners concluded that leverage was therefore irrelevant to their work.</li>
             <li><strong>High dimensions.</strong> When the number of features $p$ is large relative to the number of data points $n$, every point has high leverage (the average leverage is $p/n$). The concept seems to lose its discriminative power.</li>
             <li><strong>Focus on prediction accuracy.</strong> ML evaluates models on held-out accuracy. Leverage is a training-set diagnostic, which feels like it belongs to a different paradigm.</li>
           </ul>
 
           <h3>Why It Still Matters</h3>
 
-          <p>All three objections have counterarguments, and the counterarguments are compelling:</p>
+          <p>Each of these objections has a natural counterargument:</p>
 
           <ul>
-            <li>Leverage measures <strong>data geometry</strong>, which is model-independent. You can compute leverage on the raw feature matrix regardless of whether you fit a linear model, a random forest, or a neural network. The geometry of the data does not change with the model.</li>
-            <li>In high dimensions, leverage <em>variation</em> -- not the average level -- contains useful signal. Even when the average leverage is high, some points have much higher leverage than others.</li>
-            <li>Leverage is not just a training diagnostic. As we showed in Part 4 and will develop further in Part 6, leverage <em>directly controls prediction uncertainty</em>. It is the missing ingredient for adaptive prediction intervals.</li>
+            <li>Leverage measures <strong>data geometry</strong>, which is model-independent. You can compute leverage on the raw feature matrix regardless of whether you fit a linear model, a random forest, or a neural network. The geometry of the data does not change with the model. In practice, even for nonlinear models, the leverage of the input features often correlates well with the difficulty of prediction at that point.</li>
+            <li>In high dimensions, leverage <em>variation</em> -- not the average level -- contains useful signal. Even when the average leverage is high, some points have much higher leverage than others, and those differences can be informative about which regions of feature space are well-covered by training data.</li>
+            <li>Leverage is not just a training diagnostic. As we showed in Part 4 and will develop further in Part 6, leverage <em>directly controls prediction uncertainty</em>. It is a key ingredient for constructing adaptive prediction intervals.</li>
           </ul>
 
           <div class="analogy">
@@ -187,13 +187,13 @@
 
           <h3>The Leverage-Residual Plot (Hoaglin &amp; Welsch, 1978)</h3>
 
-          <p>The leverage-residual plot is the workhorse of regression diagnostics. For each training point $i$, plot the leverage $h_i$ on the horizontal axis against the <strong>standardized residual</strong> on the vertical axis:</p>
+          <p>The leverage-residual plot is a standard tool of regression diagnostics, introduced by Hoaglin and Welsch in 1978 and still widely used today. For each training point $i$, plot the leverage $h_i$ on the horizontal axis against the <strong>standardized residual</strong> on the vertical axis:</p>
 
           $$r_i = \frac{e_i}{s\sqrt{1 - h_i}}$$
 
           <p>where $e_i = Y_i - \hat{Y}_i$ is the raw residual and $s^2$ is the estimated residual variance. The denominator $s\sqrt{1-h_i}$ accounts for the fact that high-leverage points tend to have <em>smaller</em> residuals (the model is pulled toward them), so standardizing by $\sqrt{1-h_i}$ puts all residuals on a comparable scale.</p>
 
-          <p>Points in the upper-right corner of this plot are the influential ones: high leverage <em>and</em> large standardized residual.</p>
+          <p>Points in the upper-right corner of this plot are the influential ones: high leverage <em>and</em> large standardized residual. In practice, one typically overlays reference lines at $h = 2p/n$ (twice the average leverage) on the horizontal axis and at $|r_i| = 2$ or $3$ on the vertical axis. Points beyond both thresholds are candidates for further investigation. It is also common to annotate the plot with contours of constant Cook's distance, which curve from upper-left to lower-right; points lying beyond the $D = 4/n$ contour are those whose removal would noticeably shift the fitted model.</p>
 
           <h3>Cook's Distance: The Product of Two Terms</h3>
 
@@ -217,7 +217,7 @@
           </div>
           <p class="diagram-caption">Cook's distance decomposes into a residual component and a leverage component. Both must be large for true influence.</p>
 
-          <p>A point with a large residual but low leverage produces a moderate Cook's distance -- it is an outlier but not influential. A point with high leverage but a small residual also produces a moderate Cook's distance -- it is a leverage point but the model handles it well. Only the combination of both yields a large Cook's distance.</p>
+          <p>A point with a large residual but low leverage produces a moderate Cook's distance -- it is an outlier but not influential. A point with high leverage but a small residual also produces a moderate Cook's distance -- it is a leverage point but the model handles it well. Only the combination of both yields a large Cook's distance. To build concrete intuition: in a dataset with $n = 1000$ and $p = 10$, a point with leverage $h_i = 0.05$ (five times the average) and a standardized residual of $3$ would have a Cook's distance around $0.024$, which is $6\times$ the $4/n = 0.004$ threshold. Removing that single point would shift the entire vector of fitted values by an amount comparable to the residual noise.</p>
 
           <h3>Practical Flagging Rules</h3>
 
@@ -242,7 +242,7 @@
               <tr>
                 <td><strong>Very high leverage</strong></td>
                 <td>$h_i > 0.5$</td>
-                <td>Outsized effect on the fit regardless of residual</td>
+                <td>Large effect on the fit regardless of residual size</td>
                 <td>$h_i > 0.5$</td>
               </tr>
               <tr>
@@ -254,7 +254,7 @@
               <tr>
                 <td><strong>Highly influential</strong></td>
                 <td>$D_i > 1$</td>
-                <td>Removal changes the model dramatically</td>
+                <td>Removal changes the model by more than a joint confidence region</td>
                 <td>$D_i > 1$</td>
               </tr>
             </tbody>
@@ -350,7 +350,7 @@
 
           $$\hat{\beta}_{(i)} = \hat{\beta} - \frac{(\mathbf{X}^\top\mathbf{X})^{-1}X_i e_i}{1 - h_i}$$
 
-          <p>where $e_i = Y_i - X_i^\top\hat{\beta}$ is the raw residual. This is a remarkable formula: the leave-one-out coefficient change is proportional to the residual $e_i$, amplified by the leverage factor $1/(1-h_i)$, and directed along $(\mathbf{X}^\top\mathbf{X})^{-1}X_i$.</p>
+          <p>where $e_i = Y_i - X_i^\top\hat{\beta}$ is the raw residual. This formula is worth pausing on: the leave-one-out coefficient change is proportional to the residual $e_i$, amplified by the leverage factor $1/(1-h_i)$, and directed along $(\mathbf{X}^\top\mathbf{X})^{-1}X_i$.</p>
 
           <div class="mermaid">
           flowchart TD
@@ -441,7 +441,7 @@
 
           <div class="callout">
             <div class="callout-label">Key Insight</div>
-            <p>The ability to approximate leverage scores in nearly input-sparsity time means that these classical diagnostics scale to modern dataset sizes. Computing leverage is not more expensive than reading the data -- the "computational cost" objection to leverage-based methods in ML is no longer valid.</p>
+            <p>The ability to approximate leverage scores in nearly input-sparsity time means that these classical diagnostics scale to modern dataset sizes. Computing leverage is comparable in cost to reading the data, which substantially weakens the "computational cost" objection to leverage-based methods in ML.</p>
           </div>
 
         </div>
@@ -457,7 +457,7 @@
 
       <p>But leverage has a much deeper connection to prediction uncertainty. In Part 4, we previewed the formula $\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \sigma^2(1 + h(x))$. This says that the variance of the prediction error -- the very quantity that prediction intervals need to capture -- is directly controlled by leverage.</p>
 
-      <p>In the next post, we explore this connection in depth and reveal a surprising subtlety: the variance of <em>training residuals</em> depends on leverage with the <em>opposite sign</em> from the variance of <em>prediction errors</em>. This "sign flip" has profound implications for methods that try to estimate prediction uncertainty from training data.</p>
+      <p>In the next post, we examine this connection in detail and identify a subtlety that is easy to miss: the variance of <em>training residuals</em> depends on leverage with the <em>opposite sign</em> from the variance of <em>prediction errors</em>. This "sign flip" has practical consequences for any method that tries to estimate prediction uncertainty from training data.</p>
 
     </div>
 

@@ -41,7 +41,7 @@
 
       <p>In Part 1, we argued that point predictions are incomplete. What we need are prediction intervals with <em>guaranteed</em> coverage: if we claim 90%, then 90% of future observations should fall inside. We also want this guarantee to hold without assuming Gaussian errors, linear models, or any parametric form.</p>
 
-      <p>This sounds like a tall order. It turns out there is an elegant, surprisingly simple method that delivers exactly this. It is called <em>conformal prediction</em>, and it has been around since 2005, though it has only recently gained widespread attention in the machine learning community.</p>
+      <p>This sounds like a tall order. It turns out there is a clean, simple method that delivers exactly this. It is called <em>conformal prediction</em>, and it has been around since 2005, though it has only recently gained widespread attention in the machine learning community.</p>
 
       <p>This post walks through conformal prediction at three levels of depth. Start wherever feels comfortable and go as deep as you like.</p>
 
@@ -58,15 +58,15 @@
 
           <h3>A Restaurant Analogy</h3>
 
-          <p>Imagine you go to a restaurant with nine friends. Everyone orders, and eventually all ten meals arrive. You have no idea what anyone ordered or what anything costs. But here is something you <em>can</em> say: the meals arrive in a random order, and each person's meal is equally likely to be the most expensive, the second most expensive, and so on.</p>
+          <p>Imagine you go to a restaurant with nine friends. Everyone orders, and eventually all ten meals arrive. You have no idea what anyone ordered or what anything costs. But here is something you <em>can</em> say: the meals arrive in a random order, and each person's meal is equally likely to be the most expensive, the second most expensive, and so on. There is no seating hierarchy, no "VIP gets served first" rule. Every diner is interchangeable.</p>
 
-          <p>Now suppose you want to know: "Will my meal cost less than the 9th most expensive meal out of all ten?" Since your meal's <em>rank</em> among all ten is random, the probability that your meal ranks 9th or lower is 9 out of 10, which is 90%. You did not need to know the prices, the menu, or the cuisine. You just needed to know that the ordering was random.</p>
+          <p>Now suppose you want to know: "Will my meal cost less than the 9th most expensive meal out of all ten?" Since your meal's <em>rank</em> among all ten is random, the probability that your meal ranks 9th or lower is 9 out of 10, which is 90%. You did not need to know the prices, the menu, or the cuisine. You just needed to know that the ordering was random. The specific dollar amounts are irrelevant; all that matters is the ranking.</p>
 
-          <p>That is the core of conformal prediction. Replace "meals" with "prediction errors," and "cost" with "how wrong the model was," and you have the whole idea.</p>
+          <p>That is the core of conformal prediction. Replace "meals" with "prediction errors," and "cost" with "how wrong the model was," and you have the whole idea. The method works because a new data point has no reason to produce a larger or smaller error than any calibration point, so its rank is uniformly random.</p>
 
           <div class="analogy">
             <div class="analogy-label">Analogy</div>
-            <p>Conformal prediction is like grading on a curve. You do not need to know how hard the exam was. You just need to know where you rank among everyone else. If your score's rank is random, you can make reliable probability statements about where it will fall.</p>
+            <p>Conformal prediction is like grading on a curve. You do not need to know how hard the exam was or what material it covered. You just need to know where you rank among everyone else. If your score's rank is random, you can make reliable probability statements about where it will fall. The absolute difficulty of the test washes out; only the relative ordering matters.</p>
           </div>
 
           <h3>The Recipe in Plain English</h3>
@@ -74,11 +74,11 @@
           <p>Here is the conformal prediction recipe, with no equations:</p>
 
           <ol>
-            <li><strong>Train any model.</strong> Linear regression, random forest, neural network, anything. It does not matter.</li>
-            <li><strong>Set aside some data the model never saw.</strong> Call this the "calibration set." The model was not trained on it.</li>
-            <li><strong>Check how wrong the model is on each calibration point.</strong> For each held-out data point, compute the size of the error: how far off was the prediction?</li>
-            <li><strong>Sort those errors and pick the 90th percentile.</strong> This becomes your "margin of error."</li>
-            <li><strong>For any new prediction, add and subtract that margin.</strong> That is your 90% prediction interval.</li>
+            <li><strong>Train any model.</strong> Linear regression, random forest, neural network, anything. The conformal procedure is completely agnostic to the model you choose.</li>
+            <li><strong>Set aside some data the model never saw.</strong> Call this the "calibration set." The model was not trained on it. This held-out data serves as a reality check on how the model actually performs.</li>
+            <li><strong>Check how wrong the model is on each calibration point.</strong> For each held-out data point, compute the size of the error: how far off was the prediction? These errors are your raw material for building the interval.</li>
+            <li><strong>Sort those errors and pick the 90th percentile.</strong> This becomes your "margin of error." It tells you: 90% of the calibration points had errors no larger than this value.</li>
+            <li><strong>For any new prediction, add and subtract that margin.</strong> That is your 90% prediction interval. The interval is symmetric around the point prediction and has the same width everywhere.</li>
           </ol>
 
           <div class="mermaid">
@@ -96,9 +96,9 @@ graph LR
 
           <h3>Why Does This Work?</h3>
 
-          <p>The key insight is that a new test point is "just another data point." If the data are all drawn from the same process and no point is special, then the new point's error has no reason to be systematically bigger or smaller than the calibration errors. Its rank among all the errors is random, just like your meal's rank among the restaurant bills.</p>
+          <p>The key insight is that a new test point is "just another data point." If the data are all drawn from the same process and no point is special, then the new point's error has no reason to be systematically bigger or smaller than the calibration errors. Its rank among all the errors is random, just like your meal's rank among the restaurant bills. The model might be good or bad overall, but that does not affect the argument. What matters is symmetry: the new point is exchangeable with the calibration points.</p>
 
-          <p>So if you set the threshold at the 90th percentile, the new point's error will fall below that threshold at least 90% of the time.</p>
+          <p>So if you set the threshold at the 90th percentile, the new point's error will fall below that threshold at least 90% of the time. A better model will produce smaller calibration errors, which leads to a smaller threshold and tighter intervals. But the coverage guarantee holds regardless of model quality.</p>
 
           <h3>What the Calibration Errors Look Like</h3>
 
@@ -124,11 +124,11 @@ graph TD
             <p>The only assumption conformal prediction makes is that the data are <strong>exchangeable</strong>: roughly, any reordering of the data points is equally likely. This is weaker than "independent and identically distributed." It means no data point is special by virtue of when it was observed.</p>
           </div>
 
-          <p>If you have a standard supervised learning setup where you collect data, shuffle it, and split it into training and test sets, exchangeability holds automatically. It can fail for time series (where order matters) or when the data distribution shifts over time.</p>
+          <p>If you have a standard supervised learning setup where you collect data, shuffle it, and split it into training and test sets, exchangeability holds automatically. It can fail for time series (where order matters) or when the data distribution shifts over time. In practice, the assumption amounts to: the process generating the calibration data is the same process that will generate the test data. If that holds, you are in good shape.</p>
 
-          <h3>Why This Is Remarkable</h3>
+          <h3>Why This Matters</h3>
 
-          <p>Conformal prediction gives you a guaranteed prediction interval that works with <em>any</em> model. You do not need to know the error distribution, you do not need Gaussian assumptions, and you do not need the model to be linear. You just need the calibration data, a sorting algorithm, and the exchangeability assumption. That is it.</p>
+          <p>Conformal prediction gives you a guaranteed prediction interval that works with <em>any</em> model. You do not need to know the error distribution, you do not need Gaussian assumptions, and you do not need the model to be linear. You just need the calibration data, a sorting algorithm, and the exchangeability assumption. That is it. Most other methods for building prediction intervals require either strong distributional assumptions or asymptotic arguments that may not hold in practice. Conformal prediction sidesteps both of these issues entirely.</p>
 
         </div>
       </div>
@@ -191,7 +191,7 @@ graph TB
 
           <h3>The Coverage Guarantee</h3>
 
-          <p>The remarkable property of this procedure is a finite-sample coverage guarantee:</p>
+          <p>The notable property of this procedure is a finite-sample coverage guarantee:</p>
 
           $$P\!\left(Y_{n+1} \in \hat{C}(X_{n+1})\right) \geq 1 - \alpha$$
 
@@ -268,7 +268,7 @@ graph TD
 
           <p>The coverage guarantee is <strong>marginal</strong>: it averages over all possible test points and all randomness in the calibration set. It says nothing about coverage at any <em>specific</em> test point $x$.</p>
 
-          <p>If the model is very accurate in one region of feature space and very inaccurate in another, the interval will overcover in the easy region and undercover in the hard region. The average will be correct, but the per-point coverage will vary wildly.</p>
+          <p>If the model is very accurate in one region of feature space and very inaccurate in another, the interval will overcover in the easy region and undercover in the hard region. The average will be correct, but the per-point coverage can vary substantially. For example, if the model fits dense regions well but struggles with sparse, high-leverage regions, the constant-width interval will be wastefully wide in the dense region and too narrow in the sparse region.</p>
 
           <div class="callout">
             <div class="callout-label">Teaser for Post 3</div>
@@ -321,7 +321,7 @@ graph TD
 
           $$P(R_{n+1} = k) = \frac{1}{n+1}$$
 
-          <p>This is the rank uniformity result. It is a direct consequence of symmetry, nothing more.</p>
+          <p>This is the rank uniformity result. It is a direct consequence of symmetry, nothing more. No moment conditions, no tail assumptions, and no regularity conditions on the distribution are needed. The entire argument rests on the single observation that exchangeability makes every index equally likely to hold any given rank.</p>
 
           <div class="mermaid">
 graph TB
@@ -357,9 +357,9 @@ graph TB
           <p>The coverage guarantee is <em>exact</em> under exchangeability. When exchangeability is violated, the guarantee degrades. The main failure modes are:</p>
 
           <ul>
-            <li><strong>Time series:</strong> Temporal dependence means earlier observations are not interchangeable with later ones. The distribution may drift, making calibration residuals from the past unrepresentative of future errors.</li>
-            <li><strong>Distribution shift:</strong> If the test distribution differs from the calibration distribution (covariate shift, label shift, concept drift), the rank argument breaks down because the test score is no longer "just another one" from the same distribution.</li>
-            <li><strong>Active learning:</strong> If the sampling mechanism depends on previously observed labels, the resulting sample is not exchangeable.</li>
+            <li><strong>Time series:</strong> Temporal dependence means earlier observations are not interchangeable with later ones. The distribution may drift, making calibration residuals from the past unrepresentative of future errors. For instance, if volatility increases over time, calibration errors from a calm period will systematically underestimate future errors.</li>
+            <li><strong>Distribution shift:</strong> If the test distribution differs from the calibration distribution (covariate shift, label shift, concept drift), the rank argument breaks down because the test score is no longer "just another one" from the same distribution. A model calibrated on data from one hospital, for example, may produce misleading intervals when deployed at a different hospital with a different patient population.</li>
+            <li><strong>Active learning:</strong> If the sampling mechanism depends on previously observed labels, the resulting sample is not exchangeable. The selection process introduces a dependence between which points are observed and what their labels are, violating the symmetry that the proof requires.</li>
           </ul>
 
           <p>Extensions exist for some of these settings. Adaptive conformal inference (Gibbs and Candes, 2021) handles distribution shift by updating the quantile online. Weighted conformal prediction (Tibshirani et al., 2019) handles covariate shift by reweighting calibration scores. These are beyond our scope here, but they demonstrate that the conformal framework is extensible.</p>
@@ -372,7 +372,7 @@ graph TB
 
           <div class="callout">
             <div class="callout-label">Historical Note</div>
-            <p>The connection between prediction sets and permutation tests dates back to the work of Vovk, Gammerman, and Shafer in the early 2000s. The original "full conformal" method literally ran a permutation test for every candidate label value. Split conformal prediction, introduced by Papadopoulos et al. (2002) and analyzed by Lei et al. (2018), avoids this computational burden by using a held-out calibration set, trading a small amount of statistical efficiency for enormous computational savings.</p>
+            <p>The connection between prediction sets and permutation tests dates back to the work of Vovk, Gammerman, and Shafer in the early 2000s. The original "full conformal" method literally ran a permutation test for every candidate label value. Split conformal prediction, introduced by Papadopoulos et al. (2002) and analyzed by Lei et al. (2018), avoids this computational burden by using a held-out calibration set, trading a small amount of statistical efficiency for large computational savings.</p>
           </div>
 
         </div>

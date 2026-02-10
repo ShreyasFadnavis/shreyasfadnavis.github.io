@@ -37,7 +37,7 @@
 
     <div class="post-body">
 
-      <p>In Part 6, we saw that prediction error variance depends on leverage: $\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \sigma^2(1 + h(x))$. This means that residuals from different points in feature space are not directly comparable &mdash; some are drawn from high-variance distributions and others from low-variance distributions. In this post, we develop the tool for handling this: <em>variance stabilization</em>.</p>
+      <p>In Part 6, we saw that prediction error variance depends on leverage: $\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \sigma^2(1 + h(x))$. This means that residuals from different points in feature space are not directly comparable &mdash; some are drawn from high-variance distributions and others from low-variance distributions. If we want conformal prediction intervals that are well-calibrated across the entire feature space, we need a way to put all residuals on a common scale. In this post, we develop the standard tool for doing so: <em>variance stabilization</em>.</p>
 
       <!-- ============================================================ -->
       <!-- LEVEL 1: INTUITIVE                                           -->
@@ -52,13 +52,13 @@
 
           <h3>The Exam Grading Analogy</h3>
 
-          <p>Imagine comparing test scores from two different classes. Class A had an easy exam: scores range from 85 to 100, and most students cluster around 93. Class B had a brutally hard exam: scores range from 40 to 90, and most students cluster around 65.</p>
+          <p>Imagine comparing test scores from two different classes. Class A had a straightforward exam: scores range from 85 to 100, and most students cluster around 93. Class B had a much harder exam: scores range from 40 to 90, and most students cluster around 65.</p>
 
-          <p>Now suppose a student from each class scores 85. In Class A, a score of 85 means "just average &mdash; nothing special." In Class B, a score of 85 means "excellent &mdash; near the top of the class." The raw number 85 tells you almost nothing until you know the difficulty of the exam. To compare students fairly, you need to <em>adjust for the difficulty</em>: divide each score by its class's standard deviation, or convert to a percentile within the class.</p>
+          <p>Now suppose a student from each class scores 85. In Class A, that is an unremarkable result &mdash; right around the middle. In Class B, it places the student well above the class average. The raw number 85 is hard to interpret on its own; you need to know the exam's difficulty to give it context. To compare students fairly, you <em>adjust for the difficulty</em>: divide each score by its class's standard deviation, or convert to a percentile within the class.</p>
 
-          <p>This is exactly what happens with model errors. Some predictions are inherently harder (more variable) than others. A residual of 10 at an easy-to-predict point means "bad prediction &mdash; the model really missed." But a residual of 10 at a hard-to-predict point means "actually pretty good &mdash; given how uncertain this region is, a miss of 10 is normal."</p>
+          <p>The same issue arises with model errors. Some predictions are inherently harder (more variable) than others, and a residual of a given size means different things depending on the local difficulty. A residual of 10 at an easy-to-predict point suggests the model performed poorly. But a residual of 10 at a hard-to-predict point may be well within the expected range of variation &mdash; not a sign of model failure at all. Without knowing the local difficulty, we cannot tell whether a particular residual is large or small in a meaningful sense.</p>
 
-          <p><strong>Variance stabilization is "grading on a curve" for each region of feature space.</strong> It adjusts each residual by the local difficulty so that all residuals become directly comparable.</p>
+          <p><strong>Variance stabilization is essentially "grading on a curve" for each region of feature space.</strong> It adjusts each residual by the local difficulty so that all residuals become directly comparable. Once this adjustment is made, a residual of 10 means the same thing everywhere &mdash; whether the prediction was easy or hard.</p>
 
           <div class="mermaid">
             flowchart LR
@@ -78,7 +78,7 @@
 
           <p>Even when the noise in the data is perfectly constant &mdash; every observation has the same amount of random error &mdash; the model's <em>prediction errors</em> still have different variances at different points. This is the leverage effect from Part 6. Points far from the training data center have high leverage, and the model is more uncertain about its predictions there. Points near the center have low leverage, and the model is more confident.</p>
 
-          <p>The result is that raw residuals naturally <em>fan out</em> as leverage increases: high-leverage points produce larger residuals on average, not because the data is noisier there, but because the model is less certain. After dividing by the difficulty factor, the fan shape collapses into a horizontal band where all residuals have the same spread.</p>
+          <p>The practical consequence is that raw residuals naturally <em>fan out</em> as leverage increases: high-leverage points produce larger residuals on average, not because the data is noisier there, but because the model is less certain. If you plotted residuals against leverage, you would see a funnel shape widening to the right. After dividing by the difficulty factor $\sqrt{1+h}$, this funnel collapses into a horizontal band where all residuals have the same spread. The stabilized residuals can then be compared on a level footing.</p>
 
           <div class="mermaid">
             flowchart TD
@@ -112,7 +112,7 @@
 
           <div class="analogy">
             <div class="analogy-label">Analogy</div>
-            <p>Comparing raw residuals across the feature space is like comparing marathon times at sea level vs. at high altitude. A 3:30 marathon at sea level is a solid recreational time. A 3:30 marathon at 10,000 feet elevation is an impressive athletic feat. You need to adjust for the conditions before comparing.</p>
+            <p>Comparing raw residuals across the feature space is like comparing marathon times at sea level vs. at high altitude. A 3:30 marathon at sea level is a solid recreational time. A 3:30 marathon at 10,000 feet elevation is a notably stronger performance, because the thinner air makes the same pace harder to sustain. To rank runners fairly, you need to adjust for the conditions before comparing their times.</p>
           </div>
 
           <div class="callout">
@@ -152,7 +152,7 @@
 
           $$\varepsilon_i = \sigma \sqrt{g(X_i)} \cdot \eta_i, \quad \eta_i \stackrel{iid}{\sim} F_\eta$$
 
-          <p>where $g$ is a known or estimable function, and the $\eta_i$ are identically distributed with mean 0 and variance 1. The key property is that $\varepsilon_i / \sqrt{g(X_i)}$ has the <em>same distribution</em> for all $i$ &mdash; not just the same variance, but the same shape, the same quantiles, everything.</p>
+          <p>where $g$ is a known or estimable function, and the $\eta_i$ are identically distributed with mean 0 and variance 1. The key property is that $\varepsilon_i / \sqrt{g(X_i)}$ has the <em>same distribution</em> for all $i$ &mdash; not just the same variance, but the same shape and the same quantiles. This is a stronger condition than equal variance alone, and it is what makes scale families particularly well-suited to conformal prediction.</p>
 
           <h3>Variance-Stabilizing Transformations</h3>
 
@@ -160,7 +160,7 @@
 
           $$\tilde{Z}_i = \frac{Z_i}{\sqrt{g(X_i)}}$$
 
-          <p>The transformed variables $\tilde{Z}_i$ have constant variance. More importantly, if the $Z_i$ form a scale family, the $\tilde{Z}_i$ are <em>identically distributed</em> &mdash; exchangeable in the sense conformal prediction requires.</p>
+          <p>The transformed variables $\tilde{Z}_i$ have constant variance. More importantly, if the $Z_i$ form a scale family, the $\tilde{Z}_i$ are <em>identically distributed</em> &mdash; exchangeable in the sense conformal prediction requires. To give a concrete example: if the prediction error at a point with leverage $h = 0.3$ has standard deviation $\sigma\sqrt{1.3}$, dividing by $\sqrt{1.3}$ rescales it back to standard deviation $\sigma$. A point with leverage $h = 0.05$ has standard deviation $\sigma\sqrt{1.05} \approx \sigma$, so the division barely changes it. The transformation applies a large correction where the variance is large and a small correction where the variance is already close to the baseline.</p>
 
           <h3>VST in Conformal Prediction</h3>
 
@@ -168,7 +168,7 @@
 
           $$\tilde{S}_i = \frac{|Y_i - \hat{f}(X_i)|}{\sqrt{g(X_i)}}$$
 
-          <p>If the errors form a scale family, these stabilized scores are identically distributed across the calibration set. The conformal quantile of the stabilized scores is a more meaningful threshold, and the resulting prediction interval <strong>adapts to local difficulty</strong>:</p>
+          <p>If the errors form a scale family, these stabilized scores are identically distributed across the calibration set. Computing the conformal quantile on these stabilized scores yields a threshold that reflects the common scale rather than a mixture of different scales. The resulting prediction interval then <strong>adapts to local difficulty</strong> when we invert the transformation:</p>
 
           $$\hat{C}(x) = \left[\hat{f}(x) - \hat{q} \cdot \sqrt{g(x)}, \;\; \hat{f}(x) + \hat{q} \cdot \sqrt{g(x)}\right]$$
 
@@ -265,7 +265,7 @@
             </tbody>
           </table>
 
-          <p>The leverage-based weight is notable because it uses the <em>known</em> relationship between leverage and prediction variance (from the exact formula $\sigma^2(1+h)$) rather than requiring an estimated variance function. It avoids the sign-flip trap from Part 6 because it is derived from the design matrix geometry at prediction time, not from training residuals.</p>
+          <p>The leverage-based weight has a useful property: it uses the <em>known</em> relationship between leverage and prediction variance (from the exact formula $\sigma^2(1+h)$) rather than requiring an estimated variance function. Because it is derived from the design matrix geometry at prediction time rather than from training residuals, it sidesteps the sign-flip problem discussed in Part 6.</p>
 
         </div>
       </div>
@@ -283,16 +283,16 @@
 
           <h3>The General Variance-Stabilizing Principle</h3>
 
-          <p>The general recipe for variance stabilization: if a random variable $Z$ has variance that depends on a parameter $\theta$, specifically $\text{Var}(Z) = f(\theta)$, then the transformation</p>
+          <p>The general approach to variance stabilization is straightforward: if a random variable $Z$ has variance that depends on a parameter $\theta$, specifically $\text{Var}(Z) = f(\theta)$, then the transformation</p>
 
           $$\tilde{Z} = \frac{Z}{\sqrt{f(\theta)}}$$
 
           <p>stabilizes the variance to a constant. This is a fundamental tool in statistics dating back to the early 20th century, with several classical instantiations:</p>
 
           <ul>
-            <li><strong>Square root transformation for Poisson data:</strong> If $Z \sim \text{Poisson}(\lambda)$, then $\text{Var}(Z) = \lambda$, so $Z / \sqrt{\lambda}$ stabilizes. In practice, $\sqrt{Z}$ is used since $\text{Var}(\sqrt{Z}) \approx 1/4$ for large $\lambda$.</li>
-            <li><strong>Arcsine transformation for binomial proportions:</strong> If $\hat{p} = Z/n$ with $Z \sim \text{Binomial}(n,p)$, then $\text{Var}(\hat{p}) = p(1-p)/n$. The transformation $\arcsin(\sqrt{\hat{p}})$ stabilizes the variance to approximately $1/(4n)$.</li>
-            <li><strong>Log transformation for proportional variance:</strong> If $\text{Var}(Z) \propto [\mathbb{E}(Z)]^2$, then $\log(Z)$ stabilizes the variance (the coefficient of variation is constant).</li>
+            <li><strong>Square root transformation for Poisson data:</strong> If $Z \sim \text{Poisson}(\lambda)$, then $\text{Var}(Z) = \lambda$, so $Z / \sqrt{\lambda}$ stabilizes. In practice, $\sqrt{Z}$ is used since $\text{Var}(\sqrt{Z}) \approx 1/4$ for large $\lambda$. For example, if one city reports 400 events and another reports 25, the raw counts suggest the first is 16 times larger &mdash; but $\sqrt{400} = 20$ and $\sqrt{25} = 5$ have similar relative uncertainty (standard deviation $\approx 0.5$ for both).</li>
+            <li><strong>Arcsine transformation for binomial proportions:</strong> If $\hat{p} = Z/n$ with $Z \sim \text{Binomial}(n,p)$, then $\text{Var}(\hat{p}) = p(1-p)/n$. The variance peaks at $p = 0.5$ and shrinks toward zero at $p = 0$ or $p = 1$. The transformation $\arcsin(\sqrt{\hat{p}})$ stabilizes the variance to approximately $1/(4n)$, making proportions near the extremes and near the center equally amenable to standard statistical comparisons.</li>
+            <li><strong>Log transformation for proportional variance:</strong> If $\text{Var}(Z) \propto [\mathbb{E}(Z)]^2$, then $\log(Z)$ stabilizes the variance (the coefficient of variation is constant). This arises naturally with financial returns, gene expression levels, and other quantities that are multiplicative in nature. Taking logarithms converts multiplicative variation into additive variation with constant spread.</li>
           </ul>
 
           <h3>Optimal Weight Under Leverage Heteroscedasticity</h3>
@@ -305,7 +305,7 @@
 
           <h3>When Noise Is Also Heteroscedastic</h3>
 
-          <p>The situation becomes more interesting when the noise itself is heteroscedastic. Suppose:</p>
+          <p>The analysis requires more care when the noise itself is heteroscedastic. Suppose:</p>
 
           $$\text{Var}(\varepsilon \mid X) = \sigma^2 g(h(X))$$
 
@@ -349,7 +349,7 @@
 
           <h3>Special Cases</h3>
 
-          <p>The two most important special cases illustrate the range of behavior:</p>
+          <p>Two special cases illustrate the range of behavior:</p>
 
           <p><strong>Case 1: Homoscedastic noise ($g = 1$).</strong> The noise variance is constant at $\sigma^2$. The total prediction variance is $\sigma^2(1 + h)$, and the optimal weight is $(1+h)^{-1/2}$. This is the simplest and most common setting. The weight corrects only for the estimation error term, and it is <em>exact</em> at any sample size because the formula $\sigma^2(1+h)$ is an exact identity, not an approximation.</p>
 
@@ -365,7 +365,7 @@
 
           <p><strong>Condition 1: The variance actually varies.</strong> If leverage scores are nearly constant across the feature space (all points are roughly equidistant from the training centroid and the intrinsic noise is constant), there is nothing to stabilize. The diagnostic $\hat{\eta} = \text{std}(h) / \text{mean}(h)$ measures leverage heterogeneity: when $\hat{\eta} > 1$, leverage variation is substantial and LWCP is likely to help; when $\hat{\eta} < 0.5$, leverage variation is small and vanilla CP performs comparably.</p>
 
-          <p><strong>Condition 2: The variance function is known or well-estimated.</strong> Dividing by the wrong scale factor can make things worse. The leverage-based weight $w(h) = (1+h)^{-1/2}$ satisfies this condition by construction because it uses the exact variance formula from the OLS prediction error decomposition, not an estimate. Studentized CP, which estimates $g$ from training residuals, is vulnerable to the sign-flip problem (Part 6): the estimator learns $\sigma^2(1-h)$ instead of $\sigma^2(1+h)$, producing systematically wrong corrections.</p>
+          <p><strong>Condition 2: The variance function is known or well-estimated.</strong> Dividing by the wrong scale factor can make things worse &mdash; it introduces a systematic distortion rather than removing one. The leverage-based weight $w(h) = (1+h)^{-1/2}$ satisfies this condition by construction because it uses the exact variance formula from the OLS prediction error decomposition, not an estimate. No auxiliary model is needed, and there is no estimation error to worry about. Studentized CP, which estimates $g$ from training residuals, is vulnerable to the sign-flip problem (Part 6): the estimator learns $\sigma^2(1-h)$ instead of $\sigma^2(1+h)$, producing corrections that point in the wrong direction.</p>
 
           <div class="mermaid">
             flowchart TD
@@ -405,7 +405,7 @@
       <p>The key ideas from this post:</p>
 
       <ol>
-        <li><strong>Heteroscedasticity</strong> &mdash; non-constant variance &mdash; is ubiquitous in prediction errors, even under constant noise, because of the leverage term.</li>
+        <li><strong>Heteroscedasticity</strong> &mdash; non-constant variance &mdash; arises naturally in prediction errors, even under constant noise, because of the leverage term.</li>
         <li><strong>Scale families</strong> provide a structured model where the variance changes but the distributional shape does not.</li>
         <li><strong>Variance-stabilizing transformations</strong> divide by the scale factor to make observations comparable.</li>
         <li>In conformal prediction, this translates to <strong>weighted nonconformity scores</strong> and adaptive interval widths.</li>

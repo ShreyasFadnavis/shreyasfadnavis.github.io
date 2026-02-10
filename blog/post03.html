@@ -60,19 +60,19 @@
 
           <h3>The Average Is Fine. The Per-Room Distribution Is Terrible.</h3>
 
-          <p>Imagine a hospital administrator announces: "The average temperature across all rooms is a comfortable 72 degrees Fahrenheit." That sounds reassuring. But walk through the building and you find that the ICU is a sweltering 95 degrees, the surgical suite is a frigid 50, and a handful of rooms in the middle wing happen to be exactly 72. The average is truthful. The lived experience is a disaster.</p>
+          <p>Imagine a hospital administrator announces: "The average temperature across all rooms is a comfortable 72 degrees Fahrenheit." That sounds reassuring. But walk through the building and you find that the ICU is a sweltering 95 degrees, the surgical suite is a frigid 50, and a handful of rooms in the middle wing happen to be exactly 72. The average is truthful. The lived experience is quite different.</p>
 
-          <p>This is exactly what happens with constant-width prediction intervals. The <em>average</em> coverage across all test points is 90%, as promised. But some test points are covered 99% of the time (the intervals are wastefully wide), and others are covered only 70% of the time (the intervals are dangerously narrow). The guarantee is real, but it is hiding a profound unevenness.</p>
+          <p>This is exactly what happens with constant-width prediction intervals. The <em>average</em> coverage across all test points is 90%, as promised. But some test points are covered 99% of the time (the intervals are unnecessarily wide), and others are covered only 70% of the time (the intervals are unreliably narrow). The guarantee is real, but it is hiding a significant unevenness. The marginal coverage statement is not wrong &mdash; it is just not telling you the whole story.</p>
 
           <h3>The House Price Example</h3>
 
-          <p>Suppose you train a model to predict house prices. Your training data contains thousands of suburban homes in the 250K&ndash;400K range and a handful of remote luxury estates worth 2M+. The model learns the suburban pattern well (it has seen thousands of similar houses) but is essentially guessing for the luxury estates (it has almost no comparable data).</p>
+          <p>Suppose you train a model to predict house prices. Your training data contains thousands of suburban homes in the 250K&ndash;400K range and a handful of remote luxury estates worth 2M+. The model learns the suburban pattern well &mdash; it has seen thousands of similar houses with similar square footage, lot sizes, and neighborhood characteristics. But it is essentially guessing for the luxury estates, where each property is unique: a lakefront mansion, a converted historical building, a ranch on 200 acres. There is almost no comparable data for the model to generalize from, so its predictions in that region are much less reliable.</p>
 
-          <p>Now conformal prediction hands you a single number &mdash; say $\hat{q} = 50{,}000$ &mdash; and tells you to use it everywhere. A suburban house predicted at 350K gets the interval [300K, 400K]. A remote estate predicted at 2.5M gets the interval [2.45M, 2.55M].</p>
+          <p>Now conformal prediction hands you a single number &mdash; say $\hat{q} = 50{,}000$ &mdash; and tells you to use it everywhere. A suburban house predicted at 350K gets the interval [300K, 400K]. A remote estate predicted at 2.5M gets the interval [2.45M, 2.55M]. The same half-width is applied to both, even though the model's accuracy differs enormously between these two settings.</p>
 
           <ul>
-            <li>The <strong>suburban interval is too wide</strong>. The model rarely misses by more than 20K here. That extra 30K of width on each side is wasted precision &mdash; it makes the interval less informative than it could be.</li>
-            <li>The <strong>estate interval is too narrow</strong>. The model routinely misses by 200K+ on these unusual properties. The 50K half-width is nowhere near enough. These intervals will fail to cover the true price far more than 10% of the time.</li>
+            <li>The <strong>suburban interval is too wide</strong>. The model rarely misses by more than 20K here, because the training set is dense in this region. That extra 30K of width on each side is wasted precision &mdash; it makes the interval less informative than it could be. A homebuyer seeing a 100K-wide range for a 350K house may reasonably wonder whether the model is telling them anything useful.</li>
+            <li>The <strong>estate interval is too narrow</strong>. The model routinely misses by 200K+ on these unusual properties, because the training set contains so few comparable examples. The 50K half-width is nowhere near enough. These intervals will fail to cover the true price far more than 10% of the time, which means a buyer relying on them could be seriously misled about the property's value.</li>
           </ul>
 
           <div class="mermaid">
@@ -81,7 +81,7 @@
               Q --> E["Easy Region: Suburban homes"]
               Q --> H["Hard Region: Luxury estates"]
               E --> EO["Interval too WIDE<br/>Wasting precision<br/>Coverage: ~99%"]
-              H --> HO["Interval too NARROW<br/>Dangerous undercoverage<br/>Coverage: ~70%"]
+              H --> HO["Interval too NARROW<br/>Unreliable undercoverage<br/>Coverage: ~70%"]
               EO --> M["Marginal average: 90% &#10003;"]
               HO --> M
 
@@ -93,6 +93,8 @@
               style M fill:#e3f2fd,stroke:#1565c0,color:#1c1917
           </div>
           <p class="diagram-caption">A single quantile forces a tradeoff: overcoverage in easy regions subsidizes undercoverage in hard regions.</p>
+
+          <p>This tradeoff is not an artifact of a bad model or insufficient data. It is a structural consequence of using a single number to summarize the uncertainty across the entire feature space. To see this more clearly, it helps to visualize what constant-width intervals look like compared to what we actually want.</p>
 
           <h3>Constant Width vs. Adaptive Width</h3>
 
@@ -150,7 +152,7 @@
 
           <h3>Two Kinds of Coverage</h3>
 
-          <p>The distinction between marginal and conditional coverage is the conceptual engine driving everything that follows in this series.</p>
+          <p>The intuitive picture from the previous section &mdash; overcoverage in easy regions subsidizing undercoverage in hard ones &mdash; has a precise mathematical formulation. It comes down to the distinction between marginal and conditional coverage, which is the conceptual engine driving everything that follows in this series.</p>
 
           <p><strong>Marginal coverage</strong> is the guarantee that conformal prediction actually provides:</p>
 
@@ -258,11 +260,11 @@
 
           <p>The root cause is that conformal prediction uses a single quantile for all test points. The quantile $\hat{q}$ is calibrated to be correct on average over the calibration set, which is a mixture of easy and hard points. For easy points, $\hat{q}$ is too large; for hard points, $\hat{q}$ is too small.</p>
 
-          <p>What we need is a way to make the interval width depend on $x$: wider where prediction is harder, narrower where it is easier. This requires knowing &mdash; or estimating &mdash; what makes some predictions harder than others.</p>
+          <p>What we need is a way to make the interval width depend on $x$: wider where prediction is harder, narrower where it is easier. This requires knowing &mdash; or estimating &mdash; what makes some predictions harder than others. The question, then, is where this information comes from.</p>
 
           <h3>Two Approaches to Adaptive Intervals</h3>
 
-          <p>There are two fundamentally different strategies for making intervals adaptive:</p>
+          <p>There are two fundamentally different strategies for making intervals adaptive, and they differ in how they answer the question above:</p>
 
           <ol>
             <li><strong>Learn the difficulty.</strong> Train an auxiliary model to estimate where predictions are hard. For example, estimate the conditional variance $\text{Var}(Y \mid X=x)$ or fit quantile regressors. This is the approach taken by Conformalized Quantile Regression (CQR) and Studentized Conformal Prediction.</li>
@@ -321,7 +323,7 @@
 
           <h3>The Impossibility Result</h3>
 
-          <p>The sobering mathematical backdrop to this entire discussion is a result established by Vovk (2012) and formalized more precisely by Barber, Candes, Ramdas, and Tibshirani (2021):</p>
+          <p>We have seen that constant-width intervals can fail badly on a per-point basis, and that adaptive intervals are the natural remedy. But how adaptive can we actually be? Before diving into solutions, it is worth understanding the theoretical limits. The important mathematical backdrop to this entire discussion is a result established by Vovk (2012) and formalized more precisely by Barber, Candes, Ramdas, and Tibshirani (2021):</p>
 
           <blockquote>
             <p>For any distribution-free prediction interval procedure that achieves marginal coverage $1-\alpha$, there exist distributions under which the conditional coverage at some points is as low as 0 and at other points is as high as 1.</p>
@@ -335,15 +337,15 @@
 
           <h3>Proof Intuition</h3>
 
-          <p>The proof works by adversarial construction. Given any distribution-free method $\hat{C}$, one constructs a distribution $P^*$ that concentrates the noise variance at points where $\hat{C}$ allocates the least width. Because $\hat{C}$ must be distribution-free (it cannot "know" where $P^*$ will place its variance), the adversary can always find a distribution that defeats it.</p>
+          <p>The proof works by adversarial construction. Given any distribution-free method $\hat{C}$, one constructs a distribution $P^*$ that concentrates the noise variance at points where $\hat{C}$ allocates the least width. Because $\hat{C}$ must be distribution-free (it cannot "know" where $P^*$ will place its variance), the adversary can always find a distribution that exposes its weaknesses.</p>
 
           <p>Concretely: if $\hat{C}$ gives narrow intervals at some point $x_0$, set $P^*$ so that $\text{Var}(Y \mid X = x_0)$ is enormous. The interval at $x_0$ will have near-zero conditional coverage. Meanwhile, at points where $\hat{C}$ gives wide intervals, set the variance to zero; the conditional coverage there approaches 1. The marginal coverage can still be $1-\alpha$ because the overcoverage at the easy points compensates, but the conditional coverage is maximally misallocated.</p>
 
-          <p>The impossibility result does not say that all methods are equally bad. It sets a <em>lower bound</em> on what is achievable in the fully distribution-free setting. The space between that lower bound and what practical methods achieve is where all the interesting work lives.</p>
+          <p>The impossibility result does not say that all methods are equally bad &mdash; far from it. It sets a <em>lower bound</em> on what is achievable in the fully distribution-free setting. In practice, real data is not adversarially constructed, and even modest structural assumptions (which we discuss next) can dramatically improve conditional coverage. The space between that lower bound and what practical methods achieve is where all the interesting work lives.</p>
 
           <h3>Escaping Impossibility: Structural Assumptions</h3>
 
-          <p>The impossibility result applies only in the <em>fully</em> distribution-free setting. Under structural assumptions that are weaker than full parametric models, near-perfect conditional coverage becomes achievable:</p>
+          <p>So the fully distribution-free setting is a dead end for conditional coverage. But the key insight is that we rarely need to be fully distribution-free. The impossibility result applies only in that extreme setting. Under structural assumptions that are weaker than full parametric models but stronger than making no assumptions at all, near-perfect conditional coverage becomes achievable:</p>
 
           <ul>
             <li><strong>Scale families:</strong> If $Y = f(X) + \sigma(X) \cdot \varepsilon$ where $\varepsilon$ is independent of $X$ and $\sigma(X)$ can be estimated, then dividing by $\hat{\sigma}(X)$ makes residuals exchangeable conditional on $X$, and conditional coverage follows.</li>
@@ -381,7 +383,7 @@
 
           <h3>Quantifying the Cost: Wasted Width Ratio</h3>
 
-          <p>To measure how much a constant-width method loses relative to the ideal, define the <strong>Wasted Width Ratio</strong>:</p>
+          <p>Structural assumptions tell us that adaptive intervals are achievable in principle. But how much do we actually lose by using constant-width intervals instead? To make this concrete, we can define a simple metric. To measure how much a constant-width method loses relative to the ideal, define the <strong>Wasted Width Ratio</strong>:</p>
 
           $$\text{WWR} = \frac{\mathbb{E}[\text{width}(\hat{C}(X))]}{\mathbb{E}[\text{width}(\hat{C}^*(X))]}$$
 

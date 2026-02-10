@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Hat Matrix: Linear Regression's Hidden Diagnostic — Shreyas Fadnavis</title>
+  <title>The Hat Matrix: A Built-In Diagnostic for Linear Regression — Shreyas Fadnavis</title>
   <link rel="stylesheet" href="../css/style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -27,7 +27,7 @@
 <main>
   <article class="post">
     <div class="post-header">
-      <h1>The Hat Matrix: Linear Regression's Hidden Diagnostic</h1>
+      <h1>The Hat Matrix: A Built-In Diagnostic for Linear Regression</h1>
       <p class="post-subtitle">Part 4 of a 10-part series on prediction intervals, conformal prediction, and leverage scores.</p>
     </div>
 
@@ -39,7 +39,7 @@
 
     <div class="post-body">
 
-      <p>We now shift gears. Parts 1&ndash;3 covered conformal prediction and its constant-width limitation. This post begins a new track: <strong>the geometry of data</strong>. We introduce a quantity called the <em>leverage score</em> that measures how unusual each data point is, and a matrix called the <em>hat matrix</em> that encodes these scores for every point simultaneously. By the end of this series, leverage will connect back to conformal prediction in a surprising and powerful way.</p>
+      <p>We now shift gears. Parts 1&ndash;3 covered conformal prediction and its constant-width limitation. This post begins a new track: <strong>the geometry of data</strong>. We introduce a quantity called the <em>leverage score</em> that measures how unusual each data point is, and a matrix called the <em>hat matrix</em> that encodes these scores for every point simultaneously. By the end of this series, leverage will connect back to conformal prediction in a natural and useful way.</p>
 
       <p>This post is organized in three progressive difficulty levels. Start wherever you are comfortable.</p>
 
@@ -56,13 +56,13 @@
 
           <h3>A Social Circle Analogy</h3>
 
-          <p>Imagine you are in a room of 100 people. Most of them are clustered in the center, chatting in groups. But you are standing alone in the far corner. Now someone asks the room a question and averages all the answers. Your answer has outsized influence &mdash; because you are the only one representing "the corner." If you change your answer, the average shifts noticeably. If someone in the center changes theirs, it barely matters; there are dozens of others nearby giving similar answers.</p>
+          <p>Imagine you are in a room of 100 people. Most of them are clustered in the center, chatting in groups. But you are standing alone in the far corner. Now someone asks the room a question and averages all the answers. Your answer has disproportionate influence &mdash; because you are the only one representing "the corner." If you change your answer, the average shifts noticeably. If someone in the center changes theirs, it barely matters; there are dozens of others nearby giving similar answers.</p>
 
-          <p>That is <strong>leverage</strong> &mdash; how much pull a single data point has on the model's answer.</p>
+          <p>That, in essence, is <strong>leverage</strong> &mdash; how much influence a single data point has on the model's answer.</p>
 
           <h3>Leverage in Machine Learning</h3>
 
-          <p>When a model fits data, most training points are "average" &mdash; they share similar features with many other points. But some points are unusual: they sit in sparse regions of the feature space, far from the crowd. These unusual points have <strong>high leverage</strong>. The model is forced to pay extra attention to them because there is no one else nearby to "vote" on what the prediction should be in that region.</p>
+          <p>The same principle applies when fitting a model. When a model fits data, most training points are "average" &mdash; they share similar features with many other points and sit in well-populated regions of the feature space. But some points are unusual: they sit in sparse regions, far from the crowd. These unusual points have <strong>high leverage</strong>. The model is forced to pay extra attention to them because there is no one else nearby to "vote" on what the prediction should be in that region. As a result, the fitted model surface is disproportionately shaped by these isolated points.</p>
 
           <div class="mermaid">
             graph LR
@@ -120,12 +120,12 @@
 
           <div class="callout">
             <div class="callout-label">Key Point</div>
-            <p>Leverage depends on <strong>where you are</strong> in feature space, not on your Y value. A point can have a perfectly normal outcome but extreme leverage. It is entirely about position &mdash; how far you are from the "center" of the training data, accounting for correlations between features.</p>
+            <p>Leverage depends on <strong>where you are</strong> in feature space, not on your Y value. A point can have a perfectly normal outcome but high leverage. It is entirely about position &mdash; how far you are from the "center" of the training data, measured in a way that accounts for correlations between features.</p>
           </div>
 
           <h3>Why Should You Care?</h3>
 
-          <p>High-leverage points are not necessarily bad. But they are <em>powerful</em>. If a high-leverage point happens to have an unusual response (maybe it is an error, or just an outlier in Y), it can drag the entire model off course. Knowing which points have high leverage lets you:</p>
+          <p>With this intuition in hand, we can ask: does leverage matter in practice? The answer is yes, and it matters in two directions. High-leverage points are not necessarily bad &mdash; a point can sit in an unusual region and still follow the true pattern perfectly. But they are <em>influential</em>. If a high-leverage point happens to have an unusual response (maybe it is an error, or just an outlier in Y), it can drag the entire model off course. Conversely, removing a high-leverage point can change the fitted model substantially, while removing a low-leverage point typically changes it very little. Knowing which points have high leverage lets you:</p>
 
           <ul>
             <li>Identify which training points the model depends on most</li>
@@ -165,7 +165,7 @@
 
           $$\mathbf{H} = \mathbf{X}(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top$$
 
-          <p>It is called the hat matrix because it "puts the hat on Y": $\hat{\mathbf{Y}} = \mathbf{H}\mathbf{Y}$.</p>
+          <p>It is called the hat matrix because it "puts the hat on Y": $\hat{\mathbf{Y}} = \mathbf{H}\mathbf{Y}$. Geometrically, this is an orthogonal projection. The response vector $\mathbf{Y}$ lives in $\mathbb{R}^n$, and the columns of $\mathbf{X}$ span a $p$-dimensional subspace within that space. The hat matrix finds the point in this subspace that is closest (in Euclidean distance) to $\mathbf{Y}$. The residual vector $\mathbf{e} = \mathbf{Y} - \hat{\mathbf{Y}}$ is perpendicular to the column space of $\mathbf{X}$, which is exactly the condition that defines OLS.</p>
 
           <div class="mermaid">
             flowchart LR
@@ -182,6 +182,8 @@
           <p class="diagram-caption">The hat matrix H projects Y onto the column space of X. The complement (I - H) projects onto the orthogonal complement, giving the residuals.</p>
 
           <h3>Properties of the Hat Matrix</h3>
+
+          <p>Because $\mathbf{H}$ is a projection matrix, it inherits several useful algebraic properties. These are not just formal curiosities &mdash; each one has a concrete statistical consequence, as the table below summarizes.</p>
 
           <table>
             <thead>
@@ -227,7 +229,7 @@
 
           $$\hat{Y}_i = h_i Y_i + \sum_{j \neq i} H_{ij} Y_j$$
 
-          <p>The leverage $h_i$ is the weight that $Y_i$ receives in its own prediction. If $h_i \approx 1$, the model essentially passes through the observed value &mdash; the point "leverages" the fit completely. If $h_i \approx 0$, the point has negligible influence on its own fitted value.</p>
+          <p>The leverage $h_i$ is the weight that $Y_i$ receives in its own prediction. If $h_i \approx 1$, the model essentially passes through the observed value &mdash; the point "leverages" the fit completely, and the residual at that point will be near zero regardless of the actual Y value. If $h_i \approx 0$, the point has negligible influence on its own fitted value; its prediction is almost entirely determined by the other training points. Most points fall somewhere in between, with a typical leverage near the average $p/n$.</p>
 
           <h4>Properties of Leverage Scores</h4>
 
@@ -270,13 +272,13 @@
 
           <h3>Geometric Interpretation: Mahalanobis Distance</h3>
 
-          <p>The formula $h(x) = x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x$ is the squared <strong>Mahalanobis distance</strong> from $x$ to the training centroid (after centering). The matrix $(\mathbf{X}^\top\mathbf{X})^{-1}$ defines an ellipsoid in $\mathbb{R}^p$ &mdash; the inverse of the sample covariance of the training features (up to a factor of $n$).</p>
+          <p>The formula $h(x) = x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x$ is the squared <strong>Mahalanobis distance</strong> from $x$ to the training centroid (after centering). The matrix $(\mathbf{X}^\top\mathbf{X})^{-1}$ defines an ellipsoid in $\mathbb{R}^p$ &mdash; the inverse of the sample covariance of the training features (up to a factor of $n$). Points on the surface of this ellipsoid all have the same leverage, so contours of constant leverage are ellipsoids whose axes are aligned with the principal directions of the training data.</p>
 
-          <p>Consider a 2D example where the training data form an elongated elliptical cloud (correlated features). A point that is far along the <em>major axis</em> has moderate leverage, but a point that is far along the <em>minor axis</em> has very high leverage. The Mahalanobis distance accounts for the shape of the data cloud, not just the Euclidean distance. This is why leverage captures something that individual feature values miss: a point can look "normal" in every individual feature but have high leverage because it sits in an unusual <em>combination</em> of feature values.</p>
+          <p>Consider a 2D example where the training data form an elongated elliptical cloud (correlated features). A point that is far along the <em>major axis</em> &mdash; the direction of greatest spread &mdash; has moderate leverage, because many training points already span that direction. But a point that is far along the <em>minor axis</em> has very high leverage, because the training data are tightly concentrated in that direction and the point lies outside the range the data cover well. The Mahalanobis distance accounts for the shape of the data cloud, not just the Euclidean distance. This is why leverage captures something that individual feature values miss: a point can look "normal" in every individual feature but have high leverage because it sits in an unusual <em>combination</em> of feature values.</p>
 
           <h3>Computing Leverage via SVD</h3>
 
-          <p>Rather than forming and inverting $\mathbf{X}^\top\mathbf{X}$, we compute leverage through the thin SVD of the design matrix:</p>
+          <p>The definition of leverage involves the matrix inverse $(\mathbf{X}^\top\mathbf{X})^{-1}$, which can be numerically unstable when features are highly correlated. A more reliable approach &mdash; and one that provides additional geometric insight &mdash; is to compute leverage through the thin SVD of the design matrix:</p>
 
           $$\mathbf{X} = \mathbf{U}\boldsymbol{\Sigma}\mathbf{V}^\top$$
 
@@ -328,7 +330,7 @@
 
           <h3>Full SVD Derivation</h3>
 
-          <p>Starting from the thin SVD $\mathbf{X} = \mathbf{U}\boldsymbol{\Sigma}\mathbf{V}^\top$, we derive the leverage formula step by step.</p>
+          <p>This section fills in the algebraic details that the Technical section summarized. Starting from the thin SVD $\mathbf{X} = \mathbf{U}\boldsymbol{\Sigma}\mathbf{V}^\top$, we derive the leverage formula step by step.</p>
 
           <p>First, compute $\mathbf{X}^\top\mathbf{X}$:</p>
 
@@ -348,7 +350,7 @@
 
           $$h_i = \|\boldsymbol{\Sigma}^{-1}\boldsymbol{\Sigma} u_i\|^2 = \|u_i\|^2$$
 
-          <p>where $u_i$ is the $i$-th row of $\mathbf{U}$. This is a clean and computationally useful result.</p>
+          <p>where $u_i$ is the $i$-th row of $\mathbf{U}$. This is a convenient result: all training leverages fall out of the SVD with no additional work.</p>
 
           <h3>Proof of Idempotence</h3>
 
@@ -356,7 +358,7 @@
 
           $$\mathbf{H}^2 = \mathbf{X}(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top \cdot \mathbf{X}(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top = \mathbf{X}(\mathbf{X}^\top\mathbf{X})^{-1}\underbrace{(\mathbf{X}^\top\mathbf{X})(\mathbf{X}^\top\mathbf{X})^{-1}}_{\mathbf{I}_p}\mathbf{X}^\top = \mathbf{X}(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top = \mathbf{H}$$
 
-          <p>This confirms that $\mathbf{H}$ is a projection matrix &mdash; it projects the response vector onto the column space of the design matrix.</p>
+          <p>This confirms that $\mathbf{H}$ is a projection matrix &mdash; it projects the response vector onto the column space of the design matrix. Idempotence has a direct geometric meaning: once you have projected $\mathbf{Y}$ onto the column space of $\mathbf{X}$, projecting again does nothing, because the result is already in that subspace. This is the algebraic way of saying "the closest point in a subspace is already in the subspace."</p>
 
           <h3>Proof of the Leverage Bounds</h3>
 
@@ -372,15 +374,15 @@
 
           <p>For a test point $x$ not in the training set, the leverage $h(x) = x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x$ can exceed 1. The bound $h_i \leq 1$ relied on $H_{ii}$ being a diagonal entry of an idempotent matrix, which only applies to the $n$ training points that define $\mathbf{H}$. A new point $x$ is not constrained by this.</p>
 
-          <p>When $h(x) > 1$, the model is in <strong>deep extrapolation</strong>: the test point is farther from the training centroid (in Mahalanobis distance) than any training point. Predictions at such points should be treated with extreme caution.</p>
+          <p>When $h(x) > 1$, the model is extrapolating well beyond the training data: the test point is farther from the training centroid (in Mahalanobis distance) than any training point. Predictions at such points should be treated with caution, as the model has little basis for its estimate.</p>
 
-          <h3>Prediction Variance: The Punchline</h3>
+          <h3>Prediction Variance: Putting It Together</h3>
 
-          <p>Under the linear model $Y = X^\top\beta^* + \varepsilon$ with $\text{Var}(\varepsilon) = \sigma^2$ and a new test point $(x, Y_{\text{new}})$ independent of the training data:</p>
+          <p>We now arrive at the result that motivates the rest of this series. The question is: how uncertain is the model's prediction at a new test point? The answer decomposes into two independent sources of randomness. Under the linear model $Y = X^\top\beta^* + \varepsilon$ with $\text{Var}(\varepsilon) = \sigma^2$ and a new test point $(x, Y_{\text{new}})$ independent of the training data:</p>
 
           $$\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \text{Var}(Y_{\text{new}}) + \text{Var}(\hat{Y}(x)) = \sigma^2 + \sigma^2 h(x) = \sigma^2(1 + h(x))$$
 
-          <p>where $\text{Var}(\hat{Y}(x)) = x^\top \text{Var}(\hat{\beta}) x = \sigma^2 x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x = \sigma^2 h(x)$, and the cross-term vanishes because $Y_{\text{new}}$ is independent of $\hat{\beta}$.</p>
+          <p>where $\text{Var}(\hat{Y}(x)) = x^\top \text{Var}(\hat{\beta}) x = \sigma^2 x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x = \sigma^2 h(x)$, and the cross-term vanishes because $Y_{\text{new}}$ is independent of $\hat{\beta}$. The first term, $\sigma^2$, is irreducible noise &mdash; even with a perfect model, the new observation has random variation. The second term, $\sigma^2 h(x)$, is estimation uncertainty &mdash; the model's coefficients are themselves estimated from noisy data, and that estimation is less precise in directions where the training data are sparse.</p>
 
           <div class="mermaid">
             flowchart TD
@@ -401,16 +403,16 @@
           </div>
           <p class="diagram-caption">The full mathematical pipeline: from the design matrix to the hat matrix, to leverage scores, to prediction variance, and finally to prediction interval widths.</p>
 
-          <p>This is the fundamental result: <strong>leverage directly controls prediction variance</strong>. At the centroid of the training data ($h \approx 0$), the prediction variance is approximately $\sigma^2$ &mdash; just the irreducible noise. At a high-leverage point, prediction variance grows because the coefficient estimates are uncertain in that direction.</p>
+          <p>This is the central result: <strong>leverage directly controls prediction variance</strong>. At the centroid of the training data ($h \approx 0$), the prediction variance is approximately $\sigma^2$ &mdash; just the irreducible noise. At a high-leverage point, prediction variance grows because the coefficient estimates are uncertain in that direction.</p>
 
           <div class="callout">
             <div class="callout-label">Preview: The Sign Flip</div>
-            <p>There is a subtlety that makes connecting leverage to conformal prediction trickier than it first appears. For <em>training</em> residuals, $\text{Var}(Y_i - \hat{Y}_i) = \sigma^2(1 - h_i)$ &mdash; high-leverage training points have <strong>smaller</strong> residuals. But for <em>test</em> prediction errors, $\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \sigma^2(1 + h(x))$ &mdash; high-leverage test points have <strong>larger</strong> errors. The sign flips! This training-test mismatch is the subject of Part 6.</p>
+            <p>There is a subtlety that complicates the connection between leverage and conformal prediction. For <em>training</em> residuals, $\text{Var}(Y_i - \hat{Y}_i) = \sigma^2(1 - h_i)$ &mdash; high-leverage training points have <strong>smaller</strong> residuals. But for <em>test</em> prediction errors, $\text{Var}(Y_{\text{new}} - \hat{Y}(x)) = \sigma^2(1 + h(x))$ &mdash; high-leverage test points have <strong>larger</strong> errors. The sign flips! This training-test mismatch is the subject of Part 6.</p>
           </div>
 
           <h3>Computational Cost</h3>
 
-          <p>The thin SVD of the $n \times p$ design matrix costs $O(np^2)$ for $n > p$, or $O(n^2 p)$ for $n < p$. Once the SVD is computed, the leverage of any new test point costs $O(p)$ (one matrix-vector product with $\mathbf{V}$, one scaling by $\boldsymbol{\Sigma}^{-1}$, and one inner product). For training points, all $n$ leverages come for free as $\|u_i\|^2$ from the rows of $\mathbf{U}$. In practice, the SVD is typically already computed as part of the regression fit, so leverage scores cost essentially nothing extra.</p>
+          <p>A natural concern is whether computing leverage scores adds significant overhead to the regression pipeline. It does not. The thin SVD of the $n \times p$ design matrix costs $O(np^2)$ for $n > p$, or $O(n^2 p)$ for $n < p$. Once the SVD is computed, the leverage of any new test point costs $O(p)$ (one matrix-vector product with $\mathbf{V}$, one scaling by $\boldsymbol{\Sigma}^{-1}$, and one inner product). For training points, all $n$ leverages come for free as $\|u_i\|^2$ from the rows of $\mathbf{U}$. In practice, the SVD is typically already computed as part of the regression fit, so leverage scores cost essentially nothing extra.</p>
 
         </div>
       </div>

@@ -37,9 +37,9 @@
 
     <div class="post-body">
 
-      <p>This is the conceptual core of the entire series. Everything in Parts 1&ndash;5 has been building to this moment. The conformal prediction track established that we need adaptive prediction intervals. The leverage track established that leverage scores capture the geometry of feature space. This post connects the two&mdash;and reveals a trap so fundamental that it undermines an entire class of uncertainty estimation methods.</p>
+      <p>This is the conceptual core of the entire series. Everything in Parts 1&ndash;5 has been building to this moment. The conformal prediction track established that we need adaptive prediction intervals. The leverage track established that leverage scores capture the geometry of feature space. This post connects the two&mdash;and identifies a structural problem that affects an entire class of uncertainty estimation methods.</p>
 
-      <p>The trap is this: training residuals and prediction errors depend on leverage with <em>opposite signs</em>. Where the model looks most accurate on training data, it is actually <em>most uncertain</em> on new data. The sign literally flips. And any method that learns uncertainty from training residuals will get it systematically backwards.</p>
+      <p>The issue is this: training residuals and prediction errors depend on leverage with <em>opposite signs</em>. Where the model looks most accurate on training data, it is actually <em>most uncertain</em> on new data. The sign flips. And any method that learns uncertainty from training residuals will get it systematically backwards.</p>
 
       <p>We present this at three levels. Read the first for the core insight, or go all the way through for the full mathematical derivation.</p>
 
@@ -58,11 +58,13 @@
 
           <p>Imagine stretching a rubber band between two nails hammered into a board. The rubber band sits taut and straight between them&mdash;this is your model, a line fit through training data.</p>
 
-          <p>Now add a third nail far to the right, well away from the other two. The rubber band <strong>bends</strong> to touch it. At that distant nail, the fit looks perfect&mdash;the residual is tiny, the band passes right through the point. The model appears to be doing a beautiful job.</p>
+          <p>Now add a third nail far to the right, well away from the other two. The rubber band <strong>bends</strong> to touch it. At that distant nail, the fit looks perfect&mdash;the residual is tiny, the band passes right through the point. The model appears to be doing a good job.</p>
 
-          <p>But here is the trick. Remove that third nail and put a <em>new</em> nail nearby&mdash;even just slightly offset. Let go of the rubber band. It snaps wildly. The prediction error at the new point is enormous, because the band was being held in place by the original nail, not by any genuine understanding of the pattern.</p>
+          <p>To make this concrete, suppose the two original nails are at $x=0$ and $x=1$, and the distant nail is at $x=10$. When you fit a line through these three points, the distant point at $x=10$ has high leverage: it sits far from the centroid of the data, so it exerts strong pull on the fitted line. The model tilts to accommodate it, and the residual at that point is small&mdash;perhaps nearly zero. Meanwhile, the residuals at $x=0$ and $x=1$ may actually grow, because the line tilted away from them to reach the distant nail.</p>
 
-          <p>The model <strong>cheated</strong>. It bent itself to touch the distant point, making the training residual deceptively small. But this bending was based on noisy data. At prediction time, that same bending creates massive uncertainty.</p>
+          <p>But here is the catch. Remove that third nail and put a <em>new</em> nail nearby&mdash;even just slightly offset. Let go of the rubber band. It swings back. The prediction error at the new point is large, because the band was being held in place by the original nail, not by any genuine understanding of the pattern.</p>
+
+          <p>The model <strong>overfit locally</strong>. It bent itself to touch the distant point, making the training residual misleadingly small. But this bending was driven by noisy data. At prediction time, that same bending creates substantial uncertainty. The key mechanism is that fitting absorbs noise at training points&mdash;it hides the noise rather than eliminating it&mdash;and at prediction time, that absorbed noise reappears as estimation error pointing in the wrong direction.</p>
 
           <div class="mermaid">
 flowchart LR
@@ -88,22 +90,24 @@ flowchart LR
 
           <h3>The Sign Literally Flips</h3>
 
-          <p>This is not a vague metaphor. The mathematics says something precise and devastating:</p>
+          <p>This is not a vague metaphor. The mathematics says something precise and quantifiable:</p>
 
           <ul>
             <li><strong>Training residuals</strong> are <strong>small</strong> where the model was forced to pay attention (high-leverage points). The model absorbed the noise by bending to fit them.</li>
             <li><strong>Prediction errors</strong> are <strong>large</strong> at those same spots, because the model's bending was based on noisy data, and new observations are not protected by the same fitting.</li>
           </ul>
 
-          <p>The sign literally flips. Training says: <em>"I am certain here!"</em> Reality says: <em>"I am MOST uncertain here!"</em></p>
+          <p>The sign flips. Training says: <em>"I am certain here."</em> Reality says: <em>"I am most uncertain here."</em></p>
+
+          <p>To see why this happens, think about what the model does at a high-leverage point during training. It adjusts its coefficients to reduce the error at that point, effectively absorbing the noise into the fit. The residual shrinks because the model spent its degrees of freedom accommodating that point. But when a new observation arrives at the same location, it brings fresh noise that the model has no ability to absorb. Worse, the coefficients are now biased by the original noise they absorbed, so the estimation error and the new noise compound rather than cancel.</p>
 
           <p>This is not a subtle or edge-case issue. It is a systematic inversion. Wherever the model is most confident about its training data, it is least reliable for new predictions. Wherever the model admits to being imprecise on training data, it is actually most trustworthy for prediction.</p>
 
           <h3>Why This Breaks Uncertainty Estimation</h3>
 
-          <p>Think about how most uncertainty estimators work. They look at training residuals&mdash;the gaps between what the model predicted and what it observed during training&mdash;and try to learn a pattern: "Where are the residuals big? That is where I should be uncertain."</p>
+          <p>Think about how most uncertainty estimators work. They look at training residuals&mdash;the gaps between what the model predicted and what it observed during training&mdash;and try to learn a pattern: "Where are the residuals big? That is where I should be uncertain." This is a natural and seemingly reasonable strategy: if the model struggled to fit a particular region of feature space, that region is probably harder to predict, so intervals there should be wider.</p>
 
-          <p>But the sign flip means the residuals are big at exactly the <em>wrong</em> places. The estimator learns the pattern backwards.</p>
+          <p>But the sign flip means the residuals are big at exactly the <em>wrong</em> places. The estimator learns the pattern backwards. Low-leverage points, where prediction is already easy, show large training residuals and receive wide intervals they do not need. High-leverage points, where prediction is hardest, show small training residuals and receive narrow intervals that undercover.</p>
 
           <div class="mermaid">
 flowchart TD
@@ -112,12 +116,12 @@ flowchart TD
     C --> D["Concludes: LOW\nuncertainty there"]
     D --> E["Applied to new\ntest point at\nhigh leverage"]
     E --> F["Reality: HIGH\nuncertainty there"]
-    F --> G["SYSTEMATIC ERROR\nin the wrong direction"]
+    F --> G["Systematic error\nin the wrong direction"]
     style D fill:#e8f5e9,stroke:#2e7d32,color:#1c1917
     style F fill:#fce4ec,stroke:#c62828,color:#1c1917
     style G fill:#fce4ec,stroke:#c62828,color:#1c1917
           </div>
-          <p class="diagram-caption">The pipeline of failure: training residuals encode the wrong variance structure, and anything downstream inherits the error.</p>
+          <p class="diagram-caption">The chain of reasoning: training residuals encode the wrong variance structure, and anything downstream inherits the error.</p>
 
           <div class="analogy">
             <div class="analogy-label">Analogy</div>
@@ -126,7 +130,7 @@ flowchart TD
 
           <div class="callout">
             <div class="callout-label">Key Insight</div>
-            <p>The sign flip is not a minor detail. It means that residual-based uncertainty estimation is <strong>systematically wrong in the opposite direction</strong> from what you need. It does not just add noise&mdash;it inverts the signal. High-leverage points, where you most need accurate uncertainty quantification, are precisely where residual-based methods fail most dramatically.</p>
+            <p>The sign flip is not a minor detail. It means that residual-based uncertainty estimation is <strong>systematically wrong in the opposite direction</strong> from what you need. It does not just add noise&mdash;it inverts the signal. High-leverage points, where accurate uncertainty quantification matters most, are precisely where residual-based methods are least reliable.</p>
           </div>
 
         </div>
@@ -219,11 +223,11 @@ flowchart LR
             </tbody>
           </table>
 
-          <p>The leverage contribution enters with <strong>opposite signs</strong>. Why?</p>
+          <p>The leverage contribution enters with <strong>opposite signs</strong>. Why? The core reason is that the hat matrix $\mathbf{H}$ and its complement $\mathbf{I} - \mathbf{H}$ partition the noise into two orthogonal pieces. Training residuals live in the $\mathbf{I} - \mathbf{H}$ subspace: they see only the fraction of noise that the model did not absorb. Prediction errors live in the full space: they see the new observation's noise <em>plus</em> the estimation error from noise that the model <em>did</em> absorb during training. The more noise the model absorbs (high leverage), the smaller the residual but the larger the estimation error carried forward into prediction.</p>
 
           <ul>
-            <li><strong>Prediction errors are amplified by leverage</strong> because the model is uncertain in high-leverage directions. The coefficient estimates $\hat{\beta}$ are imprecise, and that imprecision is magnified when projecting onto a direction $x$ that is far from the training centroid.</li>
-            <li><strong>Training residuals are attenuated by leverage</strong> because the model has already <em>seen</em> the training point and adjusted itself to accommodate it. A high-leverage point pulls the fitted surface toward itself, absorbing some of the noise. The residual $e_i$ is smaller than the true noise $\varepsilon_i$ because part of $\varepsilon_i$ has been "eaten" by the model's bending.</li>
+            <li><strong>Prediction errors are amplified by leverage</strong> because the model is uncertain in high-leverage directions. The coefficient estimates $\hat{\beta}$ are imprecise, and that imprecision is magnified when projecting onto a direction $x$ that is far from the training centroid. A new observation at that point brings its own noise $\varepsilon_{\text{new}}$, and on top of that, the fitted value $\hat{Y}(x)$ carries estimation error proportional to $h(x)$. The two sources of variance add because they are independent.</li>
+            <li><strong>Training residuals are attenuated by leverage</strong> because the model has already <em>seen</em> the training point and adjusted itself to accommodate it. A high-leverage point pulls the fitted surface toward itself, absorbing some of the noise. The residual $e_i$ is smaller than the true noise $\varepsilon_i$ because a fraction $h_i$ of $\varepsilon_i$ has been absorbed into the fit. Formally, $e_i = (1 - h_i)\varepsilon_i + \text{(contributions from other points' noise)}$, and the net effect is a variance of $\sigma^2(1-h_i)$.</li>
           </ul>
 
           <div class="mermaid">
@@ -329,9 +333,9 @@ flowchart TD
             </tbody>
           </table>
 
-          <p>At $h = 0.3$, the residual-based estimator underestimates uncertainty by 36%. At $h = 0.5$, by 73%. As $h \to 1$&mdash;which happens for extreme outliers in feature space or when $p$ is close to $n$&mdash;the estimator predicts near-zero uncertainty while the true prediction uncertainty is enormous. The ratio diverges to infinity.</p>
+          <p>At $h = 0.3$, the residual-based estimator underestimates uncertainty by 36%. At $h = 0.5$, by 73%. As $h \to 1$&mdash;which happens for outliers in feature space or when $p$ is close to $n$&mdash;the estimator predicts near-zero uncertainty while the true prediction uncertainty is large. The ratio diverges to infinity.</p>
 
-          <p>This is not a small correction. For any dataset with meaningful leverage variation, the mismatch is large enough to completely invalidate the resulting prediction intervals.</p>
+          <p>This is not a small correction. For any dataset with meaningful leverage variation, the mismatch is large enough to substantially distort the resulting prediction intervals.</p>
 
           <div class="callout">
             <div class="callout-label">The Implication</div>
@@ -421,7 +425,7 @@ flowchart TD
 
           <p>Points with high leverage produce inflated scores (the ratio is large), biasing the conformal quantile upward. Points with low leverage produce deflated scores (the ratio is near 1), creating a pull in the other direction. The quantile is a compromise that is too large for low-leverage points and too small for high-leverage points&mdash;exactly the opposite of what adaptive intervals need.</p>
 
-          <h3>The Fundamental Impossibility</h3>
+          <h3>Generality of the Sign Flip</h3>
 
           <p>The sign flip is not an artifact of a particular estimator or a particular model. It is a structural property of least-squares regression. It holds for:</p>
 
@@ -431,7 +435,7 @@ flowchart TD
             <li><strong>Any sample size:</strong> The sign flip is exact, not asymptotic. It holds for $n = 20$ and $n = 20{,}000$.</li>
           </ul>
 
-          <p>The implication is sweeping: <strong>any method that estimates prediction uncertainty from training residuals alone will systematically underestimate uncertainty at high-leverage points and overestimate it at low-leverage points.</strong> This includes studentized conformal prediction, many Bayesian approaches that use in-sample variability as a proxy for prediction uncertainty, and ensemble methods that measure disagreement on training data.</p>
+          <p>The implication is broad: <strong>any method that estimates prediction uncertainty from training residuals alone will systematically underestimate uncertainty at high-leverage points and overestimate it at low-leverage points.</strong> This includes studentized conformal prediction, many Bayesian approaches that use in-sample variability as a proxy for prediction uncertainty, and ensemble methods that measure disagreement on training data.</p>
 
           <h3>The Way Out: Use Leverage Directly</h3>
 

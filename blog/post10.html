@@ -37,7 +37,7 @@
 
     <div class="post-body">
 
-      <p>This is the final post. For nine installments, we have been building toward a single idea from two different directions. One direction gave us a way to build prediction intervals that work for any model without any distributional assumptions. The other gave us a geometric measure that already knows, for free, where predictions are hard. This post is where the two roads meet.</p>
+      <p>This is the final post. For nine installments, we have been building toward a single idea from two different directions. One direction gave us a way to build prediction intervals that work for any model without any distributional assumptions. The other gave us a geometric measure that already knows, for free, where predictions are harder. Each direction is useful on its own, but neither fully solves the problem of adaptive prediction intervals. This post is where the two directions meet.</p>
 
       <!-- =========================================================== -->
       <!-- LEVEL 1: INTUITIVE                                          -->
@@ -52,15 +52,15 @@
 
           <h3>The Journey So Far</h3>
 
-          <p><strong>Track 1: Conformal Prediction (Posts 1&ndash;3, 8).</strong> We started with a simple observation: point predictions are incomplete. A model that says "420,000" without any indication of confidence is like GPS without the blue circle. We then discovered conformal prediction &mdash; a remarkable framework that converts <em>any</em> model's predictions into prediction intervals with a mathematically guaranteed coverage rate. The guarantee is exact, holds in finite samples, and requires no assumptions about the data distribution. But there was a catch: the intervals have the same width everywhere. A prediction in the center of the data gets the same error bar as a prediction at the far edge. Posts 3 and 8 surveyed existing fixes &mdash; CQR, Studentized CP, Localized CP &mdash; and found that every one of them comes with a price: extra models to train, hyperparameters to tune, or fundamental vulnerabilities like the sign flip.</p>
+          <p><strong>Track 1: Conformal Prediction (Posts 1&ndash;3, 8).</strong> We started with a simple observation: point predictions are incomplete. A model that says "420,000" without any indication of confidence is like GPS without the blue circle. We then discovered conformal prediction &mdash; a framework that converts <em>any</em> model's predictions into prediction intervals with a mathematically guaranteed coverage rate. The guarantee is exact, holds in finite samples, and requires no assumptions about the data distribution. But there was a catch: the intervals have the same width everywhere. A prediction in the center of the data gets the same error bar as a prediction at the far edge. Posts 3 and 8 surveyed existing fixes &mdash; CQR, Studentized CP, Localized CP &mdash; and found that each comes with a cost: extra models to train, hyperparameters to tune, or fundamental vulnerabilities like the sign flip.</p>
 
-          <p><strong>Track 2: Leverage Scores (Posts 4&ndash;7, 9).</strong> In parallel, we built up a completely different body of knowledge. The design matrix &mdash; the table of features &mdash; contains a hidden map of prediction difficulty. The leverage score of any point tells you, in closed form, how far that point sits from the training data in the directions that matter. High leverage means the model is extrapolating; low leverage means it is interpolating. The prediction error variance is exactly $\sigma^2(1+h)$, where $h$ is the leverage. This formula requires no model training, no hyperparameters, and no residuals. It comes from a single SVD of the design matrix &mdash; an operation that is often already performed when fitting the model. And crucially, it avoids the sign flip that plagues residual-based methods: leverage looks at the geometry of the features, not at the residuals.</p>
+          <p><strong>Track 2: Leverage Scores (Posts 4&ndash;7, 9).</strong> In parallel, we built up a completely different body of knowledge. The design matrix &mdash; the table of features &mdash; contains a natural map of prediction difficulty. The leverage score of any point tells you, in closed form, how far that point sits from the training data in the directions that matter. High leverage means the model is extrapolating; low leverage means it is interpolating. The prediction error variance is exactly $\sigma^2(1+h)$, where $h$ is the leverage. This formula requires no model training, no hyperparameters, and no residuals. It comes from a single SVD of the design matrix &mdash; an operation that is often already performed when fitting the model. And importantly, it avoids the sign flip that affects residual-based methods: leverage looks at the geometry of the features, not at the residuals.</p>
 
           <h3>The Convergence</h3>
 
           <p>These two tracks have been converging from opposite sides of the same problem. Conformal prediction has the <em>engine</em> &mdash; a machine for converting any score into guaranteed prediction intervals. Leverage scores have the <em>steering wheel</em> &mdash; a precise, closed-form measure of where to make intervals wider and where to make them narrower. What if we simply combine them?</p>
 
-          <p>The idea is disarmingly simple: instead of feeding raw residuals into the conformal machine, feed in <em>leverage-weighted</em> residuals. The conformal guarantee still holds &mdash; it works for any score function. But now the intervals adapt to the geometry of the data: wider at high-leverage points where predictions are genuinely harder, narrower at low-leverage points where the model is on solid ground.</p>
+          <p>The idea is straightforward: instead of feeding raw residuals into the conformal machine, feed in <em>leverage-weighted</em> residuals. Concretely, you compute the SVD of the design matrix (often already available from the model fit), use it to get each point's leverage score, and then multiply each absolute residual by a weight like $(1+h)^{-1/2}$ before computing the conformal quantile. At prediction time, the interval width is scaled by the inverse of this weight, so high-leverage points get wider intervals and low-leverage points get narrower ones. The conformal guarantee still holds &mdash; it works for any score function. But now the intervals adapt to the geometry of the data: wider where predictions are genuinely harder, narrower where the model is interpolating among dense training data.</p>
 
           <div class="mermaid">
 flowchart LR
@@ -87,7 +87,7 @@ flowchart LR
           </div>
           <p class="diagram-caption">Two independent tracks &mdash; conformal prediction and leverage &mdash; converge into a single method that inherits the best of both.</p>
 
-          <p>The guarantee is exact and finite-sample &mdash; inherited from conformal prediction. The adaptation is based on 50 years of regression theory &mdash; inherited from leverage. The computational cost is a single SVD.</p>
+          <p>The coverage guarantee is exact and finite-sample &mdash; inherited directly from the conformal framework. The adaptation mechanism is grounded in classical regression theory &mdash; inherited from leverage. And the computational overhead is modest: a single SVD, plus an $O(p)$ operation per test point to compute each leverage score.</p>
 
           <h3>What Does This Give Us?</h3>
 
@@ -115,16 +115,16 @@ flowchart TD
 
           <div class="analogy">
             <div class="analogy-label">Analogy</div>
-            <p>For 20 years, conformal prediction had the engine but no steering wheel. It could build prediction intervals for any model &mdash; an extraordinary capability &mdash; but those intervals were the same width everywhere. For 50 years, leverage scores had the steering wheel but no engine. They could tell you exactly where predictions are hard &mdash; but they could not, on their own, produce prediction intervals with finite-sample guarantees. The combination gives you both: an engine that runs on any fuel, steered by 50 years of geometric insight.</p>
+            <p>For 20 years, conformal prediction had the engine but no steering wheel. It could build prediction intervals for any model &mdash; a genuinely useful capability &mdash; but those intervals were the same width everywhere. For 50 years, leverage scores had the steering wheel but no engine. They could tell you where predictions are harder &mdash; but they could not, on their own, produce prediction intervals with finite-sample guarantees. The combination gives you both: a distribution-free engine steered by classical geometric insight.</p>
           </div>
 
           <h3>Open Questions</h3>
 
-          <p>The combination sounds almost too good to be true, and indeed several questions remain. Can it be made mathematically rigorous, with formal optimality results? Does it actually work in experiments, or does the theory fall apart in finite samples? What about non-linear models, where the variance formula $\sigma^2(1+h)$ was derived for OLS? And could leverage be combined with a lightweight scale estimator to handle heteroscedasticity that depends on features in ways beyond what geometry captures?</p>
+          <p>Of course, several questions remain before this can be considered a complete method. Can it be made mathematically rigorous, with formal optimality results? The variance-stabilization argument is clean in theory, but does it hold up in finite samples when the number of features is not negligible relative to the sample size? What about non-linear models, where the variance formula $\sigma^2(1+h)$ was derived for OLS &mdash; does leverage still capture the right notion of prediction difficulty for random forests or neural networks? And could leverage be combined with a lightweight scale estimator to handle heteroscedasticity that depends on features in ways beyond what geometry captures? For instance, if the noise level varies spatially in a way unrelated to data density, leverage alone cannot account for it, but a small auxiliary model might fill the gap without reintroducing the sign flip.</p>
 
           <div class="callout">
             <div class="callout-label">Stay Tuned</div>
-            <p>We have something coming. The ideas in this series are not just a pedagogical exercise. They point toward a concrete method &mdash; Leverage-Weighted Conformal Prediction &mdash; with theoretical guarantees and empirical results. The formal treatment is the subject of ongoing work.</p>
+            <p>The ideas in this series are not just a pedagogical exercise. They point toward a concrete method &mdash; Leverage-Weighted Conformal Prediction &mdash; with theoretical guarantees and empirical results that we plan to describe in detail. The formal treatment is the subject of ongoing work.</p>
           </div>
 
         </div>
@@ -261,7 +261,7 @@ flowchart LR
 
           <div class="callout">
             <div class="callout-label">The Key Insight</div>
-            <p>Coverage holds for <em>any</em> weight function $w$ &mdash; this is the beauty of the conformal framework. But <em>efficiency</em> depends on choosing $w$ well. The leverage-based weight is not just any weight; it is the variance-stabilizing weight from the theory of heteroscedastic regression. It is the unique weight that makes the scores approximately i.i.d., which is the optimal condition for the conformal quantile to be informative.</p>
+            <p>Coverage holds for <em>any</em> weight function $w$ &mdash; this is the strength of the conformal framework. But <em>efficiency</em> depends on choosing $w$ well. The leverage-based weight is not arbitrary; it is the variance-stabilizing weight from the theory of heteroscedastic regression. Under a homoscedastic linear model, it is the unique weight that makes the scores approximately i.i.d., which is the optimal condition for the conformal quantile to be informative at every leverage level.</p>
           </div>
 
         </div>
@@ -280,7 +280,7 @@ flowchart LR
 
           <h3>Formal Coverage Argument</h3>
 
-          <p>We make the coverage argument precise. Consider the split conformal setup: a training set $D_1 = \{(X_i, Y_i)\}_{i=1}^{n_1}$ and a calibration set $D_2 = \{(X_j, Y_j)\}_{j=1}^{n_2}$, with the test point $(X_{\text{new}}, Y_{\text{new}})$. We assume that the calibration and test points are exchangeable (the standard conformal assumption).</p>
+          <p>We make the coverage argument precise. Consider the split conformal setup: a training set $D_1 = \{(X_i, Y_i)\}_{i=1}^{n_1}$ used to fit the model and compute leverage scores, and a calibration set $D_2 = \{(X_j, Y_j)\}_{j=1}^{n_2}$ used to compute conformal scores, with the test point $(X_{\text{new}}, Y_{\text{new}})$. The training set is held fixed throughout the argument; all randomness comes from the calibration and test data. We assume that the calibration and test points are exchangeable (the standard conformal assumption).</p>
 
           <p>Given $D_1$, we fit a model $\hat{f}$ and compute the SVD of the design matrix $\mathbf{X}_1 = \mathbf{U\Sigma V}^\top$. The weight function $w(h(x)) = (1 + \|\Sigma^{-1}V^\top x\|^2)^{-1/2}$ is now a <em>deterministic</em> function of $x$, conditional on $D_1$. Define the weighted scores:</p>
 
@@ -325,15 +325,15 @@ flowchart TD
 
           <p>The weighted scores are <em>i.i.d.</em>, not merely variance-stabilized. They are identically distributed regardless of leverage. This is the strongest possible condition for the conformal quantile to be a good estimator of the conditional quantile everywhere: if the scores are i.i.d., the $(1-\alpha)$-quantile of the scores is the $(1-\alpha)$-quantile of $\sigma|\eta|$, which is the correct conditional quantile at every leverage level (after inverting the weight).</p>
 
-          <p>No other weight achieves this. Any other $w$ leaves residual dependence on $h$ in the score distribution, meaning the conformal quantile is an average over an inhomogeneous set of scores &mdash; too conservative in some regions and too liberal in others.</p>
+          <p>No other weight achieves this under the homoscedastic linear model. Any other $w$ leaves residual dependence on $h$ in the score distribution, meaning the conformal quantile is an average over an inhomogeneous set of scores &mdash; too conservative in some regions and too liberal in others. In practice, this shows up as intervals that over-cover in the bulk of the data (low leverage) and under-cover in the tails (high leverage), precisely the behavior we see with vanilla conformal prediction.</p>
 
           <h3>Open Questions Formalized</h3>
 
           <p>The above argument is clean in the idealized setting. Several questions arise when the assumptions are relaxed.</p>
 
-          <p><strong>Finite-sample behavior when $p/n$ is not small.</strong> The variance formula $\sigma^2(1+h)$ holds exactly for OLS under homoscedastic errors, but the scale family approximation $S_i \approx \sigma|\eta_i|$ requires the weighted scores to be approximately identically distributed. When $p/n$ is moderate (say 0.1 to 0.3), the estimation error term $\sigma^2 h(x)$ is non-negligible, and the higher-order behavior of leverage scores (their distribution, concentration, and interaction with the error distribution) affects whether variance stabilization actually works. What are the finite-sample bounds on conditional coverage as a function of $p/n$?</p>
+          <p><strong>Finite-sample behavior when $p/n$ is not small.</strong> The variance formula $\sigma^2(1+h)$ holds exactly for OLS under homoscedastic errors, but the scale family approximation $S_i \approx \sigma|\eta_i|$ requires the weighted scores to be approximately identically distributed. When $p/n$ is moderate (say 0.1 to 0.3), the estimation error term $\sigma^2 h(x)$ is non-negligible, and the higher-order behavior of leverage scores (their distribution, concentration, and interaction with the error distribution) affects whether variance stabilization actually works. What are the finite-sample bounds on conditional coverage as a function of $p/n$? Even approximate answers would help practitioners decide when leverage weighting is likely to help and when it is not worth the effort.</p>
 
-          <p><strong>Model misspecification.</strong> Under model misspecification, the prediction residual $Y - \hat{f}(X)$ includes both the irreducible error and the approximation error from misspecification. The approximation error may depend on features in ways not captured by leverage. Marginal coverage is unaffected (the conformal guarantee holds regardless). But does leverage-based weighting still improve conditional coverage under misspecification, or does the approximation error dominate?</p>
+          <p><strong>Model misspecification.</strong> Under model misspecification, the prediction residual $Y - \hat{f}(X)$ includes both the irreducible error and the approximation error from misspecification. The approximation error may depend on features in ways not captured by leverage. Marginal coverage is unaffected (the conformal guarantee holds regardless). But does leverage-based weighting still improve conditional coverage under misspecification, or does the approximation error dominate? One could imagine that leverage weighting helps when the misspecification is mild (e.g., omitting a small interaction term) but becomes irrelevant when the model is badly wrong. Characterizing this boundary would be useful.</p>
 
           <p><strong>Approximate leverage via randomized SVD.</strong> Randomized SVD computes leverage scores approximately in $O(n_1 p \log p)$ time. If $\tilde{h}(x)$ is an approximation to $h(x)$ with $|\tilde{h}(x) - h(x)| \leq \delta$, the marginal coverage guarantee still holds exactly (the approximation error is absorbed into the score function, which can be arbitrary). But how does the approximation error $\delta$ affect interval width and conditional coverage? Specifically, if $\tilde{w}(x) = (1 + \tilde{h}(x))^{-1/2}$, the width ratio at any point is:</p>
 
@@ -341,7 +341,7 @@ flowchart TD
 
           <p>So the width approximation error is at most $O(\delta)$ multiplicatively, which is typically small for well-implemented randomized SVD.</p>
 
-          <p><strong>Non-linear models.</strong> The formula $\sigma^2(1+h)$ is derived for OLS. For non-linear models (random forests, neural networks, boosted trees), leverage is computed from the raw design matrix and is no longer tied to the model's prediction mechanism. Marginal coverage still holds (the conformal guarantee is model-free). But does leverage-based adaptation help? The hypothesis is that it does, because leverage captures the <em>data geometry</em> &mdash; which regions of feature space are data-sparse &mdash; and data sparsity affects prediction difficulty regardless of the model class. Formalizing this requires a theory of effective leverage for non-linear models.</p>
+          <p><strong>Non-linear models.</strong> The formula $\sigma^2(1+h)$ is derived for OLS. For non-linear models (random forests, neural networks, boosted trees), leverage is computed from the raw design matrix and is no longer tied to the model's prediction mechanism. Marginal coverage still holds (the conformal guarantee is model-free). But does leverage-based adaptation help? The hypothesis is that it does, because leverage captures the <em>data geometry</em> &mdash; which regions of feature space are data-sparse &mdash; and data sparsity affects prediction difficulty regardless of the model class. Formalizing this requires a theory of effective leverage for non-linear models. One possible direction is to compute leverage from a linearization of the model (e.g., the Jacobian of a neural network), which would recover the classical theory locally while remaining applicable to expressive model classes.</p>
 
           <p><strong>Combination with learned scale estimation.</strong> When the noise variance depends on features in ways not captured by leverage alone &mdash; for instance, $\text{Var}(\varepsilon \mid X) = \sigma^2(X)$ where $\sigma^2(X)$ is an arbitrary function of features &mdash; leverage weighting handles only the geometric component. A natural extension is:</p>
 
@@ -349,11 +349,11 @@ flowchart TD
 
           <p>where $\hat{\sigma}(X_i)$ is a lightweight estimate of the feature-dependent noise scale. The leverage factor $\sqrt{1+h}$ handles the geometric heteroscedasticity, while $\hat{\sigma}$ handles the remaining feature-dependent heteroscedasticity. A key question: does the leverage component mitigate the sign flip problem for the scale estimator? The sign flip arises because training residual variance is $\sigma^2(1-h)$ while prediction variance is $\sigma^2(1+h)$. If the scale estimator learns $\hat{\sigma}(x) \approx \sigma(x)\sqrt{1-h(x)}$ (wrong sign) but the leverage factor corrects by $\sqrt{1+h(x)}$, the composite $\hat{\sigma}(x) \cdot \sqrt{1+h(x)} \approx \sigma(x)\sqrt{1-h(x)^2}$ may be a better approximation than $\hat{\sigma}(x)$ alone.</p>
 
-          <p>These open questions are precisely the kinds that motivate a rigorous theoretical and empirical investigation. They point toward a concrete research program: formalize the method, establish finite-sample bounds, characterize the regimes where leverage weighting dominates, and validate the theory with experiments.</p>
+          <p>These questions suggest a natural research program: formalize the method, establish finite-sample bounds, characterize the regimes where leverage weighting helps most, and validate the theory with experiments across a range of settings.</p>
 
           <div class="callout">
             <div class="callout-label">The Program Ahead</div>
-            <p>The ideas in this series are not speculative. They point toward a concrete algorithm &mdash; Leverage-Weighted Conformal Prediction &mdash; with provable properties and practical advantages. The formal treatment, including finite-sample theory, misspecification analysis, and extensive experiments on both synthetic and real data, is the subject of upcoming work. The pieces are in place. The connection between geometry and distribution-free inference, missing for decades, is now clear.</p>
+            <p>The ideas in this series point toward a concrete algorithm &mdash; Leverage-Weighted Conformal Prediction &mdash; with provable properties and practical advantages. The formal treatment, including finite-sample theory, misspecification analysis, and experiments on both synthetic and real data, is the subject of upcoming work. The connection between leverage geometry and distribution-free inference is, we believe, a natural one that deserves careful investigation.</p>
           </div>
 
         </div>

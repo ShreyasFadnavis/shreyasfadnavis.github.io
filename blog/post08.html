@@ -56,26 +56,26 @@
 
           <h3>Strategy 1: Learn the Bounds Directly (CQR)</h3>
 
-          <p>The first idea is disarmingly natural. Instead of predicting a single number and then wrapping a fixed error bar around it, why not train two models &mdash; one to predict the lower bound of the interval and one to predict the upper bound? Then use the conformal correction to guarantee coverage.</p>
+          <p>The first idea is straightforward. Instead of predicting a single number and then wrapping a fixed error bar around it, why not train two models &mdash; one to predict the lower bound of the interval and one to predict the upper bound? Then use the conformal correction to guarantee coverage.</p>
 
           <div class="analogy">
             <div class="analogy-label">Analogy</div>
             <p>Instead of saying "the house costs 420K plus or minus 50K" (symmetric, constant), you say "the house costs somewhere between 370K and 480K" (asymmetric, adaptive). For a luxury estate, the range might be 1.8M to 3.2M &mdash; much wider, reflecting genuine uncertainty. For a cookie-cutter suburban home, it might be 345K to 365K &mdash; tight, because the model knows this territory well.</p>
           </div>
 
-          <p>This is <strong>Conformalized Quantile Regression (CQR)</strong>. The conformal correction guarantees the coverage, while the learned bounds provide adaptation. The catch? You now need to train two additional models (the quantile regressors), tune their hyperparameters, and hope they learn the right shape.</p>
+          <p>This is <strong>Conformalized Quantile Regression (CQR)</strong>. The conformal correction guarantees the coverage, while the learned bounds provide adaptation. The catch is that you now need to train two additional models (the quantile regressors), tune their hyperparameters, and hope they learn the right shape. In practice, this means choosing an appropriate quantile regression algorithm (e.g., gradient boosted trees, neural networks), selecting hyperparameters for each, and accepting that the quality of the adaptation is only as good as these models. When the quantile regressors fit well, CQR can produce intervals that are impressively well-calibrated to local uncertainty. When they fit poorly &mdash; which is harder to diagnose than it sounds &mdash; the intervals may be no better than vanilla CP, just more expensive to compute.</p>
 
           <h3>Strategy 2: Estimate the Difficulty (Studentized CP)</h3>
 
           <p>The second idea is also intuitive. Train a separate model that estimates <em>how wrong</em> your main model usually is at each point. Then scale the error bars accordingly: wider where the model struggles, narrower where it is reliable.</p>
 
-          <p>This is <strong>Studentized (Normalized) Conformal Prediction</strong>. The problem, as we saw in Part 6, is that this difficulty estimator is trained on <em>training</em> mistakes &mdash; and training mistakes have the sign flipped. The model looks <em>most accurate</em> at exactly the points where it is <em>least reliable</em> for future predictions. It learns the wrong lesson.</p>
+          <p>This is <strong>Studentized (Normalized) Conformal Prediction</strong>. The problem, as we saw in Part 6, is that this difficulty estimator is trained on <em>training</em> mistakes &mdash; and training mistakes have the sign flipped. The model looks <em>most accurate</em> at exactly the points where it is <em>least reliable</em> for future predictions. In other words, the scale estimator learns a distorted picture of where the model struggles: it underestimates difficulty at high-leverage points and overestimates it at low-leverage points. This is not a random error that washes out on average &mdash; it is a systematic bias tied to the geometry of the data. In practical terms, a user who trusts the Studentized intervals may end up most confident precisely where the intervals are least dependable.</p>
 
           <h3>Strategy 3: Only Look Nearby (Localized CP)</h3>
 
           <p>The third strategy sidesteps model training entirely. For each test point, find the "nearby" calibration points and compute the error bar using only those neighbors. If all your neighbors have large residuals, your error bar will be wide; if they have small residuals, it will be narrow.</p>
 
-          <p>This is <strong>Localized Conformal Prediction</strong>. It avoids the sign flip (no auxiliary models trained on training data), but "nearby" in high dimensions is treacherous. With 30 or 100 features, almost no calibration points are truly nearby, so you end up averaging over nearly everything anyway &mdash; or using so few neighbors that the coverage guarantee breaks down.</p>
+          <p>This is <strong>Localized Conformal Prediction</strong>. It avoids the sign flip (no auxiliary models trained on training data), but "nearby" in high dimensions is unreliable. With 30 or 100 features, almost no calibration points are truly nearby, so you end up averaging over nearly everything anyway &mdash; or using so few neighbors that the coverage guarantee breaks down. This is the familiar curse of dimensionality, now appearing in the conformal prediction setting. The method is principled in low dimensions, but as the feature space grows, the kernel weights become nearly uniform and the localization that was supposed to drive adaptation effectively vanishes. In practice, this means the method either degenerates to something close to vanilla CP, or becomes sensitive to the bandwidth parameter in ways that are difficult to tune reliably.</p>
 
           <div class="mermaid">
             flowchart LR
@@ -116,7 +116,7 @@
 
           <h3>The Key Trade-off</h3>
 
-          <p>These methods sit on a spectrum. On one end is vanilla CP: zero additional complexity, zero adaptation. On the other end is full conditional coverage (the theoretical ideal): perfect adaptation, but requiring essentially infinite data. Every practical method lives somewhere in between, trading complexity for adaptation quality.</p>
+          <p>These methods sit on a spectrum. On one end is vanilla CP: zero additional complexity, zero adaptation. On the other end is full conditional coverage (the theoretical ideal): perfect adaptation, but requiring essentially infinite data. Every practical method lives somewhere in between, trading complexity for adaptation quality. For a practitioner, this means every choice involves a judgment call: how much additional modeling effort and computational overhead is justified by the expected improvement in interval quality? The answer depends on the application, the sample size, the dimensionality, and how heterogeneous the prediction difficulty is across the feature space.</p>
 
           <div class="mermaid">
             flowchart LR
@@ -179,7 +179,7 @@
 
           <h3>The Gap</h3>
 
-          <p>Every existing adaptive method either trains extra models (CQR, Studentized) or adds per-test-point computational cost (Localized). None uses the geometry of the data &mdash; the structure of the design matrix &mdash; directly. In Parts 4&ndash;6, we discovered that leverage scores already encode exactly the information we need: where predictions are easy, where they are hard, and by how much. Why isn't anyone using this?</p>
+          <p>Every existing adaptive method either trains extra models (CQR, Studentized) or adds per-test-point computational cost (Localized). None uses the geometry of the data &mdash; the structure of the design matrix &mdash; directly. In Parts 4&ndash;6, we discovered that leverage scores already encode exactly the information we need: where predictions are easy, where they are hard, and by how much. This is notable because leverage scores are already computed (or cheaply computable) as a byproduct of fitting the regression. The information is sitting there, unused. The natural question is: can we build an adaptive conformal method that takes advantage of it?</p>
 
           <div class="callout">
             <div class="callout-label">Key Question</div>
@@ -263,14 +263,14 @@
 
           <h4>The Sign Flip in Detail</h4>
 
-          <p>Here is the crux of the issue. The scale estimator $\hat{\sigma}$ is trained on training-set absolute residuals $|Y_i - \hat{f}(X_i)|$. From Part 6, we know:</p>
+          <p>Here is the central issue. The scale estimator $\hat{\sigma}$ is trained on training-set absolute residuals $|Y_i - \hat{f}(X_i)|$. From Part 6, we know:</p>
 
           <ul>
             <li><strong>Training residuals:</strong> $\text{Var}(Y_i - \hat{f}(X_i) \mid X_i) = \sigma^2(1 - h_i)$. The hat matrix projects training noise <em>away</em> from the residual.</li>
             <li><strong>Test/calibration residuals:</strong> $\text{Var}(Y_{\text{new}} - \hat{f}(x) \mid x) = \sigma^2(1 + h(x))$. The estimation error <em>adds</em> to the noise.</li>
           </ul>
 
-          <p>So $\hat{\sigma}$ learns $\sigma\sqrt{1-h}$, but the interval needs to account for $\sigma\sqrt{1+h}$. At high-leverage points ($h$ large), the estimator predicts <em>small</em> variance when the true prediction variance is <em>large</em>. The adaptation is not just wrong &mdash; it is systematically wrong in the most dangerous direction.</p>
+          <p>So $\hat{\sigma}$ learns $\sigma\sqrt{1-h}$, but the interval needs to account for $\sigma\sqrt{1+h}$. At high-leverage points ($h$ large), the estimator predicts <em>small</em> variance when the true prediction variance is <em>large</em>. The adaptation is systematically biased, and the bias grows with leverage &mdash; precisely at the points where accurate uncertainty quantification matters most.</p>
 
           <div class="mermaid">
             flowchart TD
@@ -365,7 +365,7 @@
           <ol>
             <li><strong>Every adaptive method involves a trade-off.</strong> Either you train auxiliary models (CQR, Studentized), choose kernel parameters (Localized), or accept constant width (Vanilla). There is no existing method that adapts without introducing additional complexity.</li>
             <li><strong>Methods that estimate variance from residuals inherit the sign flip.</strong> This includes Studentized CP directly, and CQR partially (whose quantile regressors are trained on $D_1$ and therefore see attenuated residuals at high-leverage points).</li>
-            <li><strong>Computational costs vary dramatically.</strong> Vanilla CP and CQR/Studentized CP have $O(1)$ cost per test point after training. Localized CP has $O(n_2)$ cost per test point, which becomes prohibitive for large calibration or test sets.</li>
+            <li><strong>Computational costs vary widely.</strong> Vanilla CP and CQR/Studentized CP have $O(1)$ cost per test point after training. Localized CP has $O(n_2)$ cost per test point, which becomes prohibitive for large calibration or test sets.</li>
           </ol>
 
           <div class="mermaid">
@@ -443,7 +443,7 @@
 
           <p>In dimension $p$, if the bandwidth scales as $b \sim n_2^{-1/(4+p)}$ (optimal for nonparametric estimation), the effective sample size scales as $n_{\text{eff}} \sim n_2^{4/(4+p)}$. For $p = 30$, this is $n_{\text{eff}} \sim n_2^{4/34} \approx n_2^{0.12}$. With $n_2 = 5000$, the effective sample size is approximately $5000^{0.12} \approx 3.1$ &mdash; barely enough to define a quantile, let alone a reliable one.</p>
 
-          <p>Furthermore, the kernel in Localized CP operates in the <em>original feature space</em>, measuring Euclidean (or Mahalanobis) distance. But in linear regression, the prediction difficulty depends on leverage $h(x) = x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x$ &mdash; a specific quadratic form in the features, not the raw distance. A kernel that localizes in Euclidean distance may assign similar weights to two calibration points that differ dramatically in leverage (if they happen to be equidistant from $x$ but in different directions relative to the training data covariance).</p>
+          <p>Furthermore, the kernel in Localized CP operates in the <em>original feature space</em>, measuring Euclidean (or Mahalanobis) distance. But in linear regression, the prediction difficulty depends on leverage $h(x) = x^\top(\mathbf{X}^\top\mathbf{X})^{-1}x$ &mdash; a specific quadratic form in the features, not the raw distance. A kernel that localizes in Euclidean distance may assign similar weights to two calibration points that differ substantially in leverage (if they happen to be equidistant from $x$ but in different directions relative to the training data covariance).</p>
 
           <h3>Formal Comparison</h3>
 
