@@ -10,7 +10,7 @@
 
 <nav>
   <div class="nav-inner">
-    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <a href="/" class="site-mark">SF</a>
     <div class="nav-links">
       <a href="/" class="active">About</a>
       <a href="/blog/">Notes</a>
@@ -19,44 +19,107 @@
   </div>
 </nav>
 
-<main>
+<main class="home">
 
-  <div class="home-intro">
-    <h1>Shreyas Fadnavis</h1>
-    <p class="tagline">
-      Machine learning, applied math, and the geometry of uncertainty.
-    </p>
-    <p class="bio">
-      In a past life I worked at the intersection of imaging and machine learning, and picked up some applied math and theory along the way. Now building at <a href="https://bioscope.ai">Bioscope AI</a>, doing all things AI.
-    </p>
-
-    <div class="links-row">
-      <a href="https://scholar.google.com/citations?user=pMGFvrYAAAAJ&hl=en">Google Scholar</a>
-      <a href="https://github.com/ShreyasFadnavis">GitHub</a>
-      <a href="https://www.linkedin.com/in/shreyasfadnavis/">LinkedIn</a>
-    </div>
-
-    <div class="quick-links">
-      <p class="quick-links-label">Around the site</p>
-      <div class="quick-links-grid">
-        <a href="/blog/" class="quick-link-item">
-          <span class="ql-title">Notes</span>
-          <span class="ql-desc">On prediction intervals, uncertainty, and the geometry of regression.</span>
-        </a>
-        <a href="/links.html" class="quick-link-item">
-          <span class="ql-title">Useful Links</span>
-          <span class="ql-desc">People, papers, and rabbit holes that shaped how I think about all this.</span>
-        </a>
+  <!-- Hero -->
+  <section class="hero dot-grid">
+    <div class="hero-inner">
+      <div class="hero-name-block">
+        <h1 class="hero-name">
+          <span class="hero-first">Shreyas</span>
+          <span class="hero-last">Fadnavis</span>
+        </h1>
+        <div class="hero-rule"></div>
+      </div>
+      <div class="hero-meta">
+        <p class="hero-tagline">Machine learning, applied math,<br>and the geometry of uncertainty.</p>
+        <p class="hero-bio">
+          In a past life I worked at the intersection of imaging and machine learning, and picked up some applied math and theory along the way. Now building at <a href="https://bioscope.ai">Bioscope AI</a>, doing all things AI.
+        </p>
+        <div class="hero-links">
+          <a href="https://scholar.google.com/citations?user=pMGFvrYAAAAJ&hl=en" class="social-pill">Scholar</a>
+          <a href="https://github.com/ShreyasFadnavis" class="social-pill">GitHub</a>
+          <a href="https://www.linkedin.com/in/shreyasfadnavis/" class="social-pill">LinkedIn</a>
+        </div>
       </div>
     </div>
-  </div>
+  </section>
+
+  <!-- Research Tracks -->
+  <section class="tracks">
+    <div class="tracks-inner">
+
+      <!-- Conformal Prediction -->
+      <div class="track">
+        <div class="track-label-wrap">
+          <span class="track-label-vertical">Research Track</span>
+        </div>
+        <div class="track-content">
+          <h2 class="track-title">Conformal Prediction</h2>
+          <p class="track-desc">Distribution-free prediction intervals with finite-sample guarantees.</p>
+          <ol class="track-list">
+            <li><a href="/blog/post01.html">Your Model Is Confident. Should You Be?</a></li>
+            <li><a href="/blog/post02.html">Conformal Prediction</a></li>
+            <li><a href="/blog/post03.html">The Constant-Width Problem</a></li>
+            <li><a href="/blog/post07.html">Heteroscedasticity and Variance Stabilization</a></li>
+            <li><a href="/blog/post08.html">Adaptive Conformal Methods</a></li>
+            <li><a href="/blog/post11.html">The Origins of Conformal Prediction</a></li>
+            <li><a href="/blog/post12.html">Beyond the Split</a></li>
+            <li><a href="/blog/post13.html">When Exchangeability Breaks</a></li>
+          </ol>
+          <a href="/blog/#conformal" class="track-cta">Read the full track &rarr;</a>
+        </div>
+      </div>
+
+      <!-- Leverage Scores -->
+      <div class="track">
+        <div class="track-label-wrap">
+          <span class="track-label-vertical">Research Track</span>
+        </div>
+        <div class="track-content">
+          <h2 class="track-title">Leverage Scores</h2>
+          <p class="track-desc">The hat matrix, leverage, and the geometry of prediction uncertainty.</p>
+          <ol class="track-list">
+            <li><a href="/blog/post04.html">The Hat Matrix</a></li>
+            <li><a href="/blog/post05.html">Leverage and Influence</a></li>
+            <li><a href="/blog/post06.html">The Sign Flip</a></li>
+            <li><a href="/blog/post09.html">Leverage as a Free Lunch</a></li>
+            <li><a href="/blog/post14.html">A Brief History of Leverage</a></li>
+            <li><a href="/blog/post15.html">Randomized NLA</a></li>
+            <li><a href="/blog/post16.html">Leverage in High Dimensions</a></li>
+          </ol>
+          <a href="/blog/#leverage" class="track-cta">Read the full track &rarr;</a>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Bottom Strip -->
+  <section class="bottom-strip">
+    <div class="bottom-strip-inner">
+      <a href="/blog/" class="strip-card">
+        <span class="strip-card-label">Notes</span>
+        <span class="strip-card-text">On prediction intervals, uncertainty, and the geometry of regression.</span>
+      </a>
+      <a href="/links.html" class="strip-card">
+        <span class="strip-card-label">Links</span>
+        <span class="strip-card-text">People, papers, and rabbit holes that shaped how I think about all this.</span>
+      </a>
+    </div>
+  </section>
 
 </main>
 
 <footer>
   <span>Shreyas Fadnavis</span>
-  <span><a href="/blog/">Notes</a></span>
+  <div class="footer-nav">
+    <a href="/blog/">Notes</a>
+    <a href="/links.html">Links</a>
+  </div>
 </footer>
+
+<script src="js/animations.js"></script>
 
 </body>
 </html>

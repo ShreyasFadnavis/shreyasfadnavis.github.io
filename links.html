@@ -10,7 +10,7 @@
 
 <nav>
   <div class="nav-inner">
-    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <a href="/" class="site-mark">SF</a>
     <div class="nav-links">
       <a href="/">About</a>
       <a href="/blog/">Notes</a>
@@ -19,114 +19,113 @@
   </div>
 </nav>
 
-<main>
+<main class="links-page">
 
-  <div class="blog-header">
-    <h1>Useful Links</h1>
-    <p class="blog-desc">People, papers, and rabbit holes that shaped how I think about all this.</p>
-  </div>
-
-  <!-- HOW I GOT HERE -->
-  <section class="links-section">
-    <h2 class="links-heading">How I Ended Up Here</h2>
-    <div class="links-prose">
-      <p>
-        I studied with <a href="https://garyfallidis.github.io/">Eleftherios Garyfallidis</a>
-        (creator of <a href="https://dipy.org/">DIPY</a>) during my PhD, working on denoising diffusion MRI:
-        <a href="https://proceedings.neurips.cc/paper/2020/hash/bc047286b224b7bfa73d4cb02de1238d-Abstract.html">Patch2Self</a> (NeurIPS 2020, with Josh)
-        and <a href="https://openaccess.thecvf.com/content/CVPR2024/html/Fadnavis_Patch2Self2_Self-supervised_Denoising_on_Coresets_via_Matrix_Sketching_CVPR_2024_paper.html">Patch2Self2</a>
-        (CVPR 2024, with Petros, Agniva, and Josh).
-        Studying noise means studying variance, which means studying leverage.
-      </p>
+  <!-- Origin story -->
+  <section class="links-origin">
+    <div class="links-origin-inner">
+      <h1 class="links-page-title">Useful Links</h1>
+      <p class="links-page-desc">People, papers, and rabbit holes that shaped how I think about all this.</p>
+      <span class="links-origin-label">How I Ended Up Here</span>
+      <div class="links-origin-prose">
+        <p>
+          I studied with <a href="https://garyfallidis.github.io/">Eleftherios Garyfallidis</a>
+          (creator of <a href="https://dipy.org/">DIPY</a>) during my PhD, working on denoising diffusion MRI:
+          <a href="https://proceedings.neurips.cc/paper/2020/hash/bc047286b224b7bfa73d4cb02de1238d-Abstract.html">Patch2Self</a> (NeurIPS 2020, with Josh)
+          and <a href="https://openaccess.thecvf.com/content/CVPR2024/html/Fadnavis_Patch2Self2_Self-supervised_Denoising_on_Coresets_via_Matrix_Sketching_CVPR_2024_paper.html">Patch2Self2</a>
+          (CVPR 2024, with Petros, Agniva, and Josh).
+          Studying noise means studying variance, which means studying leverage.
+        </p>
+      </div>
     </div>
   </section>
 
-  <!-- CONFORMAL PREDICTION -->
-  <section class="links-section">
-    <h2 class="links-heading">Conformal Prediction</h2>
-    <div class="links-prose">
-      <p>If you want to learn conformal prediction from scratch, start here. I did.</p>
-    </div>
+  <!-- Three-column resource grid -->
+  <section class="links-grid-section">
+    <div class="links-grid-inner">
 
-    <div class="link-card">
-      <h3 class="link-card-title">
-        <a href="https://people.eecs.berkeley.edu/~angelopoulos/blog/posts/gentle-intro/">A Gentle Introduction to Conformal Prediction</a>
-      </h3>
-      <p class="link-card-meta">Anastasios Angelopoulos &amp; Stephen Bates &mdash;
-        <a href="https://arxiv.org/abs/2107.07511">arXiv</a> &middot;
-        <a href="https://www.nowpublishers.com/article/Details/MAL-101">F&amp;T monograph</a>
-      </p>
-    </div>
+      <!-- Column 1: Conformal Prediction -->
+      <div class="links-category">
+        <h2 class="links-category-title">Conformal Prediction</h2>
+        <p class="links-category-intro">If you want to learn conformal prediction from scratch, start here. I did.</p>
 
-    <div class="link-card">
-      <h3 class="link-card-title">
-        <a href="https://youtube.com/playlist?list=PLBa0oe-LYIHa68NOJbMxDTMMjT8Is4WkI">Conformal Prediction Video Tutorials</a>
-      </h3>
-      <p class="link-card-meta">Anastasios Angelopoulos &mdash; YouTube</p>
-      <ul class="link-card-list">
-        <li><a href="https://www.youtube.com/watch?v=nql000Lu_iE">Part 1: Basics</a></li>
-        <li><a href="https://www.youtube.com/watch?v=TRx4a2u-j7M">Part 2: Conditional Coverage</a></li>
-        <li><a href="https://www.youtube.com/watch?v=37HKrmA5gJE">Part 3: Beyond Conformal Prediction</a></li>
-      </ul>
-    </div>
+        <div class="link-card-v2">
+          <h3 class="link-card-v2-title">
+            <a href="https://people.eecs.berkeley.edu/~angelopoulos/blog/posts/gentle-intro/">A Gentle Introduction to Conformal Prediction</a>
+          </h3>
+          <p class="link-card-v2-meta">Anastasios Angelopoulos &amp; Stephen Bates &mdash;
+            <a href="https://arxiv.org/abs/2107.07511">arXiv</a> &middot;
+            <a href="https://www.nowpublishers.com/article/Details/MAL-101">F&amp;T monograph</a>
+          </p>
+        </div>
 
-    <div class="link-card">
-      <h3 class="link-card-title">
-        <a href="https://github.com/aangelopoulos/conformal-prediction">Conformal Prediction GitHub</a>
-      </h3>
-      <p class="link-card-meta">Runnable implementations with Colab notebooks.</p>
-    </div>
-  </section>
+        <div class="link-card-v2">
+          <h3 class="link-card-v2-title">
+            <a href="https://youtube.com/playlist?list=PLBa0oe-LYIHa68NOJbMxDTMMjT8Is4WkI">Conformal Prediction Video Tutorials</a>
+          </h3>
+          <p class="link-card-v2-meta">Anastasios Angelopoulos &mdash; YouTube</p>
+          <ul class="link-card-v2-list">
+            <li><a href="https://www.youtube.com/watch?v=nql000Lu_iE">Part 1: Basics</a></li>
+            <li><a href="https://www.youtube.com/watch?v=TRx4a2u-j7M">Part 2: Conditional Coverage</a></li>
+            <li><a href="https://www.youtube.com/watch?v=37HKrmA5gJE">Part 3: Beyond Conformal Prediction</a></li>
+          </ul>
+        </div>
 
-  <!-- LEVERAGE SCORES -->
-  <section class="links-section">
-    <h2 class="links-heading">Leverage Scores &amp; Randomized Linear Algebra</h2>
-    <div class="links-prose">
-      <p>
-        Most of what I know about leverage scores, I learned from
-        <a href="https://www.cs.purdue.edu/homes/pdrineas/">Petros Drineas</a>.
-        I started working with him during my PhD, and he opened up an entire world
-        of randomized numerical linear algebra that I didn't know existed. Petros is
-        the Head of CS at Purdue and a SIAM Fellow. His work on fast approximation
-        of statistical leverage &mdash; the idea that you can sketch a matrix and still
-        know which rows matter &mdash; is foundational.
-      </p>
-      <p>
-        A lot of the leverage scores literature I absorbed came through working alongside
-        <a href="https://agnivac.github.io/">Agniva Chowdhury</a>, who was Petros's PhD student
-        at Purdue and is now an AI Research Scientist at Intel.
-      </p>
-    </div>
+        <div class="link-card-v2">
+          <h3 class="link-card-v2-title">
+            <a href="https://github.com/aangelopoulos/conformal-prediction">Conformal Prediction GitHub</a>
+          </h3>
+          <p class="link-card-v2-meta">Runnable implementations with Colab notebooks.</p>
+        </div>
+      </div>
 
-    <div class="link-card">
-      <h3 class="link-card-title"><a href="https://users.soe.ucsc.edu/~sesh/">C. Seshadhri (Sesh)</a></h3>
-      <p class="link-card-meta">Professor of CS, UC Santa Cruz &mdash; <a href="https://www.youtube.com/channel/UCQLbCMJdEYvWmpCqp5VK2mg">YouTube lectures</a></p>
-    </div>
-  </section>
+      <!-- Column 2: Leverage Scores -->
+      <div class="links-category">
+        <h2 class="links-category-title">Leverage Scores &amp; Randomized Linear Algebra</h2>
+        <div class="links-prose">
+          <p>
+            Most of what I know about leverage scores, I learned from
+            <a href="https://www.cs.purdue.edu/homes/pdrineas/">Petros Drineas</a>.
+            I started working with him during my PhD, and he opened up an entire world
+            of randomized numerical linear algebra that I didn&rsquo;t know existed.
+          </p>
+          <p>
+            A lot of the leverage scores literature I absorbed came through working alongside
+            <a href="https://agnivac.github.io/">Agniva Chowdhury</a>, who was Petros&rsquo;s PhD student
+            at Purdue and is now an AI Research Scientist at Intel.
+          </p>
+        </div>
 
-  <!-- STATISTICS NOTES -->
-  <section class="links-section">
-    <h2 class="links-heading">Statistics Notes Worth Bookmarking</h2>
-    <div class="links-prose">
-      <p>
-        <a href="https://www.stat.cmu.edu/~cshalizi/">Cosma Shalizi</a> (CMU Statistics) &mdash;
-        rigorous, opinionated, and somehow entertaining. If you bookmark nothing else from this page, bookmark these.
-      </p>
-    </div>
+        <div class="link-card-v2">
+          <h3 class="link-card-v2-title"><a href="https://users.soe.ucsc.edu/~sesh/">C. Seshadhri (Sesh)</a></h3>
+          <p class="link-card-v2-meta">Professor of CS, UC Santa Cruz &mdash; <a href="https://www.youtube.com/channel/UCQLbCMJdEYvWmpCqp5VK2mg">YouTube lectures</a></p>
+        </div>
+      </div>
 
-    <div class="link-card">
-      <h3 class="link-card-title"><a href="https://www.stat.cmu.edu/~cshalizi/ADAfaEPoV/">Advanced Data Analysis from an Elementary Point of View</a></h3>
-      <p class="link-card-meta">Regression, smoothing, causal inference. Freely available PDF.</p>
-    </div>
+      <!-- Column 3: Statistics Notes -->
+      <div class="links-category">
+        <h2 class="links-category-title">Statistics Notes Worth Bookmarking</h2>
+        <p class="links-category-intro">
+          <a href="https://www.stat.cmu.edu/~cshalizi/">Cosma Shalizi</a> (CMU Statistics) &mdash;
+          rigorous, opinionated, and somehow entertaining. If you bookmark nothing else from this page, bookmark these.
+        </p>
 
-    <div class="link-card">
-      <h3 class="link-card-title"><a href="https://www.stat.cmu.edu/~cshalizi/almost-none/">Almost None of the Theory of Stochastic Processes</a></h3>
-      <p class="link-card-meta">Graduate-level. The title tells you everything about the author.</p>
-    </div>
+        <div class="link-card-v2">
+          <h3 class="link-card-v2-title"><a href="https://www.stat.cmu.edu/~cshalizi/ADAfaEPoV/">Advanced Data Analysis from an Elementary Point of View</a></h3>
+          <p class="link-card-v2-meta">Regression, smoothing, causal inference. Freely available PDF.</p>
+        </div>
 
-    <div class="link-card">
-      <h3 class="link-card-title"><a href="http://bactra.org/notebooks/">Shalizi's Notebooks</a></h3>
-      <p class="link-card-meta">Information theory, complex systems, philosophy of science. A wonderful place to get lost.</p>
+        <div class="link-card-v2">
+          <h3 class="link-card-v2-title"><a href="https://www.stat.cmu.edu/~cshalizi/almost-none/">Almost None of the Theory of Stochastic Processes</a></h3>
+          <p class="link-card-v2-meta">Graduate-level. The title tells you everything about the author.</p>
+        </div>
+
+        <div class="link-card-v2">
+          <h3 class="link-card-v2-title"><a href="http://bactra.org/notebooks/">Shalizi&rsquo;s Notebooks</a></h3>
+          <p class="link-card-v2-meta">Information theory, complex systems, philosophy of science. A wonderful place to get lost.</p>
+        </div>
+      </div>
+
     </div>
   </section>
 
@@ -134,8 +133,13 @@
 
 <footer>
   <span>Shreyas Fadnavis</span>
-  <span><a href="/">About</a></span>
+  <div class="footer-nav">
+    <a href="/">About</a>
+    <a href="/blog/">Notes</a>
+  </div>
 </footer>
+
+<script src="js/animations.js"></script>
 
 </body>
 </html>

@@ -10,7 +10,7 @@
 
 <nav>
   <div class="nav-inner">
-    <a href="/" class="site-name">Shreyas Fadnavis</a>
+    <a href="/" class="site-mark">SF</a>
     <div class="nav-links">
       <a href="/">About</a>
       <a href="/blog/" class="active">Notes</a>
@@ -19,109 +19,141 @@
   </div>
 </nav>
 
-<main>
+<main class="notes-index">
 
-  <div class="blog-header">
-    <h1>Notes</h1>
-    <p class="blog-desc">On prediction intervals, uncertainty quantification, and the geometry of regression.</p>
-    <p class="blog-intro">Each note has three levels of depth &mdash; <em>intuitive</em>, <em>technical</em>, and <em>advanced</em> &mdash; so you can read at whatever level matches your background.</p>
-  </div>
-
-  <div class="topic-nav">
-    <a href="#conformal" class="topic-link active" onclick="smoothScroll(event, 'conformal')">Conformal Prediction</a>
-    <span class="topic-sep">&middot;</span>
-    <a href="#leverage" class="topic-link" onclick="smoothScroll(event, 'leverage')">Leverage Scores</a>
-  </div>
-
-  <!-- ============================================ -->
-  <!-- CONFORMAL PREDICTION                         -->
-  <!-- ============================================ -->
-  <section id="conformal" class="notes-section">
-    <div class="section-toggle" aria-expanded="true" onclick="toggleSection(this)">
-      <h2 class="section-heading">Conformal Prediction</h2>
-      <span class="section-arrow">&#9662;</span>
-    </div>
-    <div class="section-body">
-      <p class="section-desc">Distribution-free prediction intervals with finite-sample guarantees &mdash; from the basic recipe to its fundamental limitations and existing attempts to overcome them.</p>
-
-      <ol class="notes-list">
-        <li>
-          <a href="post01.html" class="note-title">Your Model Is Confident. Should You Be?</a>
-          <p class="note-summary">Why point predictions are incomplete, what prediction intervals actually are, and why constructing them correctly is harder than it looks.</p>
-        </li>
-        <li>
-          <a href="post02.html" class="note-title">Conformal Prediction</a>
-          <p class="note-summary">The split conformal recipe: train, calibrate, quantile, done. A finite-sample coverage guarantee for any model, any distribution.</p>
-        </li>
-        <li>
-          <a href="post03.html" class="note-title">The Constant-Width Problem</a>
-          <p class="note-summary">Marginal versus conditional coverage, the impossibility theorem, and why constant-width intervals hide dangerous unevenness.</p>
-        </li>
-        <li>
-          <a href="post07.html" class="note-title">Heteroscedasticity and Variance Stabilization</a>
-          <p class="note-summary">When prediction difficulty varies, raw residuals are not comparable. Variance-stabilizing transformations and weighted nonconformity scores.</p>
-        </li>
-        <li>
-          <a href="post08.html" class="note-title">Adaptive Conformal Methods</a>
-          <p class="note-summary">CQR, Studentized CP, and Localized CP &mdash; what each gets right, what each gets wrong, and the gap that remains.</p>
-        </li>
-        <li>
-          <a href="post11.html" class="note-title">The Origins of Conformal Prediction</a>
-          <p class="note-summary">From Kolmogorov's foundations through Vovk's transductive framework to the modern split method &mdash; how conformal prediction came to be.</p>
-        </li>
-        <li>
-          <a href="post12.html" class="note-title">Beyond the Split</a>
-          <p class="note-summary">Full conformal, cross-conformal, and jackknife+ &mdash; recovering statistical efficiency without giving up finite-sample coverage.</p>
-        </li>
-        <li>
-          <a href="post13.html" class="note-title">When Exchangeability Breaks</a>
-          <p class="note-summary">Distribution shift, non-stationarity, and feedback loops. What happens to conformal guarantees when the real world violates the one assumption we need.</p>
-        </li>
-      </ol>
+  <section class="notes-hero">
+    <div class="notes-hero-inner">
+      <h1 class="notes-page-title">Notes</h1>
+      <p class="notes-page-desc">On prediction intervals, uncertainty quantification, and the geometry of regression.</p>
+      <p class="notes-page-intro">Each note has three levels of depth &mdash; <em>intuitive</em>, <em>technical</em>, and <em>advanced</em> &mdash; so you can read at whatever level matches your background.</p>
+      <div class="notes-topic-nav">
+        <a href="#conformal" class="notes-topic-link active" onclick="smoothScroll(event, 'conformal')">Conformal Prediction</a>
+        <span class="notes-topic-sep">&middot;</span>
+        <a href="#leverage" class="notes-topic-link" onclick="smoothScroll(event, 'leverage')">Leverage Scores</a>
+      </div>
     </div>
   </section>
 
-  <!-- ============================================ -->
-  <!-- LEVERAGE SCORES                              -->
-  <!-- ============================================ -->
-  <section id="leverage" class="notes-section">
-    <div class="section-toggle" aria-expanded="true" onclick="toggleSection(this)">
-      <h2 class="section-heading">Leverage Scores</h2>
-      <span class="section-arrow">&#9662;</span>
-    </div>
-    <div class="section-body">
-      <p class="section-desc">The hat matrix, leverage scores, and a geometric perspective on prediction uncertainty &mdash; a classical tool that tells you where your model is extrapolating, for free.</p>
+  <section class="notes-grid">
+    <div class="notes-grid-inner">
 
-      <ol class="notes-list">
-        <li>
-          <a href="post04.html" class="note-title">The Hat Matrix</a>
-          <p class="note-summary">How the diagonal of a projection matrix tells you exactly how unusual each data point is, and why that matters for prediction.</p>
-        </li>
-        <li>
-          <a href="post05.html" class="note-title">Leverage and Influence</a>
-          <p class="note-summary">Classical regression diagnostics, Cook's distance, and why randomized algorithms make leverage scalable to modern datasets.</p>
-        </li>
-        <li>
-          <a href="post06.html" class="note-title">The Sign Flip</a>
-          <p class="note-summary">Training residuals have variance &sigma;&sup2;(1&minus;h); prediction errors have variance &sigma;&sup2;(1+h). The sign of leverage flips, and most methods get this wrong.</p>
-        </li>
-        <li>
-          <a href="post09.html" class="note-title">Leverage as a Free Lunch</a>
-          <p class="note-summary">Closed-form, model-free, computationally negligible, and immune to the sign flip. Everything you need is already in the design matrix.</p>
-        </li>
-        <li>
-          <a href="post14.html" class="note-title">A Brief History of Leverage</a>
-          <p class="note-summary">From regression diagnostics in the 1970s to randomized algorithms &mdash; how leverage scores went from a statistical curiosity to a computational workhorse.</p>
-        </li>
-        <li>
-          <a href="post15.html" class="note-title">Randomized NLA: Why Leverage Scores Are the Right Sampling Distribution</a>
-          <p class="note-summary">Leverage score sampling gives optimal row sketches for least squares, matrix approximation, and beyond. The theory of Drineas, Kannan, and Mahoney.</p>
-        </li>
-        <li>
-          <a href="post16.html" class="note-title">Leverage in High Dimensions</a>
-          <p class="note-summary">Ridge leverage, kernel leverage, and neural tangent leverage &mdash; extending the hat matrix beyond classical OLS to modern high-dimensional models.</p>
-        </li>
-      </ol>
+      <!-- Column 1: Conformal Prediction -->
+      <div class="notes-column" id="conformal">
+        <div class="notes-column-header">
+          <span class="notes-column-number">I</span>
+          <h2 class="notes-column-title">Conformal Prediction</h2>
+          <p class="notes-column-desc">Distribution-free prediction intervals with finite-sample guarantees &mdash; from the basic recipe to its fundamental limitations and existing attempts to overcome them.</p>
+        </div>
+        <ol class="notes-column-list">
+          <li>
+            <a href="post01.html" class="note-link">
+              <span class="note-link-title">Your Model Is Confident. Should You Be?</span>
+              <span class="note-link-summary">Why point predictions are incomplete, what prediction intervals actually are, and why constructing them correctly is harder than it looks.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post02.html" class="note-link">
+              <span class="note-link-title">Conformal Prediction</span>
+              <span class="note-link-summary">The split conformal recipe: train, calibrate, quantile, done. A finite-sample coverage guarantee for any model, any distribution.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post03.html" class="note-link">
+              <span class="note-link-title">The Constant-Width Problem</span>
+              <span class="note-link-summary">Marginal versus conditional coverage, the impossibility theorem, and why constant-width intervals hide dangerous unevenness.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post07.html" class="note-link">
+              <span class="note-link-title">Heteroscedasticity and Variance Stabilization</span>
+              <span class="note-link-summary">When prediction difficulty varies, raw residuals are not comparable. Variance-stabilizing transformations and weighted nonconformity scores.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post08.html" class="note-link">
+              <span class="note-link-title">Adaptive Conformal Methods</span>
+              <span class="note-link-summary">CQR, Studentized CP, and Localized CP &mdash; what each gets right, what each gets wrong, and the gap that remains.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post11.html" class="note-link">
+              <span class="note-link-title">The Origins of Conformal Prediction</span>
+              <span class="note-link-summary">From Kolmogorov&rsquo;s foundations through Vovk&rsquo;s transductive framework to the modern split method &mdash; how conformal prediction came to be.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post12.html" class="note-link">
+              <span class="note-link-title">Beyond the Split</span>
+              <span class="note-link-summary">Full conformal, cross-conformal, and jackknife+ &mdash; recovering statistical efficiency without giving up finite-sample coverage.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post13.html" class="note-link">
+              <span class="note-link-title">When Exchangeability Breaks</span>
+              <span class="note-link-summary">Distribution shift, non-stationarity, and feedback loops. What happens to conformal guarantees when the real world violates the one assumption we need.</span>
+            </a>
+          </li>
+        </ol>
+      </div>
+
+      <!-- Divider -->
+      <div class="notes-divider">
+        <div class="notes-divider-line"></div>
+      </div>
+
+      <!-- Column 2: Leverage Scores -->
+      <div class="notes-column" id="leverage">
+        <div class="notes-column-header">
+          <span class="notes-column-number">II</span>
+          <h2 class="notes-column-title">Leverage Scores</h2>
+          <p class="notes-column-desc">The hat matrix, leverage scores, and a geometric perspective on prediction uncertainty &mdash; a classical tool that tells you where your model is extrapolating, for free.</p>
+        </div>
+        <ol class="notes-column-list">
+          <li>
+            <a href="post04.html" class="note-link">
+              <span class="note-link-title">The Hat Matrix</span>
+              <span class="note-link-summary">How the diagonal of a projection matrix tells you exactly how unusual each data point is, and why that matters for prediction.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post05.html" class="note-link">
+              <span class="note-link-title">Leverage and Influence</span>
+              <span class="note-link-summary">Classical regression diagnostics, Cook&rsquo;s distance, and why randomized algorithms make leverage scalable to modern datasets.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post06.html" class="note-link">
+              <span class="note-link-title">The Sign Flip</span>
+              <span class="note-link-summary">Training residuals have variance &sigma;&sup2;(1&minus;h); prediction errors have variance &sigma;&sup2;(1+h). The sign of leverage flips, and most methods get this wrong.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post09.html" class="note-link">
+              <span class="note-link-title">Leverage as a Free Lunch</span>
+              <span class="note-link-summary">Closed-form, model-free, computationally negligible, and immune to the sign flip. Everything you need is already in the design matrix.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post14.html" class="note-link">
+              <span class="note-link-title">A Brief History of Leverage</span>
+              <span class="note-link-summary">From regression diagnostics in the 1970s to randomized algorithms &mdash; how leverage scores went from a statistical curiosity to a computational workhorse.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post15.html" class="note-link">
+              <span class="note-link-title">Randomized NLA: Why Leverage Scores Are the Right Sampling Distribution</span>
+              <span class="note-link-summary">Leverage score sampling gives optimal row sketches for least squares, matrix approximation, and beyond. The theory of Drineas, Kannan, and Mahoney.</span>
+            </a>
+          </li>
+          <li>
+            <a href="post16.html" class="note-link">
+              <span class="note-link-title">Leverage in High Dimensions</span>
+              <span class="note-link-summary">Ridge leverage, kernel leverage, and neural tangent leverage &mdash; extending the hat matrix beyond classical OLS to modern high-dimensional models.</span>
+            </a>
+          </li>
+        </ol>
+      </div>
+
     </div>
   </section>
 
@@ -129,45 +161,18 @@
 
 <footer>
   <span>Shreyas Fadnavis</span>
-  <span><a href="/">About</a></span>
+  <div class="footer-nav">
+    <a href="/">About</a>
+    <a href="/links.html">Links</a>
+  </div>
 </footer>
 
 <script>
-function toggleSection(toggle) {
-  var expanded = toggle.getAttribute('aria-expanded') === 'true';
-  var body = toggle.nextElementSibling;
-  if (expanded) {
-    body.style.maxHeight = body.scrollHeight + 'px';
-    // Force reflow
-    body.offsetHeight;
-    body.classList.add('collapsed');
-    toggle.setAttribute('aria-expanded', 'false');
-  } else {
-    body.classList.remove('collapsed');
-    body.style.maxHeight = body.scrollHeight + 'px';
-    toggle.setAttribute('aria-expanded', 'true');
-    setTimeout(function () { body.style.maxHeight = ''; }, 400);
-  }
-}
-
-// Initialize section bodies with natural height
-document.querySelectorAll('.section-body').forEach(function (body) {
-  body.style.maxHeight = '';
-});
-
 function smoothScroll(e, id) {
   e.preventDefault();
-  // Expand section if collapsed
   var section = document.getElementById(id);
-  var toggle = section.querySelector('.section-toggle');
-  if (toggle && toggle.getAttribute('aria-expanded') === 'false') {
-    toggleSection(toggle);
-  }
-  setTimeout(function () {
-    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, 50);
-  // Update active state
-  document.querySelectorAll('.topic-link').forEach(function (l) { l.classList.remove('active'); });
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.querySelectorAll('.notes-topic-link').forEach(function (l) { l.classList.remove('active'); });
   e.target.classList.add('active');
   history.pushState(null, '', '#' + id);
 }
@@ -176,15 +181,17 @@ function smoothScroll(e, id) {
 var observer = new IntersectionObserver(function (entries) {
   entries.forEach(function (entry) {
     if (entry.isIntersecting) {
-      document.querySelectorAll('.topic-link').forEach(function (l) { l.classList.remove('active'); });
-      var link = document.querySelector('.topic-link[href="#' + entry.target.id + '"]');
+      document.querySelectorAll('.notes-topic-link').forEach(function (l) { l.classList.remove('active'); });
+      var link = document.querySelector('.notes-topic-link[href="#' + entry.target.id + '"]');
       if (link) link.classList.add('active');
     }
   });
 }, { threshold: 0.3 });
 
-document.querySelectorAll('.notes-section').forEach(function (s) { observer.observe(s); });
+document.querySelectorAll('.notes-column').forEach(function (s) { observer.observe(s); });
 </script>
+
+<script src="../js/animations.js"></script>
 
 </body>
 </html>
